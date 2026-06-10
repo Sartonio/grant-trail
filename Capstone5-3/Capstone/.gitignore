@@ -1,9 +1,0 @@
-# Claude Code local settings
-.claude/
-CLAUDE.md
-docs-tfac/_Functionality-gaps.txt
-
-# Supabase CLI cache
-supabase/.temp/
-supabase/supabase/
-supabase/.env.local
