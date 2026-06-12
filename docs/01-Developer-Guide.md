@@ -421,14 +421,36 @@ color: var(--color-primary);
 color: #063F1E;
 ```
 
-- **Brand colors**: deep green `#063F1E` (primary), heritage gold `#D89F01` (accent).
-- **Fonts**: Libre Baskerville (headings), Montserrat (body).
-- **Neutrals**: 
-  - White: `#FFFFFF` - Backgrounds, text on dark
-  - Light Beige: `#F9F8F6` - Page backgrounds, section dividers
-  - Light Gray: `#E3E3E3` - Borders, input fields
-  - Medium Gray: `#888888` - Subtext, icons
-  - Dark Gray: `#222222` - Main Body Text
+**Brand colors:**
+- Primary: `--color-primary: #063F1E` (deep green) + `--color-primary-light` / `--color-primary-dark` variants
+- Accent: `--color-gold: #D89F01` (heritage gold) + `--color-gold-dark` variant
+- Cream: `--color-cream: #F9F8F6` — page backgrounds
+
+**Fonts:**
+- `--font-heading`: Libre Baskerville (serif) — page and section headings
+- `--font-body` / `--font-subheading`: Montserrat (sans-serif) — all body text and UI labels
+- `--font-decorative`: Dancing Script (cursive) — use sparingly for accents/quotes only
+
+**Semantic colors** (use these for status and feedback states, never raw hex):
+- `--color-success: #10B981`
+- `--color-warning: #F59E0B`
+- `--color-error: #EF4444`
+- `--color-info: #3B82F6`
+
+**Accent colors** (green shades used in charts and stat cards):
+- `--accent-budget`, `--accent-spent`, `--accent-remaining`, `--accent-percent`, `--accent-approved`, `--accent-needs-changes`, etc.
+
+**Neutrals** (full gray scale `--color-gray-50` through `--color-gray-900`):
+- `--color-white: #FFFFFF` — backgrounds, text on dark
+- `--color-cream: #F9F8F6` — page backgrounds, section dividers
+- `--color-gray-200: #E3E3E3` — borders, input fields
+- `--color-gray-500: #6B7280` — subtext, icons
+- `--color-black: #222222` — main body text
+
+**Transitions:**
+- `--transition-fast: 0.15s ease`
+- `--transition-base: 0.2s ease`
+- `--transition-slow: 0.3s ease`
 
 ---
 
