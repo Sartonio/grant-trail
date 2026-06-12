@@ -12,6 +12,10 @@ tenants                (independent organizations)
     ├── invites            (signup invite tokens)
     └── users              (application user profiles, linked to auth.users)
             ├── notifications      (in-app notifications — trigger-managed, realtime)
+            ├── user_memberships   (active membership tier — basic or premium)
+            ├── billing_customers  (Stripe customer ID link)
+            ├── subscriptions      (Stripe subscription records)
+            ├── feature_entitlements (per-user feature flag overrides)
             └── grant_record       (grant applications)
                     ├── budget_items       (budget line items)
                     │       └── expenses   (individual expense entries)
@@ -22,6 +26,7 @@ tenants                (independent organizations)
 
 audit_log              (generic change log — written by triggers)
 platform_settings      (single-row platform-wide defaults — managed by super_admin)
+billing_webhook_events (idempotency log of processed Stripe webhook events)
 ```
 
 All application tables carry a `tenant_id` column for multi-tenant isolation.
@@ -66,15 +71,19 @@ Per-tenant configuration for approval workflows and support contact. One row per
 
 ### `platform_settings`
 
-Single-row platform-wide configuration managed by the super admin. Provides default support contact info shown in the footer when a tenant hasn't set their own.
+Single-row platform-wide configuration managed by the super admin. Provides default support contact info and Stripe product IDs for membership tiers.
 
 | Column | Type | Nullable | Default | Description |
 |--------|------|----------|---------|-------------|
 | `id` | INT | no | `1` | **PK** — constrained to 1 (single row) |
 | `default_support_email` | VARCHAR(75) | no | `'support@granttrail.org'` | Default support email for all tenants |
 | `default_support_phone` | VARCHAR(20) | no | `'(555) 123-4567'` | Default support phone for all tenants |
+| `basic_membership_product_id` | VARCHAR | no | `'prod_UKEACUGjIeg3MU'` | Stripe product ID for the Basic membership tier |
+| `premium_membership_product_id` | VARCHAR | no | `'prod_UDClBMtvFLKyNW'` | Stripe product ID for the Premium (Org Admin) membership tier |
 
 **RLS:** Anyone can read. Only super admins can update.
+
+**Used by:** `billing.js` → `getMembershipProductIds()` reads these at startup to resolve which Stripe product to use for each membership tier.
 
 ---
 
@@ -93,7 +102,7 @@ Signup invite tokens for onboarding new users into managed tenants.
 | `used_by` | UUID | yes | NULL | FK → `auth.users.id` — user who consumed the invite |
 | `used_at` | TIMESTAMPTZ | yes | NULL | When the invite was consumed |
 | `expires_at` | TIMESTAMPTZ | no | NOW() + 7 days | Invite expiry |
-| `created_at` | TIMESTAMPTZ | no | NOW() | Row creation timestamp |
+| `created_at` | TIMESTAMPTZ | yes | NOW() | Row creation timestamp |
 
 **RLS:** Anyone can read invites by token (needed during signup). Admins can create and view invites for their tenant.
 
@@ -113,13 +122,13 @@ Application user profiles. Linked to Supabase Auth via `user_id` (UUID). Scoped 
 | `email` | VARCHAR(75) | no | — | Unique email address |
 | `phone_number` | VARCHAR(20) | no | — | Contact phone number |
 | `user_id` | UUID | yes | NULL | FK → `auth.users.id` — linked after Supabase Auth signup |
-| `role` | VARCHAR(20) | no | `'grantee'` | `'grantee'`, `'admin'`, or `'super_admin'` (CHECK constraint) |
+| `role` | VARCHAR(20) | yes | `'grantee'` | `'grantee'`, `'admin'`, or `'super_admin'` (CHECK constraint) |
 | `is_active` | BOOLEAN | no | `true` | Account enabled flag — `false` locks the user out at the application layer |
 | `tax_month` | INT | yes | NULL | Month number (1–12) for tax filing reminders. CHECK constraint: 1–12. |
-| `created_at` | TIMESTAMPTZ | no | NOW() | Row creation timestamp |
+| `created_at` | TIMESTAMPTZ | yes | NOW() | Row creation timestamp |
 
 **Notes:**
-- `user_id` is NULL until `05-After-User-Creation.sql` is run (or the user signs up and the app writes it)
+- `user_id` is NULL until the user signs up and the app writes it
 - `id` (integer) is used as FK everywhere — never use the UUID `user_id` as a FK
 - When `is_active = false`, the user can still SELECT their own row (so App.js can read the flag), but App.js signs them out and shows an "Account Disabled" message
 - RLS: users can read/update their own row; admins can read all rows and update `role` / `is_active` via the `"Admins can update users"` policy
@@ -141,17 +150,17 @@ A single grant application. Central table of the data model.
 | `start_spend_period` | DATE | yes | NULL | First day expenses can be incurred |
 | `end_spend_period` | DATE | yes | NULL | Last day expenses can be incurred |
 | `release_date` | DATE | yes | NULL | Date funds were released to the grantee |
-| `grant_amount` | DECIMAL(12,2) | no | 0 | Total approved grant amount |
-| `disbursed_funds` | DECIMAL(12,2) | no | 0 | Amount actually disbursed (set by admin) |
-| `total_spent` | DECIMAL(12,2) | no | 0 | **Auto-calculated** — sum of all **approved** expense amounts (trigger) |
-| `remaining_balance` | DECIMAL(12,2) | no | 0 | **Auto-calculated** — `grant_amount − total_spent` (trigger) |
-| `status` | VARCHAR(30) | no | `'pending'` | `'pending'`, `'approved'`, `'needs_changes'`, or `'rejected'` |
+| `grant_amount` | DECIMAL(12,2) | yes | 0 | Total approved grant amount |
+| `disbursed_funds` | DECIMAL(12,2) | yes | 0 | Amount actually disbursed (set by admin) |
+| `total_spent` | DECIMAL(12,2) | yes | 0 | **Auto-calculated** — sum of all **approved** expense amounts (trigger) |
+| `remaining_balance` | DECIMAL(12,2) | yes | 0 | **Auto-calculated** — `grant_amount − total_spent` (trigger) |
+| `status` | VARCHAR(30) | yes | `'pending'` | `'pending'`, `'approved'`, `'needs_changes'`, or `'rejected'` |
 | `submitted_at` | TIMESTAMPTZ | yes | NULL | When the application was submitted |
 | `reviewed_at` | TIMESTAMPTZ | yes | NULL | When an admin last reviewed it |
 | `reviewer_id` | UUID | yes | NULL | FK → `auth.users.id` — which admin reviewed it |
 | `approval_notes` | TEXT | yes | NULL | Admin's public notes to the grantee |
-| `created_at` | TIMESTAMPTZ | no | NOW() | Row creation timestamp |
-| `updated_at` | TIMESTAMPTZ | no | NOW() | **Auto-updated** on every UPDATE (trigger) |
+| `created_at` | TIMESTAMPTZ | yes | NOW() | Row creation timestamp |
+| `updated_at` | TIMESTAMPTZ | yes | NOW() | **Auto-updated** on every UPDATE (trigger) |
 
 **Auto-managed columns:**
 - `total_spent` — recalculated by `update_grant_record_totals()` after any insert/update/delete on `expenses`; only counts rows where `expenses.status = 'approved'`
@@ -175,17 +184,15 @@ Budget line items within a grant. Each item has a name, an allocated amount, and
 | `grant_id` | INT | no | — | FK → `grant_record.id` |
 | `item_name` | VARCHAR(200) | no | — | Name of the budget line (e.g. "Staff Salaries") |
 | `description` | TEXT | yes | NULL | Optional description of what this line covers |
-| `budget_allocated` | DECIMAL(12,2) | no | 0 | Amount budgeted for this line item |
-| `amount_spent` | DECIMAL(12,2) | no | 0 | **Auto-calculated** — sum of **approved** linked expense amounts (trigger) |
+| `budget_allocated` | DECIMAL(12,2) | yes | 0 | Amount budgeted for this line item |
+| `amount_spent` | DECIMAL(12,2) | yes | 0 | **Auto-calculated** — sum of **approved** linked expense amounts (trigger) |
 | `status` | VARCHAR(30) | no | `'pending'` | `'pending'`, `'approved'`, or `'rejected'` — set by admin via AdminGrantReview |
-| `created_at` | TIMESTAMPTZ | no | NOW() | Row creation timestamp |
-| `updated_at` | TIMESTAMPTZ | no | NOW() | **Auto-updated** on every UPDATE (trigger) |
+| `created_at` | TIMESTAMPTZ | yes | NOW() | Row creation timestamp |
+| `updated_at` | TIMESTAMPTZ | yes | NOW() | **Auto-updated** on every UPDATE (trigger) |
 
 **Auto-managed:** `amount_spent` is recalculated by `update_budget_item_totals()` after any change to `expenses`; only counts rows where `expenses.status = 'approved'`. Do not update `amount_spent` directly.
 
 **Approval workflow:** New and edited budget items start at `status = 'pending'`. Admin approves or rejects via AdminGrantReview. Editing a budget item resets its status back to `'pending'`. Rejecting a budget item cascades all its linked expenses back to `'pending'`.
-
-**Business rule (enforced in UI, not DB):** The sum of `budget_allocated` across all items for a grant should not exceed `grant_record.grant_amount`. This is validated in `BudgetItemModal.js`.
 
 **RLS:** Grantees can read/insert/update/delete their own grant's items; admins can read and delete all items.
 
@@ -202,11 +209,11 @@ Individual expense entries. Each expense belongs to a grant and optionally to a 
 | `grant_id` | INT | no | — | FK → `grant_record.id` |
 | `budget_item_id` | INT | yes | NULL | FK → `budget_items.id` — which line item this expense is charged to |
 | `item_name` | VARCHAR(50) | yes | NULL | Description of what was purchased / paid for |
-| `amount_spent` | DECIMAL(12,2) | no | 0 | Amount of this expense |
+| `amount_spent` | DECIMAL(12,2) | yes | 0 | Amount of this expense |
 | `expense_date` | DATE | yes | NULL | Date the expense was incurred (must be within grant spend period — validated in UI) |
 | `status` | VARCHAR(30) | no | `'pending'` | `'pending'`, `'approved'`, or `'rejected'` — set by admin via AdminGrantReview |
-| `created_at` | TIMESTAMPTZ | no | NOW() | Row creation timestamp |
-| `updated_at` | TIMESTAMPTZ | no | NOW() | **Auto-updated** on every UPDATE (trigger) |
+| `created_at` | TIMESTAMPTZ | yes | NOW() | Row creation timestamp |
+| `updated_at` | TIMESTAMPTZ | yes | NOW() | **Auto-updated** on every UPDATE (trigger) |
 
 **Triggers fire on every change:** `update_grant_record_totals()` updates `grant_record.total_spent` (approved only); `update_budget_item_totals()` updates `budget_items.amount_spent` (approved only); `log_expenses_changes()` writes to `audit_log`.
 
@@ -228,7 +235,7 @@ Metadata for receipt files attached to expenses. The actual file is stored in Su
 | `grant_id` | INT | no | — | FK → `grant_record.id` |
 | `expense_id` | INT | yes | NULL | FK → `expenses.id` (SET NULL on expense delete) |
 | `receipt_files` | JSON | yes | NULL | Array of file metadata objects: `[{name, path, type, size}]` |
-| `created_at` | TIMESTAMPTZ | no | NOW() | Row creation timestamp |
+| `created_at` | TIMESTAMPTZ | yes | NOW() | Row creation timestamp |
 
 **Storage path:** `receipts/{tenant_id}/{grant_id}/{expense_id}/{timestamp}.{ext}`
 
@@ -253,8 +260,8 @@ Supporting documents uploaded to a grant (proposals, budget plans, reports, etc.
 | `file_size` | BIGINT | yes | NULL | File size in bytes |
 | `uploaded_by` | UUID | yes | NULL | FK → `auth.users.id` — who uploaded the file |
 | `description` | TEXT | yes | NULL | Optional description of the document |
-| `category` | VARCHAR(50) | no | `'general'` | `'proposal'`, `'budget'`, `'report'`, or `'general'` |
-| `created_at` | TIMESTAMPTZ | no | NOW() | Row creation timestamp |
+| `category` | VARCHAR(50) | yes | `'general'` | `'proposal'`, `'budget'`, `'report'`, or `'general'` |
+| `created_at` | TIMESTAMPTZ | yes | NOW() | Row creation timestamp |
 
 **Storage path format:** `attachments/{tenant_id}/{grant_id}/{timestamp}-{filename}`
 
@@ -277,7 +284,7 @@ Immutable audit trail of every status change on a grant. Written automatically b
 | `new_status` | VARCHAR(30) | no | — | New status |
 | `changed_by` | UUID | yes | NULL | FK → `auth.users.id` — who made the change |
 | `comment` | TEXT | yes | NULL | Copies `approval_notes` from the grant update |
-| `created_at` | TIMESTAMPTZ | no | NOW() | When the status change occurred |
+| `created_at` | TIMESTAMPTZ | yes | NOW() | When the status change occurred |
 
 **Do not write to this table from application code.** The trigger fires automatically whenever `grant_record.status` changes.
 
@@ -296,7 +303,7 @@ Admin comments on a grant, visible to the grantee. Separate from `approval_notes
 | `grant_id` | INT | no | — | FK → `grant_record.id` |
 | `user_id` | UUID | no | — | FK → `auth.users.id` (UUID, not integer) — who wrote the comment |
 | `comment` | TEXT | no | — | The comment text |
-| `created_at` | TIMESTAMPTZ | no | NOW() | When the comment was posted |
+| `created_at` | TIMESTAMPTZ | yes | NOW() | When the comment was posted |
 
 **Note:** `user_id` here is the auth UUID (unlike most other tables which use the integer PK). This is intentional — comments reference auth users directly.
 
@@ -318,7 +325,7 @@ Generic change log. Written by triggers on `grant_record`, `budget_items`, `expe
 | `changed_by` | UUID | yes | NULL | FK → `auth.users.id` — who made the change |
 | `old_values` | JSONB | yes | NULL | Full row snapshot before the change (UPDATE/DELETE) |
 | `new_values` | JSONB | yes | NULL | Full row snapshot after the change (INSERT/UPDATE) |
-| `created_at` | TIMESTAMPTZ | no | NOW() | When the change occurred |
+| `created_at` | TIMESTAMPTZ | yes | NOW() | When the change occurred |
 
 **RLS:** Admins can read all rows; users can read rows where `changed_by = auth.uid()`.
 
@@ -337,12 +344,112 @@ In-app notifications for users. Created automatically by database triggers when 
 | `title` | VARCHAR(255) | no | — | Short heading displayed in the notification bell |
 | `message` | TEXT | no | — | Detail text |
 | `link` | TEXT | yes | NULL | In-app route to navigate to when clicked |
-| `is_read` | BOOLEAN | no | `false` | Read/unread state — toggled by the frontend |
-| `created_at` | TIMESTAMPTZ | no | NOW() | When the notification was created |
+| `is_read` | BOOLEAN | yes | `false` | Read/unread state — toggled by the frontend |
+| `created_at` | TIMESTAMPTZ | yes | NOW() | When the notification was created |
 
 **RLS:** Users can view, update (mark as read), and delete their own notifications. Admins can also view their own. Triggers insert via a system-level INSERT policy.
 
 **Realtime:** Enabled via `ALTER PUBLICATION supabase_realtime ADD TABLE notifications`. The frontend subscribes to INSERT events filtered by `user_id`.
+
+---
+
+### `subscriptions`
+
+Stripe subscription records synced from Stripe webhooks. One active row per subscribed user. Used by `billing.js` and `AdminUserList.js` to determine access rights.
+
+| Column | Type | Nullable | Default | Description |
+|--------|------|----------|---------|-------------|
+| `id` | SERIAL | no | auto | **PK** |
+| `user_id` | INT | no | — | FK → `users.id` |
+| `stripe_customer_id` | VARCHAR | no | — | Stripe customer ID (e.g. `cus_...`) |
+| `stripe_subscription_id` | VARCHAR | no | — | Stripe subscription ID (e.g. `sub_...`) |
+| `stripe_product_id` | VARCHAR | no | — | Stripe product ID — matches `platform_settings.basic/premium_membership_product_id` |
+| `stripe_price_id` | VARCHAR | no | — | Stripe price ID |
+| `membership_tier` | VARCHAR | no | — | `'basic'` or `'premium'` |
+| `status` | VARCHAR | no | — | Stripe subscription status: `'active'`, `'trialing'`, `'past_due'`, `'canceled'`, etc. |
+| `current_period_start` | TIMESTAMPTZ | yes | NULL | Start of current billing period |
+| `current_period_end` | TIMESTAMPTZ | yes | NULL | End of current billing period |
+| `cancel_at_period_end` | BOOLEAN | no | `false` | Whether the subscription cancels at period end |
+| `canceled_at` | TIMESTAMPTZ | yes | NULL | When the subscription was canceled |
+| `metadata` | JSONB | no | `{}` | Additional Stripe metadata |
+| `created_at` | TIMESTAMPTZ | no | NOW() | Row creation timestamp |
+| `updated_at` | TIMESTAMPTZ | no | NOW() | Last updated |
+
+**Written by:** Stripe webhook edge function. Not written by frontend code directly.
+
+**Read by:** `billing.js` → `fetchMembershipStatus()` queries for rows with `status IN ('active', 'trialing', 'past_due')`.
+
+---
+
+### `user_memberships`
+
+Tracks the active membership tier for each user. Updated by the subscription sync process. This is the source of truth for feature access checks — queried via RPCs `has_basic_membership()` and `has_premium_membership()`.
+
+| Column | Type | Nullable | Default | Description |
+|--------|------|----------|---------|-------------|
+| `id` | SERIAL | no | auto | **PK** |
+| `user_id` | INT | no | — | FK → `users.id` |
+| `subscription_id` | INT | yes | NULL | FK → `subscriptions.id` — which subscription granted this membership |
+| `membership_tier` | VARCHAR | no | — | `'basic'` or `'premium'` |
+| `is_active` | BOOLEAN | no | `true` | Whether this membership is currently active |
+| `starts_at` | TIMESTAMPTZ | no | NOW() | When the membership became active |
+| `ends_at` | TIMESTAMPTZ | yes | NULL | When the membership expires (NULL = ongoing) |
+| `source` | VARCHAR | no | `'stripe'` | How the membership was granted: `'stripe'` or `'manual'` |
+| `created_at` | TIMESTAMPTZ | no | NOW() | Row creation timestamp |
+| `updated_at` | TIMESTAMPTZ | no | NOW() | Last updated |
+
+**Read by:** `billing.js`, `AdminUserList.js`, `TenantManagement.js`.
+
+**Route guard:** `App.js` calls `hasRequiredSubscription(session)` which uses the membership data to allow or redirect users to `/home` (the subscription paywall).
+
+---
+
+### `billing_customers`
+
+Links a `users` row to a Stripe customer ID. Created when a user initiates their first checkout session.
+
+| Column | Type | Nullable | Default | Description |
+|--------|------|----------|---------|-------------|
+| `id` | SERIAL | no | auto | **PK** |
+| `user_id` | INT | no | — | FK → `users.id` |
+| `stripe_customer_id` | VARCHAR | no | — | Stripe customer ID (e.g. `cus_...`) (UNIQUE) |
+| `created_at` | TIMESTAMPTZ | no | NOW() | Row creation timestamp |
+
+**Written by:** Stripe checkout edge function when creating a new Stripe customer. Not queried directly by the frontend.
+
+---
+
+### `billing_webhook_events`
+
+Idempotency log of all Stripe webhook events processed by the edge function. Prevents duplicate processing if Stripe retries a webhook.
+
+| Column | Type | Nullable | Default | Description |
+|--------|------|----------|---------|-------------|
+| `id` | SERIAL | no | auto | **PK** |
+| `stripe_event_id` | VARCHAR | no | — | Stripe event ID (e.g. `evt_...`) (UNIQUE) |
+| `event_type` | VARCHAR | no | — | Stripe event type (e.g. `customer.subscription.updated`) |
+| `payload` | JSONB | no | — | Full Stripe event payload |
+| `processed_at` | TIMESTAMPTZ | no | NOW() | When the event was processed |
+
+**Written by:** Stripe webhook edge function only. Never read by frontend code.
+
+---
+
+### `feature_entitlements`
+
+Per-user feature flag overrides. Allows granting or revoking specific features independently of the subscription tier (e.g. manual grants by super admin).
+
+| Column | Type | Nullable | Default | Description |
+|--------|------|----------|---------|-------------|
+| `id` | SERIAL | no | auto | **PK** |
+| `grantee_id` | INT | no | — | FK → `users.id` |
+| `feature_key` | VARCHAR | no | — | Feature identifier — see `FEATURE_KEYS` in `billing.js`: `'basic_membership'`, `'admin_membership'`, `'excel_export'` |
+| `enabled` | BOOLEAN | no | `false` | Whether this feature is enabled for the user |
+| `source` | VARCHAR | no | `'subscription'` | How this entitlement was set: `'subscription'` or `'manual'` |
+| `created_at` | TIMESTAMPTZ | no | NOW() | Row creation timestamp |
+| `updated_at` | TIMESTAMPTZ | no | NOW() | Last updated |
+
+**Note:** Feature checks in the frontend currently go through RPCs (`is_membership_exempt`, `has_basic_membership`, `has_premium_membership`) rather than querying this table directly. This table backs those RPCs.
 
 ---
 
@@ -382,6 +489,9 @@ In-app notifications for users. Created automatically by database triggers when 
 | `is_admin()` | BOOLEAN | Returns true if the current auth user has `role = 'admin'` **and** `is_active = true` **within the current tenant**. SECURITY DEFINER to prevent RLS recursion. Used by all admin RLS policies — a disabled admin is locked out of all admin-gated policies. |
 | `current_tenant_id()` | INT | Returns the tenant_id for the current authenticated user. SECURITY DEFINER + STABLE. Used in all tenant-scoped RLS policies. |
 | `is_super_admin()` | BOOLEAN | Returns true if current user has role = 'super_admin' and is_active = true. Cross-tenant access. |
+| `is_membership_exempt()` | BOOLEAN | Returns true if the current user is exempt from membership requirements (e.g. super_admin). Used in billing access checks. |
+| `has_basic_membership()` | BOOLEAN | Returns true if the current user has an active basic or premium membership. |
+| `has_premium_membership()` | BOOLEAN | Returns true if the current user has an active premium membership. |
 | `provision_self_service_tenant(...)` | JSON | Atomically creates a self-service tenant + settings (all approvals off) + user record. Called via RPC from signup. SECURITY DEFINER. |
 | `get_grant_owner(g_id)` | INT | Returns the integer user PK (`user_id`) from `grant_record` for the given grant ID. Used by notification triggers. |
 | `get_admin_user_ids()` | SETOF INT | Returns all active admin user integer PKs. Used by notification triggers to notify all admins. |
