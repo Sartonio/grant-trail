@@ -98,7 +98,7 @@ Before you start, make sure you have:
 ```bash
 # 1. Clone the repo
 git clone <repo-url>
-cd CapstoneStages
+cd grant-trail
 
 # 2. Install frontend dependencies
 cd frontend
@@ -109,14 +109,12 @@ npm install
 #    REACT_APP_SUPABASE_URL=https://your-project.supabase.co
 #    REACT_APP_SUPABASE_KEY=your-anon-key-here
 
-# 4. Set up the database (see Section 1.4 below)
-
-# 5. Start the dev server
+# 4. Start the dev server
 npm start
 # Opens http://localhost:3000
 ```
 
-The app will show a login page. Use the sample user accounts from Section 1.4.
+The app will show the landing page. If connecting to an existing Supabase project, the database is already set up — skip Section 1.4. Only follow Section 1.4 if starting from a brand new Supabase project.
 
 ---
 
@@ -153,7 +151,7 @@ All SQL scripts live in `backend/`. Run them in the Supabase Dashboard → SQL E
 ## 1.5 Project Structure
 
 ```
-CapstoneStages/
+grant-trail/
 ├── backend/                      # SQL scripts only
 │   ├── 00-Full-Teardown.sql
 │   ├── 01-Complete-Fresh-Setup.sql
@@ -177,11 +175,16 @@ CapstoneStages/
         │   ├── Footer.js / .css          # Page footer
         │   ├── Main.js / .css            # Grantee dashboard (stats + charts)
         │   ├── Login.js                  # Auth login form
-        │   ├── SignUpClean.js            # Auth signup form
+        │   ├── SignUpClean.js            # Auth signup form (invite + self-service flows)
+        │   ├── CompleteProfile.js        # Profile completion after OAuth/invite signup
+        │   ├── ResetPassword.js          # Password reset page
+        │   ├── LandingPage.js / .css     # Public landing page + logged-in home
+        │   ├── NotificationBell.js / .css# Notification bell in header (realtime)
+        │   ├── SubscriptionPage.js / .css# Stripe membership / subscription management
         │   ├── Grants.js / .css          # Grantee grants list with filter/search
         │   ├── GrantDetail.js / .css     # Single grant: info, status history, charts
         │   ├── GrantBreakdown.js / .css  # Budget items + expenses for a grant
-        │   ├── CreateGrant.js / .css     # New grant form
+        │   ├── CreateGrant.js / .css     # New grant form + edit grant form
         │   ├── ExpenseReports.js / .css  # Expense analytics dashboard
         │   ├── AddExpenseModal.js        # Modal: add/edit expense + receipt upload
         │   ├── BudgetItemModal.js        # Modal: add/edit budget item
@@ -193,11 +196,16 @@ CapstoneStages/
         │   ├── AdminGrantList.js         # Admin: table of all grants
         │   ├── AdminGrantReview.js       # Admin: review single grant, change status, approve/reject budget items & expenses
         │   ├── AdminAuditLog.js          # Admin: audit log viewer with filters and diff view
-        │   ├── AdminUserList.js          # Admin: user management — role toggle, enable/disable
+        │   ├── AdminUserList.js          # Admin: user management — role toggle, enable/disable, membership status
+        │   ├── AdminSettings.js          # Admin: tenant approval workflow settings
+        │   ├── TenantManagement.js       # Super admin: create and manage all tenants
         │   └── Admin.css                 # Shared admin styles
         │
         ├── hooks/
         │   └── useGrantee.js     # Custom hook: fetch current user's DB record
+        │
+        ├── lib/
+        │   └── billing.js        # Stripe billing helpers: checkout, portal, membership status
         │
         └── styles/
             ├── variables.css     # CSS custom properties (colors, spacing, fonts)
