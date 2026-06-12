@@ -456,15 +456,16 @@ color: #063F1E;
 
 ## 1.12 Architecture Documentation
 
-The following documents describe the multi-tenant and approval architecture that is **fully implemented** in the current codebase (Stages 33–39).
+The full architecture is documented in [`03-Architecture.md`](03-Architecture.md). Key topics it covers:
 
-| Document | What it covers |
-|----------|---------------|
-| `12-Future-Multi-Tenancy.md` | Multi-tenant isolation: `tenants` table, `tenant_id` on every table, RLS with `current_tenant_id()`, storage path prefixes, super_admin role |
-| `13-Future-Approval-Config.md` | Configurable approval workflows: `tenant_settings` flags, BEFORE INSERT auto-approval triggers, `/admin/settings` page |
-| `14-Future-Two-Tier-SaaS.md` | Two tenant types: **managed** (invite-based, configurable approvals) and **self-service** (open signup, auto-approve, no admin role). Covers `provision_self_service_tenant()` RPC, invite tokens, `enforce_self_service_role()` trigger |
-
-These documents were originally design specs and now serve as architecture reference. The implementation was done in order: doc 12 → doc 13 → doc 14.
+| Topic | Summary |
+|-------|---------|
+| **Multi-tenant isolation** | Every table has `tenant_id`. RLS policies use `current_tenant_id()` to filter all queries automatically — the DB enforces isolation, not the app code. |
+| **Two tenant types** | `managed` (invite-only, approval workflows, admin role) vs `self_service` (open signup, auto-approve, no admin). Driven by `tenant_type` column. |
+| **Configurable approval workflows** | `tenant_settings` flags control whether grants, budget items, and expenses require approval. BEFORE INSERT triggers auto-approve when the flag is off. |
+| **Self-service provisioning** | `provision_self_service_tenant()` RPC atomically creates a tenant + settings + user in one call. |
+| **Super admin role** | Cross-tenant access. The only role exempt from `current_tenant_id()` scoping. |
+| **Invite token flow** | Managed tenants onboard grantees via invite links. `invites` table tracks token, role, email, expiry. `CompleteProfile.js` consumes the token on signup. |
 
 ---
 
