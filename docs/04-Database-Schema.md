@@ -492,6 +492,7 @@ Per-user feature flag overrides. Allows granting or revoking specific features i
 | `is_membership_exempt()` | BOOLEAN | Returns true if the current user is exempt from membership requirements (e.g. super_admin). Used in billing access checks. |
 | `has_basic_membership()` | BOOLEAN | Returns true if the current user has an active basic or premium membership. |
 | `has_premium_membership()` | BOOLEAN | Returns true if the current user has an active premium membership. |
+| `has_feature_access(p_feature_key)` | BOOLEAN | Returns true if the current user has a specific feature enabled via entitlements. |
 | `provision_self_service_tenant(...)` | JSON | Atomically creates a self-service tenant + settings (all approvals off) + user record. Called via RPC from signup. SECURITY DEFINER. |
 | `get_grant_owner(g_id)` | INT | Returns the integer user PK (`user_id`) from `grant_record` for the given grant ID. Used by notification triggers. |
 | `get_admin_user_ids()` | SETOF INT | Returns all active admin user integer PKs. Used by notification triggers to notify all admins. |

@@ -19,6 +19,7 @@ BEGIN
 END $$;
 
 -- Billing tables
+DROP TABLE IF EXISTS feature_entitlements   CASCADE;
 DROP TABLE IF EXISTS user_memberships       CASCADE;
 DROP TABLE IF EXISTS subscriptions          CASCADE;
 DROP TABLE IF EXISTS billing_customers      CASCADE;
@@ -83,6 +84,8 @@ DROP FUNCTION IF EXISTS has_basic_membership()                      CASCADE;
 DROP FUNCTION IF EXISTS has_basic_membership(INT)                   CASCADE;
 DROP FUNCTION IF EXISTS has_premium_membership()                    CASCADE;
 DROP FUNCTION IF EXISTS has_premium_membership(INT)                 CASCADE;
+DROP FUNCTION IF EXISTS has_feature_access(text)                    CASCADE;
+DROP FUNCTION IF EXISTS sync_grantee_subscription_flag(int)         CASCADE;
 
 -- Storage policies — receipts bucket
 DROP POLICY IF EXISTS "Users can upload receipts"              ON storage.objects;

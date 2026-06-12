@@ -320,6 +320,21 @@ CREATE TABLE user_memberships (
 CREATE INDEX idx_user_memberships_tier ON user_memberships(membership_tier);
 CREATE INDEX idx_user_memberships_active ON user_memberships(is_active);
 
+-- feature_entitlements: per-user feature flag overrides
+CREATE TABLE feature_entitlements (
+  id SERIAL PRIMARY KEY,
+  grantee_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  feature_key VARCHAR(100) NOT NULL,
+  enabled BOOLEAN NOT NULL DEFAULT false,
+  source VARCHAR(50) NOT NULL DEFAULT 'subscription',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT feature_entitlements_unique UNIQUE (grantee_id, feature_key)
+);
+
+CREATE INDEX idx_feature_entitlements_grantee_id ON feature_entitlements(grantee_id);
+CREATE INDEX idx_feature_entitlements_feature_key ON feature_entitlements(feature_key);
+
 
 -- ==========================================
 -- SECTION 2: FUNCTIONS & TRIGGERS
@@ -1201,6 +1216,22 @@ RETURNS BOOLEAN AS $$
   LIMIT 1;
 $$ LANGUAGE sql SECURITY DEFINER STABLE;
 
+-- Returns true when a user has a specific feature enabled via entitlements.
+CREATE OR REPLACE FUNCTION has_feature_access(p_feature_key text)
+RETURNS boolean
+LANGUAGE sql
+STABLE SECURITY DEFINER
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.feature_entitlements fe
+    JOIN public.users u ON u.id = fe.grantee_id
+    WHERE u.user_id = auth.uid()
+      AND fe.feature_key = p_feature_key
+      AND fe.enabled = true
+  );
+$$;
+
 
 -- ==========================================
 -- SECTION 4: ROW LEVEL SECURITY
@@ -1227,6 +1258,7 @@ ALTER TABLE billing_customers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE billing_webhook_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE subscriptions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_memberships ENABLE ROW LEVEL SECURITY;
+ALTER TABLE feature_entitlements ENABLE ROW LEVEL SECURITY;
 
 -- tenants policies
 CREATE POLICY "Users can view their own tenant"
@@ -1304,6 +1336,12 @@ ON user_memberships FOR ALL USING (
 
 CREATE POLICY "Service role can manage memberships"
 ON user_memberships FOR ALL USING (auth.role() = 'service_role') WITH CHECK (auth.role() = 'service_role');
+
+-- feature_entitlements policies
+CREATE POLICY "Grantees can view their own entitlements"
+ON feature_entitlements FOR SELECT USING (
+  grantee_id IN (SELECT id FROM users WHERE user_id = auth.uid())
+);
 
 -- invites policies
 -- Anyone can read an invite by token (needed during signup before auth)
