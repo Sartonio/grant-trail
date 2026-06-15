@@ -2,11 +2,12 @@ const { test, expect } = require('@playwright/test');
 const { createClient } = require('@supabase/supabase-js');
 
 // Setup Supabase Client
-const supabaseUrl = process.env.REACT_APP_SUPABASE_URL;
+const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.REACT_APP_SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const supabase = createClient(supabaseUrl, supabaseKey);
+const supabase = (supabaseUrl && supabaseKey) ? createClient(supabaseUrl, supabaseKey) : null;
 
 test('Notifications and Audit Trail Flow', async ({ page }) => {
+  test.skip(!supabase, 'Supabase client is not configured');
   const ts = Date.now();
   const testEmail = `notif_audit_${ts}@test.local`;
   const testPassword = 'TestPassword123!';

@@ -2,6 +2,13 @@ const { test, expect } = require('@playwright/test');
 const { createClient } = require('@supabase/supabase-js');
 
 test('Flow 1: Signup and Onboarding', async ({ page }) => {
+  const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.REACT_APP_SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !supabaseKey || supabaseUrl.includes('dummy')) {
+    test.skip(true, 'Supabase credentials are not configured');
+    return;
+  }
+
   // 1. Go to signup page
   await page.goto('/signup');
 
@@ -38,8 +45,6 @@ test('Flow 1: Signup and Onboarding', async ({ page }) => {
 
   // 3. Database Verification
   // Connect to Supabase using the service_role key to bypass RLS and verify the record was inserted
-  const supabaseUrl = process.env.REACT_APP_SUPABASE_URL;
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const supabase = createClient(supabaseUrl, supabaseKey);
 
   // Poll for the user to be created (triggers might take a fraction of a second)

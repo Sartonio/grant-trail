@@ -3,8 +3,12 @@ const { createClient } = require('@supabase/supabase-js');
 
 test('Flow 3: Workspace Access & Expense Tracking', async ({ page }) => {
   // 1. Setup Supabase Client
-  const supabaseUrl = process.env.REACT_APP_SUPABASE_URL;
+  const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.REACT_APP_SUPABASE_URL;
   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !supabaseKey || supabaseUrl.includes('dummy')) {
+    test.skip(true, 'Supabase credentials are not configured');
+    return;
+  }
   const supabase = createClient(supabaseUrl, supabaseKey);
 
   // 2. Create a fresh user via the UI to establish the Auth session

@@ -12,9 +12,9 @@ const crypto = require('crypto');
 // ---------------------------------------------------------------------------
 // Supabase service-role client (bypasses RLS)
 // ---------------------------------------------------------------------------
-const supabaseUrl = process.env.REACT_APP_SUPABASE_URL;
+const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.REACT_APP_SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const supabase = createClient(supabaseUrl, serviceRoleKey);
+const supabase = (supabaseUrl && serviceRoleKey) ? createClient(supabaseUrl, serviceRoleKey) : null;
 
 // ---------------------------------------------------------------------------
 // Test data helpers
@@ -50,6 +50,7 @@ let inviteId;
 let invitedAuthUid;
 
 test.beforeAll(async () => {
+  if (!supabase) return;
   // 1. Create a managed tenant
   const { data: tenant, error: tenantErr } = await supabase
     .from('tenants')
@@ -116,6 +117,7 @@ test.beforeAll(async () => {
 });
 
 test.afterAll(async () => {
+  if (!supabase) return;
   // Clean up in reverse order (respect FK constraints)
   // Delete the invited user's users record (if created)
   if (invitedAuthUid) {
@@ -144,6 +146,7 @@ test.afterAll(async () => {
 // Test
 // ---------------------------------------------------------------------------
 test('Invite-only onboarding: signup via invite link → correct tenant & role', async ({ page }) => {
+  test.skip(!supabase, 'Supabase client is not configured');
   // ── Step 1: Navigate to /signup with invite token ──────────────────
   await page.goto(`/signup?invite=${inviteToken}`);
 
