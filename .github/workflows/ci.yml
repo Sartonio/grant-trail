@@ -44,8 +44,9 @@ jobs:
       - name: Run Playwright E2E tests
         env:
           CI: true
-          VITE_SUPABASE_URL: https://dummy.supabase.co
-          VITE_SUPABASE_KEY: dummy-key
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://dummy.supabase.co' }}
+          VITE_SUPABASE_KEY: ${{ secrets.VITE_SUPABASE_KEY || 'dummy-key' }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: npm run e2e
 
       - name: Upload Playwright E2E HTML Report
