@@ -34,3 +34,18 @@ When contributing to the GrantTrail codebase, you MUST adhere to the following a
 - **Rule:** When uploading files to Supabase Storage, implement **Compensating Transactions**. Upload the file first, then insert the database record. If the database insert fails, manually delete the orphaned file from Storage.
 - **Rule:** Always use `.single()` for Supabase queries when expecting exactly one row (e.g., fetching a user profile or a specific grant by ID) to avoid unnecessary array unpacking.
 - **Rule:** Do not re-invent the wheel. Read `DEVELOPER.md` to understand the `useCallback` + `useEffect` fetching pattern and UI patterns (like Two-Click Deletes).
+
+## 6. Error Handling & Observability
+- **Rule:** Never swallow errors implicitly. Always capture and log them, providing user-friendly fallback UI where applicable (e.g., via React Error Boundaries).
+- **Rule:** For third-party integrations (like Stripe or SendGrid), always wrap calls in `try/catch` and anticipate network latency, 500 errors, or rate limits. Use Sentry for tracking unexpected frontend exceptions.
+- **Rule:** Ensure that error states degrade gracefully. If a non-critical system fails (e.g., analytics), the core grant application must remain functional.
+
+## 7. Defensive Programming & Code Quality
+- **Rule:** Embrace fail-fast principles. Validate all inputs, prop types, and external data payloads before operating on them. Use optional chaining (`?.`) and nullish coalescing (`??`) to defend against unexpected `null` or `undefined` properties from API responses.
+- **Rule:** Keep components modular and single-purpose (Separation of Concerns). If a component exceeds 300-400 lines, extract its logic into custom hooks or smaller sub-components.
+- **Rule:** Write descriptive, self-documenting code over excessive comments. Variable names should reveal intent (e.g., `isSubmitting` instead of `loading`, `grantApplicationId` instead of `id`).
+
+## 8. Security & Zero Trust
+- **Rule:** Never trust the client. The frontend is insecure by definition. All business rules, role checks, and tenant isolation logic MUST be enforced at the database level via Row Level Security (RLS) policies.
+- **Rule:** Sanitize all user-generated content before rendering it in the DOM to prevent Cross-Site Scripting (XSS).
+- **Rule:** Enforce the principle of least privilege. Do not expose database columns or API routes that the current user context does not strictly need to access.
