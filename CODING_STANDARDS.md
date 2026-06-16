@@ -1,7 +1,4 @@
----
-name: grant-trail-standards
-description: Strict architectural rules and coding standards for the GrantTrail application. ACTIVATE this skill whenever writing React code, Playwright tests, or Supabase queries for the GrantTrail project.
----
+
 
 # GrantTrail Coding Standards
 
