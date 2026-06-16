@@ -34,10 +34,11 @@ function TenantManagement({ session }) {
   // Platform settings state
   const [platformEmail, setPlatformEmail] = useState('');
   const [platformPhone, setPlatformPhone] = useState('');
+  const [platformWebhook, setPlatformWebhook] = useState('');
   const [platformSaving, setPlatformSaving] = useState(false);
   const [platformSuccess, setPlatformSuccess] = useState('');
   const [platformError, setPlatformError] = useState('');
-  const [platformOriginal, setPlatformOriginal] = useState({ email: '', phone: '' });
+  const [platformOriginal, setPlatformOriginal] = useState({ email: '', phone: '', webhook: '' });
 
   useEffect(() => {
     fetchTenants();
@@ -184,7 +185,12 @@ function TenantManagement({ session }) {
     if (data) {
       setPlatformEmail(data.default_support_email || '');
       setPlatformPhone(data.default_support_phone || '');
-      setPlatformOriginal({ email: data.default_support_email || '', phone: data.default_support_phone || '' });
+      setPlatformWebhook(data.alert_webhook_url || '');
+      setPlatformOriginal({
+        email: data.default_support_email || '',
+        phone: data.default_support_phone || '',
+        webhook: data.alert_webhook_url || '',
+      });
     }
   }
 
@@ -197,6 +203,7 @@ function TenantManagement({ session }) {
       .update({
         default_support_email: platformEmail.trim() || 'support@granttrail.org',
         default_support_phone: platformPhone.trim() || '(555) 123-4567',
+        alert_webhook_url: platformWebhook.trim() || null,
       })
       .eq('id', 1);
     setPlatformSaving(false);
@@ -204,11 +211,18 @@ function TenantManagement({ session }) {
       setPlatformError(err.message);
     } else {
       setPlatformSuccess('Platform settings saved.');
-      setPlatformOriginal({ email: platformEmail.trim(), phone: platformPhone.trim() });
+      setPlatformOriginal({
+        email: platformEmail.trim(),
+        phone: platformPhone.trim(),
+        webhook: platformWebhook.trim(),
+      });
     }
   }
 
-  const platformHasChanges = platformEmail !== platformOriginal.email || platformPhone !== platformOriginal.phone;
+  const platformHasChanges =
+    platformEmail !== platformOriginal.email ||
+    platformPhone !== platformOriginal.phone ||
+    platformWebhook !== platformOriginal.webhook;
 
   async function handleToggleTenantActive(t) {
     const newActive = !t.is_active;
@@ -561,7 +575,7 @@ function TenantManagement({ session }) {
           Default support contact shown in the footer for all self-service users and for managed tenants that haven't set their own.
         </p>
 
-        <div style={{ display: 'flex', gap: '1em', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: '1em', flexWrap: 'wrap', marginBottom: '1em' }}>
           <div style={{ flex: 1, minWidth: '200px' }}>
             <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.3em', fontFamily: 'var(--font-body)' }}>Default Support Email</label>
             <input
@@ -582,6 +596,20 @@ function TenantManagement({ session }) {
               style={{ width: '100%', padding: '0.5em 1em', borderRadius: '6px', border: '1.5px solid #e5e7eb', fontFamily: 'var(--font-body)', fontSize: '0.9rem' }}
             />
           </div>
+        </div>
+
+        <div style={{ marginBottom: '1.25em' }}>
+          <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.3em', fontFamily: 'var(--font-body)' }}>Alerting Webhook URL</label>
+          <input
+            type="url"
+            placeholder="e.g. https://hooks.slack.com/services/..."
+            value={platformWebhook}
+            onChange={e => setPlatformWebhook(e.target.value)}
+            style={{ width: '100%', padding: '0.5em 1em', borderRadius: '6px', border: '1.5px solid #e5e7eb', fontFamily: 'var(--font-body)', fontSize: '0.9rem' }}
+          />
+          <p style={{ color: '#6b7280', fontSize: '0.78rem', marginTop: '0.3em', lineHeight: 1.4, fontFamily: 'var(--font-body)' }}>
+            Sends an HTTP POST alert for critical system failures (e.g. Stripe webhook processing failures) using database webhooks.
+          </p>
         </div>
 
         {platformError && <p style={{ color: '#991b1b', fontSize: '0.88rem', marginTop: '0.75em' }}>{platformError}</p>}
