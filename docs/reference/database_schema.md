@@ -1,6 +1,6 @@
 # Database Schema Reference
 
-This document describes every table, column, constraint, and trigger in the GrantTrail database. The full SQL is in `backend/01-Complete-Fresh-Setup.sql`.
+This document describes every table, column, constraint, and trigger in the GrantTrail database. The full SQL is in `supabase/migrations/20260616000000_initial_schema.sql`.
 
 ---
 

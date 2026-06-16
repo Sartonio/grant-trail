@@ -2,7 +2,7 @@
 
 The diagram below uses [Mermaid](https://mermaid.js.org) syntax and renders automatically in GitHub, GitLab, VS Code (with the Markdown Preview Mermaid Support extension), and most modern documentation tools.
 
-For full column details, constraints, and triggers, refer to `backend/01-Complete-Fresh-Setup.sql`.
+For full column details, constraints, and triggers, refer to `supabase/migrations/20260616000000_initial_schema.sql`.
 
 ---
 
