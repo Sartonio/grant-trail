@@ -427,6 +427,29 @@ When you make code changes and want to redeploy:
 
 ---
 
-## Production Setup
+## Production Setup & Bootstrapping
 
-For production deployments, after running `01-Complete-Fresh-Setup.sql`, use `backend/21-PROD-Setup.sql` to bootstrap the first tenant and super admin. See the comments in that file for step-by-step instructions.
+For production deployments, instead of manually copy-pasting SQL files into the Supabase Dashboard, you can automate database setup and admin provisioning securely from the command line.
+
+### 1. Database & Edge Functions Setup
+Run the following script from the repository root:
+```bash
+npm run db:deploy
+```
+This script will:
+* Prompt for your production Supabase Project Reference.
+* Link the local project to the remote project via the Supabase CLI.
+* Perform a clean reset of the remote database (wiping existing tables and schemas).
+* Apply all local migrations sequentially to build the schema structure.
+* Deploy all Edge Functions (including configuring `stripe-webhook` with JWT verification disabled).
+* Provision the default platform root tenant (`tfac`) and default settings.
+
+### 2. Secure Super Admin Creation
+To maintain security, credentials are never entered in CLI prompts or committed to repository files. Instead, use the **Promotion Workflow**:
+1. Open the deployed application frontend (or run it locally) and click **Sign Up** to create an account using your actual email address.
+2. Complete the user profile setup in your browser to write the profile row to the database.
+3. Promote the registered email to Super Admin by running:
+   ```bash
+   npm run admin:promote <email-address>
+   ```
+   This script will link the user to the root platform tenant (`tfac`) and elevate their role to `super_admin` securely in the database.
