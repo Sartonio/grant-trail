@@ -60,7 +60,7 @@ This guide walks through every task a *super admin* can perform in GrantTrail.
 3. Click **Log In**
 4. You're redirected to the **Tenant Management** page (`/super/tenants`)
 
-   <img src="images/18-01-tenant-management-page.png" alt="Tenant management page" style="max-width: 700px" />
+   <img src="../images/18-01-tenant-management-page.png" alt="Tenant management page" style="max-width: 700px" />
 
 A **user bar** at the top of the page shows your name and a "Super Admin" role badge. The header shows only a **Tenants** nav link. Super admins do not have access to Dashboard, Grants, Users, Audit Log, or Settings. Those features are scoped to individual tenants.
 
@@ -68,24 +68,24 @@ A **user bar** at the top of the page shows your name and a "Super Admin" role b
 
 ## 2. Viewing All Tenants
 
-   <img src="images/18-02-full-tenant-management.png" alt="Full tenant management page" style="max-width: 700px" />
+   <img src="../images/18-02-full-tenant-management.png" alt="Full tenant management page" style="max-width: 700px" />
 
 ### Stat Cards
 
-   <img src="images/18-02-tenant-stat-cards.png" alt="Tenant stat cards" style="max-width: 350px" />
+   <img src="../images/18-02-tenant-stat-cards.png" alt="Tenant stat cards" style="max-width: 350px" />
 
 - **Total Tenants**: Number of tenants on the platform
 - **Total Users**: Combined user count across all tenants (platform-wide total)
 
 ### Search
 
-   <img src="images/18-02-search-bar-filtering.png" alt="Search bar filtering tenants" style="max-width: 600px" />
+   <img src="../images/18-02-search-bar-filtering.png" alt="Search bar filtering tenants" style="max-width: 600px" />
 
 Type in the search bar to filter tenants by name. A subtitle below the heading updates to show the count (e.g. "3 tenants matching search"). Use the **Type** dropdown (Managed/Self-service), **Status** dropdown (Active/Disabled), and **date range** filters (Created from/to) to narrow results further. Date range filters prevent selecting invalid ranges (e.g. "from" after "to").
 
 ### Tenant Table
 
-   <img src="images/18-02-tenant-table-columns.png" alt="Tenant table with all columns" style="max-width: 700px" />
+   <img src="../images/18-02-tenant-table-columns.png" alt="Tenant table with all columns" style="max-width: 700px" />
 
 | Column | Description |
 |--------|-------------|
@@ -108,24 +108,24 @@ Use this for organizations that need formal grant review workflows (like TFAC).
 
 1. Click **Create Tenant**
 
-   <img src="images/18-03-create-tenant-form.png" alt="Create tenant form" style="max-width: 700px" />
+   <img src="../images/18-03-create-tenant-form.png" alt="Create tenant form" style="max-width: 700px" />
 
 2. Enter the **Organization Name** (e.g. "Hope Foundation")
 3. Enter the **Admin Email**: The first administrator for this tenant
 
-   <img src="images/18-03-form-filled-managed.png" alt="Create form filled with name and admin email" style="max-width: 700px" />
+   <img src="../images/18-03-form-filled-managed.png" alt="Create form filled with name and admin email" style="max-width: 700px" />
 
 4. Click **Create Tenant**
 5. The system creates the tenant, settings (all approvals on), and an admin invite
 6. An **invite link** is displayed. Click **Copy** to copy it to your clipboard. The button briefly changes to "Copied!" as confirmation. Share this link with the admin.
 
-   <img src="images/18-03-invite-link-result.png" alt="Tenant created with invite link displayed" style="max-width: 700px" />
+   <img src="../images/18-03-invite-link-result.png" alt="Tenant created with invite link displayed" style="max-width: 700px" />
 
 > ℹ️ After creation, the form fields are locked. Close the create form and reopen it to create another tenant.
 
 7. The tenant appears in the table with all approval settings showing "Required"
 
-   <img src="images/18-03-new-managed-tenant.png" alt="Table with new managed tenant" style="max-width: 800px" />
+   <img src="../images/18-03-new-managed-tenant.png" alt="Table with new managed tenant" style="max-width: 800px" />
 
 ### What Happens Next
 
@@ -153,7 +153,7 @@ When a user signs up at `/signup` without an invite token:
 
 1. User enters their **email and password** on the signup page
 
-   <img src="images/18-06-self-service-signup.png" alt="Self-service signup page" style="max-width: 300px" />
+   <img src="../images/18-06-self-service-signup.png" alt="Self-service signup page" style="max-width: 300px" />
 
 2. If email verification is enabled, they verify their email first
 3. They're taken to the **Complete Your Profile** page where they enter their name, phone, and organization name
@@ -164,7 +164,7 @@ When a user signs up at `/signup` without an invite token:
 
 5. If the tenant requires a subscription (default), the user lands on the **Subscription** page to choose a plan. Otherwise, they land on their dashboard.
 
-   <img src="images/18-06-self-service-dashboard.png" alt="Self-service user dashboard" style="max-width: 700px" />
+   <img src="../images/18-06-self-service-dashboard.png" alt="Self-service user dashboard" style="max-width: 700px" />
 
 6. The new tenant appears in your tenant management table with Subscription set to "Required". You can exempt this tenant from subscriptions (see Section 10).
 
@@ -178,11 +178,11 @@ When a tenant admin generates an invite link:
 2. Selects a role and optionally enters an email
 3. Generates a link like `/signup?invite=abc123`
 
-   <img src="images/18-07-invite-link-generation.png" alt="Invite link generation" style="max-width: 700px" />
+   <img src="../images/18-07-invite-link-generation.png" alt="Invite link generation" style="max-width: 700px" />
 
 4. The invited user clicks the link and sees the signup page with their invitation details
 
-   <img src="images/18-07-invite-signup-page.png" alt="Invite signup page" style="max-width: 300px" />
+   <img src="../images/18-07-invite-signup-page.png" alt="Invite signup page" style="max-width: 300px" />
 
 5. User enters their **email and password** and clicks **Create Account**
 6. If email verification is enabled, they verify their email first
@@ -225,12 +225,12 @@ Disabling a tenant locks out all users in that tenant. They'll see an "Account D
 2. Click **Disable** in the Actions column
 3. An inline confirmation appears: "Disable?" with **Yes** and **No** buttons (click **No** to cancel)
 
-   <img src="images/18-08-disable-tenant-confirm.png" alt="Disable tenant confirmation" style="max-width: 800px" />
+   <img src="../images/18-08-disable-tenant-confirm.png" alt="Disable tenant confirmation" style="max-width: 800px" />
 
 4. Click **Yes** to confirm
 5. The tenant status changes to "Disabled"
 
-   <img src="images/18-08-tenant-disabled.png" alt="Tenant showing disabled status" style="max-width: 800px" />
+   <img src="../images/18-08-tenant-disabled.png" alt="Tenant showing disabled status" style="max-width: 800px" />
 
 All users in the disabled tenant will be signed out and blocked from logging in.
 
@@ -249,17 +249,17 @@ The super admin can set default support contact information that appears in the 
 
 1. Scroll to the **Platform Defaults** section below the tenant table
 
-   <img src="images/18-09-platform-defaults.png" alt="Platform defaults section" style="max-width: 600px" />
+   <img src="../images/18-09-platform-defaults.png" alt="Platform defaults section" style="max-width: 600px" />
 
 2. Enter the **Default Support Email** and **Default Support Phone**
 
-   <img src="images/18-09-platform-defaults-filled.png" alt="Platform defaults filled in" style="max-width: 400px" />
+   <img src="../images/18-09-platform-defaults-filled.png" alt="Platform defaults filled in" style="max-width: 400px" />
 
 3. Click **Save Platform Defaults** (the button is disabled until you make a change)
 
 4. Refresh the page to see the updated footer
 
-   <img src="images/18-09-updated-footer.png" alt="Updated footer" style="max-width: 600px" />
+   <img src="../images/18-09-updated-footer.png" alt="Updated footer" style="max-width: 600px" />
 
 
 ### How the footer contact info works

@@ -62,7 +62,7 @@ Signup is a two-step process. First you create your account (email and password)
 1. Your administrator sends you a link like `https://app.granttrail.com/signup?invite=abc123`
 2. Click the link. The signup page shows: **"You've been invited to join as a [role]"**
 
-   <img src="images/16-01-signup-invite-banner.png" alt="Signup page with invite banner" style="max-width: 350px" />
+   <img src="../images/16-01-signup-invite-banner.png" alt="Signup page with invite banner" style="max-width: 350px" />
 
 3. Enter your **Email** (pre-filled and locked if the invite specified one) and choose a **Password** (min 6 characters)
 4. Click **Create Account**
@@ -73,19 +73,19 @@ Signup is a two-step process. First you create your account (email and password)
    - **Phone Number**
    - **Organization**
 
-   <img src="images/16-01-signup-form-filled.png" alt="Complete profile form" style="max-width: 450px" />
+   <img src="../images/16-01-signup-form-filled.png" alt="Complete profile form" style="max-width: 450px" />
 
 7. Click **Complete Setup**
 8. If your account requires a subscription, you'll land on the **Subscription** page to choose a plan (see Section 14). Otherwise, you're redirected to your dashboard.
 
-   <img src="images/16-01-dashboard-empty-state.png" alt="Dashboard empty state after first login" style="max-width: 700px" />
+   <img src="../images/16-01-dashboard-empty-state.png" alt="Dashboard empty state after first login" style="max-width: 700px" />
 
 ### Open Signup (Self-Service)
 
 1. Go to the signup page directly at `/signup` (no invite link needed)
 2. The subtitle reads: **"Create your own workspace to track grants and expenses"**
 
-   <img src="images/16-01-self-service-signup.png" alt="Self-service signup page" style="max-width: 350px" />
+   <img src="../images/16-01-self-service-signup.png" alt="Self-service signup page" style="max-width: 350px" />
 
 3. Enter your **Email** and choose a **Password** (min 6 characters)
 4. Click **Create Account**
@@ -105,25 +105,25 @@ Signup is a two-step process. First you create your account (email and password)
 
 1. Go to `/login`
 
-   <img src="images/16-02-login-page.png" alt="Login page" style="max-width: 350px" />
+   <img src="../images/16-02-login-page.png" alt="Login page" style="max-width: 350px" />
 
 2. Enter your **Email** and **Password**
 3. Click **Log In**
 4. You're redirected to your dashboard. A **user bar** at the top of every page shows your name, role (e.g. "Grantee"), and tenant name.
 
-   <img src="images/16-02-user-bar.png" alt="Login page" style="max-width: 350px" />
+   <img src="../images/16-02-user-bar.png" alt="Login page" style="max-width: 350px" />
 
 ### Forgot Password
 
 1. On the login page, click **Forgot password?**
 
-   <img src="images/16-02-forgot-password-link.png" alt="Forgot password link" style="max-width: 350px" />
+   <img src="../images/16-02-forgot-password-link.png" alt="Forgot password link" style="max-width: 350px" />
 
 2. Enter your email address
 3. Click **Send Reset Link**
 4. Check your inbox for the reset email
 
-   <img src="images/16-02-check-inbox-message.png" alt="Check your inbox success message" style="max-width: 350px" />
+   <img src="../images/16-02-check-inbox-message.png" alt="Check your inbox success message" style="max-width: 350px" />
 
 ---
 
@@ -133,7 +133,7 @@ After logging in, you see your dashboard with:
 
 ### Stat Cards
 
-<img src="images/16-03-dashboard-stat-cards.png" alt="Dashboard stat cards" style="max-width: 700px" />
+<img src="../images/16-03-dashboard-stat-cards.png" alt="Dashboard stat cards" style="max-width: 700px" />
 
 - **Total Grants**: Number of all your grants
 - **Approved**: Grants that have been approved
@@ -148,14 +148,14 @@ Clicking a stat card takes you to the grants list filtered by that status (e.g. 
 ### Charts
 *Once you have at least one grant*
 
-<img src="images/16-03-dashboard-charts.png" alt="Dashboard charts" style="max-width: 700px" />
+<img src="../images/16-03-dashboard-charts.png" alt="Dashboard charts" style="max-width: 700px" />
 
 - **Grants by Status**: Pie chart showing the breakdown
 - **Funding vs Spent**: Bar chart comparing total funding, disbursed, approved spent, and pending spent amounts
 
 ### Quick Actions
 
-<img src="images/16-03-quick-action-cards.png" alt="Quick action cards" style="max-width: 600px" />
+<img src="../images/16-03-quick-action-cards.png" alt="Quick action cards" style="max-width: 600px" />
 
 - **Submit New Grant**: Takes you to the grant application form
 - **View All Grants**: Takes you to the grants list
@@ -163,7 +163,7 @@ Clicking a stat card takes you to the grants list filtered by that status (e.g. 
 
 ### Recent Grants
 
-<img src="images/16-03-recent-grants-list.png" alt="Recent grants list" style="max-width: 600px" />
+<img src="../images/16-03-recent-grants-list.png" alt="Recent grants list" style="max-width: 600px" />
 
 Shows your 5 most recent grants with name, status badge, amount, and date. Click any grant to view its details.
 
@@ -171,7 +171,7 @@ Shows your 5 most recent grants with name, status badge, amount, and date. Click
 
 If your tax filing month is within 30 days, a green banner appears at the top:
 
-<img src="images/16-03-tax-reminder-banner.png" alt="Tax month reminder banner" style="max-width: 600px" />
+<img src="../images/16-03-tax-reminder-banner.png" alt="Tax month reminder banner" style="max-width: 600px" />
 
 > "Your tax filing month (May) is approaching. Consider reaching out to your accountant to prepare."
 
@@ -183,7 +183,7 @@ Click the **X** to dismiss it for the current session.
 
 1. Click **Grants** in the navigation bar (or **View All Grants** from the dashboard)
 
-   <img src="images/16-04-grants-page-filters.png" alt="Grants page with filters" style="max-width: 700px" />
+   <img src="../images/16-04-grants-page-filters.png" alt="Grants page with filters" style="max-width: 700px" />
 
 2. A **summary strip** at the top shows totals: Total Grants, Approved, Pending, Needs Changes, Rejected, Total Funding, and Approved Spent (Pending/Needs Changes/Rejected counts only appear for managed tenants).
 
@@ -197,7 +197,7 @@ Click the **X** to dismiss it for the current session.
 
 ### Card View
 
-<img src="images/16-04-grants-card-view.png" alt="Grants card view" style="max-width: 600px" />
+<img src="../images/16-04-grants-card-view.png" alt="Grants card view" style="max-width: 600px" />
 
 Each card shows the grant name, status, amount, disbursed funds (with progress bar), spent total, remaining balance, spend period, and time remaining. A clock icon appears on grants that have budget items or expenses pending admin review.
 
@@ -205,7 +205,7 @@ Time remaining is color-coded: red when less than 30 days remain, and "Expired" 
 
 ### Table View
 
-<img src="images/16-04-grants-table-view.png" alt="Grants table view" style="max-width: 700px" />
+<img src="../images/16-04-grants-table-view.png" alt="Grants table view" style="max-width: 700px" />
 
 Columns: Grant Name, Status, Amount, Disbursed, Approved Spent, Remaining, Spend Period, Time Left, and action icons. A clock icon appears next to grants with pending items.
 
@@ -213,7 +213,7 @@ Columns: Grant Name, Status, Amount, Disbursed, Approved Spent, Remaining, Spend
 
 The grants list is paginated. Use the **Previous** and **Next** buttons at the bottom to navigate between pages.
 
-<img src="images/16-04-grants-pagination.png" alt="Grants list pagination" style="max-width: 200px" />
+<img src="../images/16-04-grants-pagination.png" alt="Grants list pagination" style="max-width: 200px" />
 
 
 ---
@@ -222,7 +222,7 @@ The grants list is paginated. Use the **Previous** and **Next** buttons at the b
 
 1. Click **New Grant** on the grants page, or **Submit New Grant** from the dashboard
 
-   <img src="images/16-05-create-grant-empty.png" alt="Create grant form empty" style="max-width: 400px" />
+   <img src="../images/16-05-create-grant-empty.png" alt="Create grant form empty" style="max-width: 400px" />
 
 2. Fill in the form:
    - **Grant Name**: A short, descriptive title (e.g. "Community Youth Development Program")
@@ -234,9 +234,9 @@ The grants list is paginated. Use the **Previous** and **Next** buttons at the b
 
 3. Review the info box at the bottom:
    - **Managed tenants:** "Your grant application will be submitted with a 'Pending' status. An administrator will review your application."
-   <img src="images/16-05-create-grant-filled.png" alt="Create grant form filled out" style="max-width: 400px" />
+   <img src="../images/16-05-create-grant-filled.png" alt="Create grant form filled out" style="max-width: 400px" />
    - **Self-service:** "Your grant application will be automatically approved."
-   <img src="images/16-05-create-grant-filled-self-service.png" alt="Create grant form filled out" style="max-width: 400px" />
+   <img src="../images/16-05-create-grant-filled-self-service.png" alt="Create grant form filled out" style="max-width: 400px" />
 
 4. A tip below the info box reminds you that supporting documents (proposals, budgets, reports) can be uploaded from the grant detail page after saving.
 
@@ -250,7 +250,7 @@ The grants list is paginated. Use the **Previous** and **Next** buttons at the b
 
 From the grants list, click a grant name or the info icon
 
-<img src="images/16-06-grant-detail-click.png" alt="Grant detail click" style="max-width: 600px" />
+<img src="../images/16-06-grant-detail-click.png" alt="Grant detail click" style="max-width: 600px" />
 
 The detail page shows:
 
@@ -258,18 +258,18 @@ The detail page shows:
 
 If the grant's spend period has ended, a banner appears at the top: *"This grant's spend period has ended. You can still add receipts and update records."* Click the **X** to dismiss.
 
-   <img src="images/16-06-grant-detail-expired.png" alt="Grant detail header banner" style="max-width: 600px" />
+   <img src="../images/16-06-grant-detail-expired.png" alt="Grant detail header banner" style="max-width: 600px" />
 
 ### Header Banner
 
-   <img src="images/16-06-grant-detail-banner.png" alt="Grant detail header banner" style="max-width: 600px" />
+   <img src="../images/16-06-grant-detail-banner.png" alt="Grant detail header banner" style="max-width: 600px" />
 
 - Grant name with status badge
 - Key figures: amount, spend period, submitted date
 
 ### Grant Information
 
-<img src="images/16-06-grant-info-section.png" alt="Grant information section" style="max-width: 500px" />
+<img src="../images/16-06-grant-info-section.png" alt="Grant information section" style="max-width: 500px" />
 
 - All financial details: Grant Amount, Disbursed Funds, Total Spent, Remaining Balance
 - Dates: Start/End Spend Period, Release Date, Submitted, Last Reviewed
@@ -277,25 +277,25 @@ If the grant's spend period has ended, a banner appears at the top: *"This grant
 
 ### Status History
 
-<img src="images/16-06-status-history-timeline.png" alt="Status history timeline" style="max-width: 300px" />
+<img src="../images/16-06-status-history-timeline.png" alt="Status history timeline" style="max-width: 300px" />
 
 A timeline showing every status transition (e.g. Pending → Approved) with dates and any comments.
 
 ### Budget Used Chart
 
-<img src="images/16-06-budget-donut-chart.png" alt="Budget donut chart" style="max-width: 300px" />
+<img src="../images/16-06-budget-donut-chart.png" alt="Budget donut chart" style="max-width: 300px" />
 
 A donut chart showing how much of the grant has been spent vs remaining, with both the spent percentage and disbursed percentage displayed in the center.
 
 ### Admin Comments (Managed Tenants Only)
 
-<img src="images/16-06-admin-comments.png" alt="Admin comments section" style="max-width: 450px" />
+<img src="../images/16-06-admin-comments.png" alt="Admin comments section" style="max-width: 450px" />
 
 Comments left by the administrator about your grant.
 
 ### Grant Documents
 
-<img src="images/16-06-grant-attachments.png" alt="Grant attachments section" style="max-width: 450px" />
+<img src="../images/16-06-grant-attachments.png" alt="Grant attachments section" style="max-width: 450px" />
 
 Upload and view supporting documents (proposals, budgets, reports). See Section 10 for details.
 
@@ -304,7 +304,7 @@ Upload and view supporting documents (proposals, budgets, reports). See Section 
 - **Edit Application**: Visible when the grant has "Needs Changes" status (*managed tenants*) or any time (*self-service tenants*)
 - **View Budget & Expenses**: Go to the budget breakdown
 
-<img src="images/16-06-grant-nav.png" alt="Grant navigation links" style="max-width: 600px" />
+<img src="../images/16-06-grant-nav.png" alt="Grant navigation links" style="max-width: 600px" />
 
 ---
 
@@ -317,16 +317,16 @@ When an admin returns your grant with a "Needs Changes" status:
 1. Go to the grant detail page
 2. Review the admin's feedback in Status History
 
-   <img src="images/16-07-admin-comments.png" alt="Admin comments for changes needed" style="max-width: 400px" />
+   <img src="../images/16-07-admin-comments.png" alt="Admin comments for changes needed" style="max-width: 400px" />
 
 3. Click **Edit Application**
 
-   <img src="images/16-07-edit-grant-form.png" alt="Edit grant form pre-filled" style="max-width: 400px" />
+   <img src="../images/16-07-edit-grant-form.png" alt="Edit grant form pre-filled" style="max-width: 400px" />
 
 4. Make the necessary changes and click **Save & Resubmit**
 5. The grant status returns to "Pending" and goes back into the admin review queue
 
-   <img src="images/16-07-resubmit-success.png" alt="Resubmission success screen" style="max-width: 250px" />
+   <img src="../images/16-07-resubmit-success.png" alt="Resubmission success screen" style="max-width: 250px" />
 
 ### Self-Service Tenants — Editing Any Grant
 
@@ -343,15 +343,15 @@ Since self-service tenants don't have an approval workflow, you can edit any of 
 
 1. From a grant detail page, click **View Budget & Expenses**
 
-   <img src="images/16-08-view-budget-expenses.png" alt="View Budget and Expenses" style="max-width: 150px" />
+   <img src="../images/16-08-view-budget-expenses.png" alt="View Budget and Expenses" style="max-width: 150px" />
 
 2. If the grant's spend period has ended, an **expired grant banner** appears at the top (same as the grant detail page).
 
-   <img src="images/16-08-budget-expired.png" alt="Expired grant banner" style="max-width: 500px" />
+   <img src="../images/16-08-budget-expired.png" alt="Expired grant banner" style="max-width: 500px" />
 
 3. The breakdown page shows:
 
-   <img src="images/16-08-breakdown-summary.png" alt="Grant breakdown summary" style="max-width: 700px" />
+   <img src="../images/16-08-breakdown-summary.png" alt="Grant breakdown summary" style="max-width: 700px" />
 
    - **Summary cards**: Allocated, Disbursed, Approved Spent (with a "+ $X pending" sub-label when pending expenses exist), and Remaining. Cards change appearance when the budget is fully allocated or fully disbursed.
    - **Charts**: Budget Allocation (pie) and Budgeted vs Spent (bar). The bar chart shows three bars per budget item: allocated (green), approved spent (gray), and pending (orange).
@@ -359,11 +359,11 @@ Since self-service tenants don't have an approval workflow, you can edit any of 
 
 4. Each budget item row is **collapsible**: click the row or chevron to expand and see the expenses underneath. In managed tenants, badge counts show the number of pending and rejected expenses per budget item. Budget items also display a status badge (managed tenants only).
 
-   <img src="images/16-08-budget-icons.png" alt="Grant breakdown summary" style="max-width: 700px" />
+   <img src="../images/16-08-budget-icons.png" alt="Grant breakdown summary" style="max-width: 700px" />
 
    First item expanded:
 
-   <img src="images/16-08-budget-items-expanded.png" alt="Grant breakdown summary" style="max-width: 700px" />
+   <img src="../images/16-08-budget-items-expanded.png" alt="Grant breakdown summary" style="max-width: 700px" />
 
 
 5. If no budget items exist yet, an empty state message appears with an **Add Your First Budget Item** button.
@@ -374,7 +374,7 @@ Since self-service tenants don't have an approval workflow, you can edit any of 
 
 1. Click **Add Budget Item**
 
-   <img src="images/16-08-add-budget-item.png" alt="Add budget item dialog" style="max-width: 400px" />
+   <img src="../images/16-08-add-budget-item.png" alt="Add budget item dialog" style="max-width: 400px" />
 
 2. Fill in:
    - **Item Name** (e.g. "Staff Salaries")
@@ -383,7 +383,7 @@ Since self-service tenants don't have an approval workflow, you can edit any of 
 3. Click **Save**
 4. The item appears in the list
 
-   <img src="images/16-08-budget-items-list.png" alt="Budget items list" style="max-width: 600px" />
+   <img src="../images/16-08-budget-items-list.png" alt="Budget items list" style="max-width: 600px" />
 
 ### Editing a Budget Item
 
@@ -391,7 +391,7 @@ Since self-service tenants don't have an approval workflow, you can edit any of 
 
 1. Click the **pencil icon** next to the budget item
 
-   <img src="images/16-08-edit-budget-item.png" alt="Edit budget item" style="max-width: 400px" />
+   <img src="../images/16-08-edit-budget-item.png" alt="Edit budget item" style="max-width: 400px" />
 
 2. Update the fields. The allocated budget cannot be set below the total expenses already recorded against this item
 
@@ -405,7 +405,7 @@ Since self-service tenants don't have an approval workflow, you can edit any of 
 1. Click the **trash icon** next to the budget item
 2. Click again to confirm (two-click delete)
 
-   <img src="images/16-08-budget-delete-confirm.png" alt="Budget delete confirmation" style="max-width: 250px" />
+   <img src="../images/16-08-budget-delete-confirm.png" alt="Budget delete confirmation" style="max-width: 250px" />
 
 
 ---
@@ -417,7 +417,7 @@ Since self-service tenants don't have an approval workflow, you can edit any of 
 1. In the budget breakdown page, expand a budget item
 2. Click **Add Expense**
 
-   <img src="images/16-09-expense-modal-filled.png" alt="Add expense dialog filled with receipt" style="max-width: 400px" />
+   <img src="../images/16-09-expense-modal-filled.png" alt="Add expense dialog filled with receipt" style="max-width: 400px" />
 
 3. The screen has a split layout: form fields on the left, receipt upload on the right. Fill in:
    - **Item Name**: Description of the expense (e.g. "Office Supplies Q1")
@@ -427,12 +427,12 @@ Since self-service tenants don't have an approval workflow, you can edit any of 
 
 4. A **budget info box** below the form shows the category allocation, amount already spent, and available balance.
 
-   <img src="images/16-09-expense-budget-box.png" alt="Budget info box" style="max-width: 400px" />
+   <img src="../images/16-09-expense-budget-box.png" alt="Budget info box" style="max-width: 400px" />
 
 5. Click **Save**
 6. The expense appears in the table under the budget item
 
-   <img src="images/16-09-expenses-table.png" alt="Expenses table with status badge" style="max-width: 600px" />
+   <img src="../images/16-09-expenses-table.png" alt="Expenses table with status badge" style="max-width: 600px" />
 
 ### Editing an Expense
 
@@ -442,7 +442,7 @@ Since self-service tenants don't have an approval workflow, you can edit any of 
 
 > ℹ️ **Managed tenants:** Saving changes to an "Approved" or "Rejected" expense resets it to "Pending" for admin re-review. 
 
-<img src="images/16-09-expenses-reset.png" alt="Expenses table with status badge" style="max-width: 400px" />
+<img src="../images/16-09-expenses-reset.png" alt="Expenses table with status badge" style="max-width: 400px" />
 
 ### Deleting an Expense
 
@@ -451,7 +451,7 @@ Since self-service tenants don't have an approval workflow, you can edit any of 
 1. Click the **trash icon** on the expense row
 2. Click again to confirm
 
-   <img src="images/16-09-expense-delete-confirm.png" alt="Confirm deletion of expense" style="max-width: 250px" />
+   <img src="../images/16-09-expense-delete-confirm.png" alt="Confirm deletion of expense" style="max-width: 250px" />
 
 
 ### Viewing a Receipt
@@ -459,7 +459,7 @@ Since self-service tenants don't have an approval workflow, you can edit any of 
 1. Click the **receipt icon** on an expense row
 2. A signed URL opens in a new tab (valid for 60 seconds)
 
-   <img src="images/16-09-receipt-icon.png" alt="Receipt icon in expenses table" style="max-width: 200px" />
+   <img src="../images/16-09-receipt-icon.png" alt="Receipt icon in expenses table" style="max-width: 200px" />
 
 ---
 
@@ -467,14 +467,14 @@ Since self-service tenants don't have an approval workflow, you can edit any of 
 
 1. Go to the grant detail page and scroll to the **Grant Documents** section
 
-   <img src="images/16-10-attachments-upload.png" alt="Grant attachments upload area" style="max-width: 500px" />
+   <img src="../images/16-10-attachments-upload.png" alt="Grant attachments upload area" style="max-width: 500px" />
 
 2. Choose a **Category**: Proposal, Budget, Report, or General
 3. Add a **Description** (optional)
 4. Click **Choose File** and select your document (PDF, JPG, PNG, DOC, DOCX, XLS, XLSX — max 5 MB)
 5. Click **Upload**
 
-   <img src="images/16-10-uploaded-document.png" alt="Uploaded document in list" style="max-width: 500px" />
+   <img src="../images/16-10-uploaded-document.png" alt="Uploaded document in list" style="max-width: 500px" />
 
 6. Each uploaded document shows its filename, file size, upload date, category badge, and description (if provided)
 7. To view a document, click its name — a signed URL opens in a new tab
@@ -486,7 +486,7 @@ Since self-service tenants don't have an approval workflow, you can edit any of 
 
 1. Click **Expenses** in the navigation bar
 
-   <img src="images/16-11-expense-reports-page.png" alt="Expense reports page" style="max-width: 700px" />
+   <img src="../images/16-11-expense-reports-page.png" alt="Expense reports page" style="max-width: 700px" />
 
 2. The page shows:
 
@@ -497,14 +497,14 @@ Since self-service tenants don't have an approval workflow, you can edit any of 
 
 ### Charts
 
-<img src="images/16-11-spending-charts.png" alt="Spending charts" style="max-width: 600px" />
+<img src="../images/16-11-spending-charts.png" alt="Spending charts" style="max-width: 600px" />
 
 - **Monthly Spending**: Bar chart of expenses by month
 - **Spending by Grant**: Pie chart showing top grants by spending (if more than 8 grants have expenses, the remainder are grouped as "Other")
 
 ### Expense Table
 
-<img src="images/16-11-expense-reports-table.png" alt="Expense reports table" style="max-width: 700px" />
+<img src="../images/16-11-expense-reports-table.png" alt="Expense reports table" style="max-width: 700px" />
 
 - Columns: Grant, Expense Item, Amount, Date, Status
 - Click any **column header** to sort ascending/descending (a sort arrow indicates the active sort)
@@ -517,11 +517,11 @@ Two export options are available:
 - **Export CSV**: Downloads the currently filtered and sorted expenses as a CSV file. Available to all users.
 - **Export Excel**: Downloads a multi-sheet Excel workbook with one sheet per month, including grant metadata, budget vs actual comparisons, and running totals. Requires a **Premium subscription** (see Section 14). If you don't have Premium, the button reads "Upgrade for Excel" and links to the Subscription page.
 
-<img src="images/16-11-export-csv-button.png" alt="Export buttons on expense reports" style="max-width: 700px" />
+<img src="../images/16-11-export-csv-button.png" alt="Export buttons on expense reports" style="max-width: 700px" />
 
 ### Filtering
 
-<img src="images/16-11-filter-bar.png" alt="Filter bar with controls" style="max-width: 700px" />
+<img src="../images/16-11-filter-bar.png" alt="Filter bar with controls" style="max-width: 700px" />
 
 - **Search**: Filter by expense item name or grant name
 - **Grant dropdown**: Show expenses for all grants or only a specific grant
@@ -536,7 +536,7 @@ Two export options are available:
 
 ### The Notification Bell
 
-<img src="images/16-12-notification-bell.png" alt="Notification bell with badge" style="max-width: 300px" />
+<img src="../images/16-12-notification-bell.png" alt="Notification bell with badge" style="max-width: 300px" />
 
 A bell icon in the header shows your unread notification count (capped at "99+"). Clicking the bell opens a dropdown panel.
 
@@ -544,7 +544,7 @@ A bell icon in the header shows your unread notification count (capped at "99+")
 
 1. Click the bell icon to open the notification panel
 
-   <img src="images/16-12-notification-panel.png" alt="Notification dropdown panel" style="max-width: 300px" />
+   <img src="../images/16-12-notification-panel.png" alt="Notification dropdown panel" style="max-width: 300px" />
 
 2. Each notification shows:
    - A **green dot** for unread notifications
@@ -560,11 +560,11 @@ A bell icon in the header shows your unread notification count (capped at "99+")
 
 - **Mark all as read**: Removes all blue dots (appears when unread notifications exist)
 
-   <img src="images/16-12-notification-mark-all-as-read.png" alt="Notification management button - mark as read" style="max-width: 300px" />
+   <img src="../images/16-12-notification-mark-all-as-read.png" alt="Notification management button - mark as read" style="max-width: 300px" />
 
 - **Clear all**: Removes all notifications from the list
 
-   <img src="images/16-12-notification-clear-all.png" alt="Notification management button - clear all" style="max-width: 300px" />
+   <img src="../images/16-12-notification-clear-all.png" alt="Notification management button - clear all" style="max-width: 300px" />
 
 When there are no notifications, the panel shows "No notifications yet."
 
@@ -600,7 +600,7 @@ A subscription is required to use GrantTrail's grant and expense features. The *
 
 ### The Subscription Page
 
-   <img src="images/16-14-subscription-page.png" alt="Subscription page with plan cards" style="max-width: 500px" />
+   <img src="../images/16-14-subscription-page.png" alt="Subscription page with plan cards" style="max-width: 500px" />
 
 The page shows:
 
@@ -614,7 +614,7 @@ The page shows:
 1. Click **Purchase Basic** or **Purchase Premium**
 2. You're redirected to the Stripe checkout page
 
-   <img src="images/16-14-stripe-checkout-basic.png" alt="Stripe checkout basic page" style="max-width: 500px" />
+   <img src="../images/16-14-stripe-checkout-basic.png" alt="Stripe checkout basic page" style="max-width: 500px" />
 
 3. Enter your payment details and complete the purchase
 4. You're redirected back to the Subscription page
@@ -630,7 +630,7 @@ Your administrator can waive the subscription requirement for your account. When
 - The "Manage Subscription" button is hidden
 - You have full access to all features including Excel export
 
-   <img src="images/16-14-subscription-waived.png" alt="Subscription waived" style="max-width: 500px" />
+   <img src="../images/16-14-subscription-waived.png" alt="Subscription waived" style="max-width: 500px" />
 
 ### If Your Tenant is Exempt
 
@@ -640,4 +640,4 @@ A super admin can exempt your entire tenant from requiring subscriptions. When e
 - Both plan cards are disabled
 - You have full access without any purchase
 
-   <img src="images/16-14-subscription-waived-tenant.png" alt="Subscription waived for tenant" style="max-width: 500px" />
+   <img src="../images/16-14-subscription-waived-tenant.png" alt="Subscription waived for tenant" style="max-width: 500px" />

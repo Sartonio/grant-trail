@@ -30,7 +30,7 @@ When contributing to the GrantTrail codebase, you MUST adhere to the following a
 - **Rule:** Rely on Database Triggers. Do not manually write inserts for `grant_status_history` in frontend code—the database triggers handle this automatically.
 - **Rule:** When uploading files to Supabase Storage, implement **Compensating Transactions**. Upload the file first, then insert the database record. If the database insert fails, manually delete the orphaned file from Storage.
 - **Rule:** Always use `.single()` for Supabase queries when expecting exactly one row (e.g., fetching a user profile or a specific grant by ID) to avoid unnecessary array unpacking.
-- **Rule:** Do not re-invent the wheel. Read `DEVELOPER.md` to understand the `useCallback` + `useEffect` fetching pattern and UI patterns (like Two-Click Deletes).
+- **Rule:** Do not re-invent the wheel. Read [development_patterns.md](file:///home/ryan/Documents/grant-trail/docs/explanation/development_patterns.md) to understand the `useCallback` + `useEffect` fetching pattern and UI patterns (like Two-Click Deletes).
 
 ## 6. Error Handling & Observability
 - **Rule:** Never swallow errors implicitly. Always capture and log them, providing user-friendly fallback UI where applicable (e.g., via React Error Boundaries).

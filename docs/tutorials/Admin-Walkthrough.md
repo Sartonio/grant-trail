@@ -58,7 +58,7 @@ This guide walks through every task a tenant administrator can perform in GrantT
 3. Click **Log In**
 4. You're redirected to the **Admin Dashboard**
 
-   <img src="images/17-01-admin-dashboard.png" alt="Admin dashboard after login" style="max-width: 700px" />
+   <img src="../images/17-01-admin-dashboard.png" alt="Admin dashboard after login" style="max-width: 700px" />
 
 ---
 
@@ -66,7 +66,7 @@ This guide walks through every task a tenant administrator can perform in GrantT
 
 ### Stat Cards
 
-   <img src="images/17-02-stat-cards-row.png" alt="Admin stat cards row" style="max-width: 500px" />
+   <img src="../images/17-02-stat-cards-row.png" alt="Admin stat cards row" style="max-width: 500px" />
 
 The top row shows key metrics at a glance:
 
@@ -81,14 +81,14 @@ The top row shows key metrics at a glance:
 
 ### Charts
 
-   <img src="images/17-02-dashboard-charts.png" alt="Admin dashboard charts" style="max-width: 500px" />
+   <img src="../images/17-02-dashboard-charts.png" alt="Admin dashboard charts" style="max-width: 500px" />
 
 - **Grants by Status**: Pie chart of grant statuses
 - **Top Grantees by Funding**: Horizontal bar chart showing top funded grantees
 
 ### Pending Review Queue
 
-   <img src="images/17-02-pending-review-queue.png" alt="Pending review queue" style="max-width: 500px" />
+   <img src="../images/17-02-pending-review-queue.png" alt="Pending review queue" style="max-width: 500px" />
 
 Shows up to 5 grants awaiting review. Each item shows:
 
@@ -103,7 +103,7 @@ If more than 5 grants are pending, a "+X more awaiting review" message appears. 
 
 > ℹ️ If your tenant has no support email or phone configured, an amber nudge banner appears on the dashboard with a link to Settings to set up contact info.
 
-<img src="images/17-02-support-banner.png" alt="Support info not configured banner" style="max-width: 550px" />
+<img src="../images/17-02-support-banner.png" alt="Support info not configured banner" style="max-width: 550px" />
 
 ---
 
@@ -111,13 +111,13 @@ If more than 5 grants are pending, a "+X more awaiting review" message appears. 
 
 1. Click **All Grants** in the navigation bar
 
-   <img src="images/17-03-grants-list-page.png" alt="Admin grants list page" style="max-width: 750px" />
+   <img src="../images/17-03-grants-list-page.png" alt="Admin grants list page" style="max-width: 750px" />
 
 2. The grants table shows all grants across all grantees in your tenant
 
 ### Filtering and Searching
 
-   <img src="images/17-03-grants-list-toolbar.png" alt="Grants list toolbar" style="max-width: 750px" />
+   <img src="../images/17-03-grants-list-toolbar.png" alt="Grants list toolbar" style="max-width: 750px" />
 
 - **Search bar**: Search by grant name, grantee name, or organization
 - **Pending Budgets** / **Pending Expenses**: Two separate toggle buttons to show only grants with pending budget items or pending expenses (each shows a count badge)
@@ -145,7 +145,7 @@ Click any **column header** to sort ascending/descending (a sort arrow indicates
 
 Click **Export CSV** in the page header to download the current filtered grant list as a CSV file (includes grant name, grantee, organization, amount, status, submitted date, total spent, remaining).
 
-   <img src="images/17-03-export-csv-button.png" alt="Export CSV button on grant list" style="max-width: 300px" />
+   <img src="../images/17-03-export-csv-button.png" alt="Export CSV button on grant list" style="max-width: 300px" />
 
 ---
 
@@ -153,11 +153,11 @@ Click **Export CSV** in the page header to download the current filtered grant l
 
 From All Grants, click the **arrow button (→)** on a grant. Or from the Review Queue, click **Review**.
 
-<img src="images/17-04-grant-review-page.png" alt="Admin grant review page" style="max-width: 700px" />
+<img src="../images/17-04-grant-review-page.png" alt="Admin grant review page" style="max-width: 700px" />
 
 If the grant's spend period has ended, an **expired grant warning banner** appears at the top of the page.
 
-<img src="images/17-04-grant-expired.png" alt="Admin grant review page" style="max-width: 300px" />
+<img src="../images/17-04-grant-expired.png" alt="Admin grant review page" style="max-width: 300px" />
 
 The review page has two panels:
 
@@ -165,7 +165,7 @@ The review page has two panels:
 
 #### Grant Details Card
 
-   <img src="images/17-04-grant-details-card.png" alt="Grant details card" style="max-width: 400px" />
+   <img src="../images/17-04-grant-details-card.png" alt="Grant details card" style="max-width: 400px" />
 
 - Grant Amount, Disbursed Funds, Total Spent, Remaining Balance
 - Start/End dates, Release Date, Submitted date
@@ -173,19 +173,19 @@ The review page has two panels:
 
 #### Status History
 
-   <img src="images/17-04-status-history-timeline.png" alt="Status history timeline" style="max-width: 400px" />
+   <img src="../images/17-04-status-history-timeline.png" alt="Status history timeline" style="max-width: 400px" />
 
 Timeline showing every status change with dates and notes.
 
 #### Comments
 
-   <img src="images/17-04-comments-section.png" alt="Comments section" style="max-width: 500px" />
+   <img src="../images/17-04-comments-section.png" alt="Comments section" style="max-width: 500px" />
 
 Previous posted admin comments on this grant. This section only appears if comments exist.
 
 #### Budget Items & Expense Review
 
-   <img src="images/17-04-budget-expense-review.png" alt="Budget items and expense review" style="max-width: 500px" />
+   <img src="../images/17-04-budget-expense-review.png" alt="Budget items and expense review" style="max-width: 500px" />
 
 Each **budget item** shows its status badge, name, description, allocated amount, and approved spent, with **Approve** and **Reject** buttons (visible when status is Pending).
 
@@ -195,7 +195,7 @@ Each **budget item** shows its status badge, name, description, allocated amount
 
 #### Grant Documents
 
-   <img src="images/17-04-grant-documents.png" alt="Grant documents section" style="max-width: 500px" />
+   <img src="../images/17-04-grant-documents.png" alt="Grant documents section" style="max-width: 500px" />
 
 View uploaded documents. These are read-only in the admin view. You cannot upload or delete.
 
@@ -203,7 +203,7 @@ View uploaded documents. These are read-only in the admin view. You cannot uploa
 
 #### Making a Review Decision
 
-   <img src="images/17-04-review-decision-panel.png" alt="Review decision panel" style="max-width: 250px" />
+   <img src="../images/17-04-review-decision-panel.png" alt="Review decision panel" style="max-width: 250px" />
 
 1. Click one of three action buttons:
    - **Approve**: Approve the grant
@@ -212,7 +212,7 @@ View uploaded documents. These are read-only in the admin view. You cannot uploa
 
 2. A notes field appears:
 
-   <img src="images/17-04-request-changes-notes.png" alt="Notes textarea for request changes" style="max-width: 250px" />
+   <img src="../images/17-04-request-changes-notes.png" alt="Notes textarea for request changes" style="max-width: 250px" />
 
    - **Approve**: Notes are optional
    - **Request Changes**: Notes are required. Explain what needs to change
@@ -220,13 +220,13 @@ View uploaded documents. These are read-only in the admin view. You cannot uploa
 
 3. Click **Confirm: [Action]**
 
-   <img src="images/17-04-approval-success.png" alt="Success message after approving" style="max-width: 250px" />
+   <img src="../images/17-04-approval-success.png" alt="Success message after approving" style="max-width: 250px" />
 
 4. A success message appears (e.g. "Grant approved.") and the page refreshes
 
 #### Setting Disbursed Funds
 
-   <img src="images/17-04-disbursed-funds-card.png" alt="Disbursed funds card" style="max-width: 250px" />
+   <img src="../images/17-04-disbursed-funds-card.png" alt="Disbursed funds card" style="max-width: 250px" />
 
 This card appears only after a grant is approved:
 
@@ -236,12 +236,12 @@ This card appears only after a grant is approved:
 
 > ℹ️ Before approval, a tip appears: "A Disbursed Funds control will appear here once the grant is approved."
 
-   <img src="images/17-04-disbursed-funds-tip.png" alt="Disbursed funds tip" style="max-width: 250px" />
+   <img src="../images/17-04-disbursed-funds-tip.png" alt="Disbursed funds tip" style="max-width: 250px" />
 
 
 #### Adding a Comment
 
-   <img src="images/17-04-add-comment.png" alt="Add comment section" style="max-width: 250px" />
+   <img src="../images/17-04-add-comment.png" alt="Add comment section" style="max-width: 250px" />
 
 1. Scroll to the **Add Comment** section in the sidebar
 2. Type your comment in the textarea
@@ -254,7 +254,7 @@ This card appears only after a grant is approved:
 
 1. On the grant review page, scroll to **Budget Items & Expense Review**
 
-   <img src="images/17-05-budget-item-buttons.png" alt="Budget item approve and reject buttons" style="max-width: 500px" />
+   <img src="../images/17-05-budget-item-buttons.png" alt="Budget item approve and reject buttons" style="max-width: 500px" />
 
 2. For each pending budget item:
    - Click **Approve** to approve it
@@ -273,7 +273,7 @@ This card appears only after a grant is approved:
 
 1. On the grant review page, expenses show up under their budget item
 
-   <img src="images/17-06-expense-table-buttons.png" alt="Expanded budget item with expenses" style="max-width: 500px" />
+   <img src="../images/17-06-expense-table-buttons.png" alt="Expanded budget item with expenses" style="max-width: 500px" />
 
 2. For each pending expense:
    - Click **Approve**: The expense amount counts toward totals
@@ -283,7 +283,7 @@ This card appears only after a grant is approved:
 
 3. To view a receipt, click the **View** button: It opens in a new tab via a signed URL
 
-   <img src="images/17-06-expense-receipt-icon.png" alt="Expense row with receipt icon" style="max-width: 500px" />
+   <img src="../images/17-06-expense-receipt-icon.png" alt="Expense row with receipt icon" style="max-width: 500px" />
 
 4. The grantee receives a notification for each approval/rejection
 
@@ -294,11 +294,11 @@ This card appears only after a grant is approved:
 1. Click your **profile icon** in the header
 2. Click **Users** from the dropdown
 
-   <img src="images/17-07-profile-dropdown.png" alt="Profile dropdown menu" style="max-width: 200px" />
+   <img src="../images/17-07-profile-dropdown.png" alt="Profile dropdown menu" style="max-width: 200px" />
 
 ### User List
 
-   <img src="images/17-07-user-list-page.png" alt="Admin user list page" style="max-width: 800px" />
+   <img src="../images/17-07-user-list-page.png" alt="Admin user list page" style="max-width: 800px" />
 
 The page shows all users in your tenant with:
 
@@ -320,7 +320,7 @@ The **Linked** column shows whether the user's auth account is connected: a gree
 
 ### Changing a User's Role
 
-   <img src="images/17-07-role-toggle-confirm.png" alt="Role toggle confirmation" style="max-width: 700px" />
+   <img src="../images/17-07-role-toggle-confirm.png" alt="Role toggle confirmation" style="max-width: 700px" />
 
 1. Find the user in the table
 2. Click **Make Admin** or **Make Grantee**
@@ -329,21 +329,21 @@ The **Linked** column shows whether the user's auth account is connected: a gree
 
 > ℹ️ You cannot change your own role.
 
-   <img src="images/17-07-self-role.png" alt="Self Role" style="max-width: 700px" />
+   <img src="../images/17-07-self-role.png" alt="Self Role" style="max-width: 700px" />
 
 ### Disabling a User
 
-   <img src="images/17-07-disable-user-confirm.png" alt="Disable user confirmation" style="max-width: 700px" />
+   <img src="../images/17-07-disable-user-confirm.png" alt="Disable user confirmation" style="max-width: 700px" />
 
 1. Click **Disable** next to the user
 2. Confirm with **Yes**
 3. The user's status changes to "Disabled"
 
-   <img src="images/17-07-disabled-user.png" alt="Disabled user" style="max-width: 700px" />
+   <img src="../images/17-07-disabled-user.png" alt="Disabled user" style="max-width: 700px" />
 
 4. They will see an "Account Disabled" message on their next login
 
-   <img src="images/17-07-account-disabled.png" alt="Account Disabled" style="max-width: 300px" />
+   <img src="../images/17-07-account-disabled.png" alt="Account Disabled" style="max-width: 300px" />
 
 
 ### Re-enabling a User
@@ -351,7 +351,7 @@ The **Linked** column shows whether the user's auth account is connected: a gree
 1. Click **Enable** next to a disabled user
 2. Confirm with **Yes**
 
-   <img src="images/17-07-re-enable-user.png" alt="Re-enable User" style="max-width: 700px" />
+   <img src="../images/17-07-re-enable-user.png" alt="Re-enable User" style="max-width: 700px" />
 
 ---
 
@@ -359,7 +359,7 @@ The **Linked** column shows whether the user's auth account is connected: a gree
 
 1. On the User Management page, click **Invite User**
 
-   <img src="images/17-08-invite-user-form.png" alt="Invite user form" style="max-width: 700px" />
+   <img src="../images/17-08-invite-user-form.png" alt="Invite user form" style="max-width: 700px" />
 
 2. Select a **Role**:
    - **Grantee**: Can submit grants and log expenses
@@ -369,7 +369,7 @@ The **Linked** column shows whether the user's auth account is connected: a gree
 
 4. Click **Generate Invite Link**
 
-   <img src="images/17-08-generated-invite-link.png" alt="Generated invite link" style="max-width: 700px" />
+   <img src="../images/17-08-generated-invite-link.png" alt="Generated invite link" style="max-width: 700px" />
 
 5. A link appears in a green box. Click **Copy** to copy it to your clipboard
 
@@ -390,7 +390,7 @@ The invited user's signup is a two-step process. See the *Grantee Walkthrough* d
 1. Click your **profile icon** in the header
 2. Click **Settings** from the dropdown
 
-   <img src="images/17-09-approval-settings-page.png" alt="Admin settings page" style="max-width: 500px" />
+   <img src="../images/17-09-approval-settings-page.png" alt="Admin settings page" style="max-width: 500px" />
 
 3. Three toggle switches control approval workflows:
 
@@ -402,7 +402,7 @@ The invited user's signup is a two-step process. See the *Grantee Walkthrough* d
 
 4. Flip the toggles as needed
 
-   <img src="images/17-09-toggle-changed-save.png" alt="Settings toggle changed with save" style="max-width: 500px" />
+   <img src="../images/17-09-toggle-changed-save.png" alt="Settings toggle changed with save" style="max-width: 500px" />
 
 5. Click **Save Settings** (the button is disabled until you make a change)
 6. Success message: "Settings saved. Changes apply to newly created records."
@@ -415,13 +415,13 @@ The invited user's signup is a two-step process. See the *Grantee Walkthrough* d
 
 1. Click your **profile icon** → **Audit Log**
 
-   <img src="images/17-10-audit-log-page.png" alt="Audit log page" style="max-width: 200px" />
+   <img src="../images/17-10-audit-log-page.png" alt="Audit log page" style="max-width: 200px" />
 
 2. The audit log shows every insert, update, and delete across grants, budget items, expenses, and users in your tenant
 
 ### Filtering
 
-   <img src="images/17-10-audit-log-filters.png" alt="Audit log filter bar" style="max-width: 600px" />
+   <img src="../images/17-10-audit-log-filters.png" alt="Audit log filter bar" style="max-width: 600px" />
 
 - **Table** dropdown: Filter by Grant, Budget Item, Expense, or User
 - **Action** dropdown: Filter by Insert, Update, or Delete
@@ -431,7 +431,7 @@ The invited user's signup is a two-step process. See the *Grantee Walkthrough* d
 
 ### Viewing Change Details
 
-   <img src="images/17-10-audit-log-row-diff.png" alt="Expanded audit log row diff" style="max-width: 600px" />
+   <img src="../images/17-10-audit-log-row-diff.png" alt="Expanded audit log row diff" style="max-width: 600px" />
 
 1. Click any row to expand it
 2. Each action type has a color-coded badge (INSERT, UPDATE, DELETE)
@@ -442,7 +442,7 @@ The invited user's signup is a two-step process. See the *Grantee Walkthrough* d
 
 4. For grant-related records, a **View Grant** link appears inline, taking you to the review page
 
-   <img src="images/17-10-audit-log-view-grant.png" alt="Audit log view grant" style="max-width: 600px" />
+   <img src="../images/17-10-audit-log-view-grant.png" alt="Audit log view grant" style="max-width: 600px" />
 
 ### Pagination
 
@@ -457,7 +457,7 @@ The notification bell works the same as for grantees. As an admin, you'll receiv
 - A new grant is submitted for review
 - A grant is resubmitted after changes
 
-   <img src="images/17-11-new-grant-notification.png" alt="Admin notification new grant" style="max-width: 250px" />
+   <img src="../images/17-11-new-grant-notification.png" alt="Admin notification new grant" style="max-width: 250px" />
 
 See the Grantee Walkthrough Section 12 for full notification panel details.
 
@@ -470,7 +470,7 @@ Tenant admins can set a custom support email and phone number that appears in th
 1. Go to **Settings** (from the profile dropdown)
 2. Scroll down to the **Support Contact** section
 
-   <img src="images/17-12-support-contact-fields.png" alt="Support contact fields in admin settings" style="max-width: 500px" />
+   <img src="../images/17-12-support-contact-fields.png" alt="Support contact fields in admin settings" style="max-width: 500px" />
 
 3. Enter the **Support Email** and **Support Phone** for your tenant
 4. Click **Save Settings**
@@ -489,7 +489,7 @@ Grantees need an active subscription (Basic or Premium) to access grants and exp
 
 The **Subscription** column on the User Management page shows each grantee's current status at a glance. See the badge table in Section 7 for details.
 
-<img src="images/17-07-user-list-page.png" alt="Admin user list page" style="max-width: 800px" />
+<img src="../images/17-07-user-list-page.png" alt="Admin user list page" style="max-width: 800px" />
 
 
 ### Waiving a Subscription
@@ -502,7 +502,7 @@ If a grantee should have access without paying (e.g. a sponsored user or a test 
 
 The grantee's Subscription badge changes to **Waived** (purple) and they receive full access (Premium-level) without a Stripe subscription. The grantee's Subscription page will show: *"Premium (subscription waived by your administrator)"*.
 
-<img src="images/16-14-subscription-waived.png" alt="Subscription waived" style="max-width: 500px" />
+<img src="../images/16-14-subscription-waived.png" alt="Subscription waived" style="max-width: 500px" />
 
 
 > ℹ️ If the grantee already has a Stripe subscription, the waiver overrides it. Their Stripe subscription continues independently — the grantee can cancel it via the billing portal on their Subscription page.
