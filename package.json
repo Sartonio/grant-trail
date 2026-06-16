@@ -12,6 +12,7 @@
     "test": "npm run test --prefix frontend",
     "e2e": "npm run e2e --prefix frontend",
     "e2e:install": "npm run e2e:install --prefix frontend",
-    "db:deploy": "node scripts/deploy_db.js"
+    "db:deploy": "node scripts/deploy_db.js",
+    "admin:promote": "node scripts/promote_admin.js"
   }
 }
