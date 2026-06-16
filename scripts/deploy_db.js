@@ -78,6 +78,53 @@ async function main() {
     }
     console.log('✅ Edge functions successfully deployed.');
 
+    console.log('\n🧹 Pruning remote edge functions not found in local codebase...');
+    
+    // Get local function directory names
+    const localFunctionsPath = path.join(__dirname, '..', 'supabase', 'functions');
+    const localFunctions = fs.readdirSync(localFunctionsPath).filter(file => {
+      const fullPath = path.join(localFunctionsPath, file);
+      // Only include directories, exclude shared helper folder '_shared' and any dotfiles
+      return fs.statSync(fullPath).isDirectory() && !file.startsWith('_') && !file.startsWith('.');
+    });
+
+    // Get remote deployed functions
+    const listResult = spawnSync('npx', [
+      '--prefix', 'frontend', 'supabase', 'functions', 'list', '-o', 'json'
+    ], {
+      shell: true
+    });
+
+    if (listResult.status === 0) {
+      try {
+        const output = listResult.stdout.toString().trim();
+        const jsonStart = output.indexOf('[');
+        if (jsonStart !== -1) {
+          const remoteFunctions = JSON.parse(output.substring(jsonStart));
+          for (const fn of remoteFunctions) {
+            if (!localFunctions.includes(fn.name)) {
+              console.log(`Pruning remote function: ${fn.name}...`);
+              const deleteResult = spawnSync('npx', [
+                '--prefix', 'frontend', 'supabase', 'functions', 'delete', fn.name
+              ], {
+                stdio: 'inherit',
+                shell: true
+              });
+              if (deleteResult.status !== 0) {
+                console.warn(`⚠️ Warning: Failed to prune remote function "${fn.name}"`);
+              } else {
+                console.log(`✅ Successfully deleted remote function: ${fn.name}`);
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('⚠️ Warning: Failed to parse remote functions list for pruning. Skipping prune step.', e.message);
+      }
+    } else {
+      console.warn('⚠️ Warning: Failed to retrieve remote functions list for pruning. Skipping prune step.');
+    }
+
     console.log('\n🌱 Bootstrapping initial tenant structure...');
     
     // Construct the bootstrap SQL query (structural only, no user details)
