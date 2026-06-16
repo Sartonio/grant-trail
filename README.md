@@ -24,8 +24,6 @@ Built with **React** on the frontend and **Supabase** (Postgres, Auth, Storage, 
 grant-trail/
 ├── backend/                       # Database layer
 │   ├── 00-Full-Teardown.sql       # Wipe database tables/functions
-│   ├── 01-Complete-Fresh-Setup.sql # Core database schema & RLS policies
-│   ├── 02-Sample-Data.sql         # Seed data for dev (10 users, 4 tenants)
 │   ├── 03-Large-Sample-Data.sql   # Large grant load testing (50+ grants)
 │   ├── 04-Check-Missing-Auth-Users.sql # Dev utility to track Auth status
 │   ├── 05-After-User-Creation.sql # Link seeded database profiles to Auth UUIDs
@@ -41,8 +39,10 @@ grant-trail/
 │   │   └── lib/                   # API, billing, and auth helpers
 │   └── package.json               # Dependencies and scripts
 │
-├── supabase/                      # Edge Functions & Serverless layer
-│   └── functions/                 # Stripe checkout, webhooks, billing portal
+├── supabase/                      # Edge Functions, Database Migrations, & Seeds
+│   ├── migrations/                # Supabase database schema migrations
+│   ├── functions/                 # Stripe checkout, webhooks, billing portal
+│   └── seed.sql                   # Seed data for local dev (10 users, 4 tenants)
 │
 └── docs/                          # Project documentation and walkthroughs
 ```
@@ -53,17 +53,23 @@ grant-trail/
 
 ### 1. Database & Supabase Setup
 1. Create a new project on [Supabase](https://supabase.com).
-2. Go to the **SQL Editor** in your Supabase dashboard.
-3. Run `backend/01-Complete-Fresh-Setup.sql` to build the tables, RLS policies, and triggers.
-4. Set up the environment variables in `frontend/.env.local` using the project API credentials:
+2. Install the [Supabase CLI](https://supabase.com/docs/guides/cli/getting-started).
+3. Start the local database, which will automatically apply schema migrations and seed data:
+   ```bash
+   supabase start
+   ```
+4. Set up the environment variables in `frontend/.env.local` using your local project API credentials (or remote if deploying):
    ```env
-   VITE_SUPABASE_URL=https://your-project-id.supabase.co
+   VITE_SUPABASE_URL=http://127.0.0.1:54321
    VITE_SUPABASE_KEY=your-anon-public-key
    ```
 
 ### 2. Loading Development Seeding
-If you are developing locally, you can load sample data:
-1. Run `backend/02-Sample-Data.sql` in the Supabase SQL Editor.
+If you are developing locally, `supabase start` already seeds your database via `supabase/seed.sql`.
+To re-apply migrations and reset the seed data anytime, simply run:
+```bash
+supabase db reset
+```
 2. Create Auth accounts manually in your Supabase dashboard (**Authentication → Users**) matching the seeded emails (e.g., `eric.hobbs@example.com`, `maria.smith@example.com`, `sam.reeves@example.com`).
 3. Run `backend/05-After-User-Creation.sql` to link the database profile records to the new Auth UUIDs.
 

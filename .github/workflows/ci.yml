@@ -53,12 +53,7 @@ jobs:
           echo "SUPABASE_SERVICE_ROLE_KEY=$(supabase status -o env | grep SERVICE_ROLE_KEY | cut -d= -f2-)" >> $GITHUB_ENV
         working-directory: .
 
-      - name: Bootstrap Database
-        run: |
-          docker exec -i supabase_db_grant-trail psql -U postgres -d postgres < backend/01-Complete-Fresh-Setup.sql
-          docker exec -i supabase_db_grant-trail psql -U postgres -d postgres < backend/02-Sample-Data.sql
-          docker exec -i supabase_db_grant-trail psql -U postgres -d postgres -c "GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO service_role, anon, authenticated; GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO service_role, anon, authenticated; GRANT ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA public TO service_role, anon, authenticated;"
-        working-directory: .
+
 
       - name: Install Playwright browsers and dependencies
         run: npx playwright install --with-deps

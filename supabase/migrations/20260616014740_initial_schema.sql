@@ -1753,3 +1753,4 @@ WHERE table_schema = 'public'
 ORDER BY table_name;
 
 SELECT id, name, public FROM storage.buckets WHERE id IN ('receipts', 'grant-documents');
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO service_role, anon, authenticated; GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO service_role, anon, authenticated; GRANT ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA public TO service_role, anon, authenticated;

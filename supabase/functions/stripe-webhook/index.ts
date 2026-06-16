@@ -63,6 +63,21 @@ Deno.serve(async (request) => {
       status: 200,
     });
   } catch (error) {
+    console.error('Webhook error:', error);
+    try {
+      await adminSupabase.from('system_logs').insert({
+        event_name: 'stripe_webhook_failure',
+        error_message: error instanceof Error ? error.message : String(error),
+        error_stack: error instanceof Error ? error.stack : undefined,
+        severity: 'critical',
+        metadata: {
+          signature: request.headers.get('stripe-signature'),
+        }
+      });
+    } catch (logError) {
+      console.error('Failed to write system log to database:', logError);
+    }
+
     return new Response(JSON.stringify({ error: error instanceof Error ? error.message : 'Webhook processing failed.' }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 400,

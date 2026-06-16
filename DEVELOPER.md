@@ -128,8 +128,8 @@ All SQL scripts live in `backend/`. Run them in the Supabase Dashboard → SQL E
 
 | Script | When to run | What it does |
 |--------|-------------|--------------|
-| `01-Complete-Fresh-Setup.sql` | **First** — required | Creates all tables, functions, triggers, RLS policies, and storage buckets |
-| `02-Sample-Data.sql` | After `01` | Inserts 3 grantee accounts + 6 grants with budget items and expenses |
+| `supabase/migrations/*_initial_schema.sql` | **First** — automatic via CLI | Creates all tables, functions, triggers, RLS policies, and storage buckets |
+| `supabase/seed.sql` | After migrations — automatic | Inserts 3 grantee accounts + 6 grants with budget items and expenses |
 | `05-After-User-Creation.sql` | After creating Auth accounts (see below) | Links Supabase Auth UUIDs to the users table rows; adds sample admin comments |
 | `03-Large-Sample-Data.sql` | Optional | 50+ grants for one user (Alex Tan) — good for pagination/chart testing |
 | `04-Check-Missing-Auth-Users.sql` | Before creating Auth accounts | Shows which users still need Auth accounts created in Supabase Dashboard |
@@ -140,9 +140,9 @@ All SQL scripts live in `backend/`. Run them in the Supabase Dashboard → SQL E
 
 **Sample user setup flow:**
 
-1. Run `01-Complete-Fresh-Setup.sql`
-2. Run `02-Sample-Data.sql` — this inserts user rows in the `users` table but leaves the auth UUID column (`user_id`) null
-3. In Supabase Dashboard → Authentication → Users, manually create accounts for these emails with any password (you can create all 10 sample users from `02-Sample-Data.sql`, or a subset like the TFAC ones):
+1. Run `supabase start` in the terminal to spin up the local DB, apply migrations, and insert `seed.sql`.
+2. The `seed.sql` file inserts user rows in the `users` table but leaves the auth UUID column (`user_id`) null.
+3. In Supabase Dashboard → Authentication → Users, manually create accounts for these emails with any password (you can create all 10 sample users from `supabase/seed.sql`, or a subset like the TFAC ones):
    - `maria.smith@example.com` (grantee)
    - `jacob.soto@example.com` (grantee)
    - `faizan.sharp@example.com` (grantee)
@@ -158,10 +158,8 @@ All SQL scripts live in `backend/`. Run them in the Supabase Dashboard → SQL E
 
 ```
 grant-trail/
-├── backend/                      # SQL scripts only
+├── backend/                      # Legacy SQL scripts and utilities
 │   ├── 00-Full-Teardown.sql
-│   ├── 01-Complete-Fresh-Setup.sql
-│   ├── 02-Sample-Data.sql
 │   ├── 03-Large-Sample-Data.sql
 │   ├── 04-Check-Missing-Auth-Users.sql
 │   ├── 05-After-User-Creation.sql
@@ -521,7 +519,7 @@ Several things happen automatically in the database when you insert or update a 
 
 This is why you won't find code in the frontend that manually inserts into `grant_status_history` — the trigger handles it.
 
-**Schema file:** `backend/01-Complete-Fresh-Setup.sql` (SECTION 2: FUNCTIONS & TRIGGERS)
+**Schema file:** `supabase/migrations/*_initial_schema.sql` (SECTION 2: FUNCTIONS & TRIGGERS)
 
 ---
 
@@ -1036,7 +1034,7 @@ If missing, run `01-Complete-Fresh-Setup.sql` again (it uses `ON CONFLICT DO NOT
    - Delete all test user accounts
 
 5. SQL Editor: run 01-Complete-Fresh-Setup.sql
-6. SQL Editor: run 02-Sample-Data.sql
+6. Ensure `supabase/seed.sql` was applied to seed users
 7. Auth: recreate test user accounts (maria, jacob, faizan, eric)
 8. SQL Editor: run 05-After-User-Creation.sql
 ```
