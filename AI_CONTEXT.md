@@ -10,6 +10,7 @@ Always run commands from the repository root:
 * **Setup**: `npm run setup` (installs dependencies in `frontend/` and provisions `frontend/.env.local`).
 * **Database**: `npm run db:start` (starts local Supabase containers and applies migrations + seed data).
 * **Development Server**: `npm run dev` (starts the React Vite development server).
+* **Production Database Deployment**: `npm run db:deploy` (runs the interactive CLI script to link, migrate, and bootstrap a remote production database).
 
 ---
 
