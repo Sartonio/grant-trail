@@ -150,6 +150,8 @@ Stripe must be told where to send payment events (subscription created, payment 
 4. Leave the build settings at their defaults (Vercel auto-detects Vite)
 5. **Do not deploy yet** — proceed to the next steps first
 
+> **SPA routing:** client-side routes (deep links and post-auth redirects like `/complete-profile`) are handled by `frontend/vercel.json`, which rewrites all unmatched paths to `/index.html`. It's committed and applied automatically — **do not delete it**, or those paths return a Vercel `404: NOT_FOUND`. Real static files (e.g. `/assets/*`) are served before the rewrite.
+
 Your app URL will be `https://<project-name>.vercel.app`. **Paste it into `.deploy/supabase.env`** as `APP_URL` now. (If you'll use a custom domain, set `APP_URL` to that domain instead — see Step 7.)
 
 With that, both deferred values are filled and `.deploy/supabase.env` is complete.

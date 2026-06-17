@@ -90,6 +90,7 @@ Task-oriented guides for specific goals:
 - [Making Schema Changes](docs/how_to/make_schema_changes.md)
 - [Resetting Test Data](docs/how_to/reset_test_data.md)
 - [Promoting a Super Admin](docs/how_to/promote_superadmin.md)
+- [Local Stripe / Billing Testing](docs/how_to/local_stripe_testing.md)
 
 ### Reference
 Lookup material:
