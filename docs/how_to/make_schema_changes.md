@@ -108,3 +108,38 @@ It does **not** run `seed.sql`, set Edge Function secrets, or touch Auth/API con
 > Secrets are managed separately — newly declared functions will deploy but 500 at runtime until their secrets exist. Set them with `npm run deploy:secrets`. There is no automatic pre-migration backup, so enable **Point-in-Time Recovery** on the production project before it carries live traffic.
 
 The legacy `npm run db:deploy` script has been removed. `npm run db:migrate` (`supabase db push --linked`) remains only as a manual escape hatch; the integration is the normal path.
+
+---
+
+## Migration Layout & Squashing the Baseline
+
+The migration history is intentionally split:
+
+| File | Contains |
+|------|----------|
+| `…_initial_schema.sql` | A **pure schema baseline** — tables, functions, triggers, policies. Generated from a schema dump, so it holds **no data rows**. |
+| `…_bootstrap_initial_tenant.sql` | The `tfac` tenant + its settings (data prod needs). |
+| `…_restore_platform_and_storage_data.sql` | The single `platform_settings` row and the `receipts` / `grant-documents` storage buckets. |
+
+All bootstrap **data** lives in migrations (never in `seed.sql`, which is local/CI only), and the schema baseline stays data-free.
+
+### If you squash the migration history
+
+Squashing (regenerating `initial_schema` from a fresh dump to collapse history) is allowed, but two traps cost real debugging time here — avoid them:
+
+> [!WARNING]
+> **`supabase db dump` exports schema only — it silently drops every `INSERT` (data row).** A squash generated from a dump will lose rows the old history created (here: the `platform_settings` row and the storage buckets), which then breaks `supabase db reset`/CI and runtime uploads. After squashing, **re-add any data rows** the old migrations created — either in a bootstrap data migration or restored explicitly.
+
+> [!WARNING]
+> **A squash rewrites an already-applied migration's content.** Production tracks migrations by **version, not content**, so it will **not** re-run the rewritten baseline — meaning the squashed file must faithfully reproduce production's *actual* end state. The only way to be sure is to diff a from-scratch repo build against production's schema.
+
+### Adding data that an existing environment already has
+
+When you need a row on **fresh builds** that **production already has** (e.g. the rows a squash dropped), do **not** edit the already-applied migration to add it. Instead add a **new, forward-only, idempotent migration**:
+
+```sql
+INSERT INTO platform_settings (id) VALUES (1)
+ON CONFLICT (id) DO NOTHING;
+```
+
+On production the row already exists, so the insert is a no-op — but the migration still records its version in the ledger, keeping every environment's history identical. On a fresh build it supplies the missing row. This is exactly what `restore_platform_and_storage_data` does.
