@@ -56,7 +56,7 @@ If your schema change affects table columns (adding, renaming, deleting, or chan
 > [!WARNING]
 > **`seed.sql` is local/CI only — it never runs in production.** The Supabase GitHub integration ignores seed files (see [How Changes Reach Production](#how-changes-reach-production)). So:
 > - Data that production **needs** (e.g. the bootstrap tenant) belongs in a **migration**, not in `seed.sql`.
-> - If a migration creates a row that `seed.sql` also inserts, the seed insert **must** be idempotent (`ON CONFLICT ... DO NOTHING`) or `supabase db reset`/CI will fail with a duplicate-key error. This is exactly how the `tfac` tenant is handled: created by `bootstrap_initial_tenant` migration, and the seed's `tfac` insert no-ops on top of it.
+> - Migrations run **before** the seed during `supabase db reset`, so the seed should **rely on** rows a migration already created rather than re-inserting them. This is how the `tfac` tenant works: created by the `bootstrap_initial_tenant` migration, and `seed.sql` does not re-declare it — it only references it via `WHERE slug = 'tfac'` and adds the extra demo tenants. If you ever do need the seed to insert a row a migration also creates, make that seed insert idempotent (`ON CONFLICT ... DO NOTHING`) or `supabase db reset`/CI will fail with a duplicate-key error.
 
 ### Step 4: Validate the Migration
 Verify that your migrations and seed data apply successfully from scratch:

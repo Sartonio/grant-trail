@@ -37,19 +37,18 @@ VALUES
 -- SECTION 1: TENANT
 -- ==========================================
 
--- tfac is also created by the bootstrap migration (it ships to production,
--- which never runs this seed). ON CONFLICT keeps the seed runnable on top of it.
+-- The tfac tenant and its settings are created by the bootstrap_initial_tenant
+-- migration (the one that also ships to production). Migrations always run
+-- before this seed during `supabase db reset`, so tfac already exists here and
+-- is deliberately NOT re-declared below — the seed only adds the extra demo
+-- tenants. Downstream demo rows reference tfac via `WHERE slug = 'tfac'`.
 INSERT INTO tenants (name, slug, tenant_type) VALUES
-  ('The Family Advocates Canada', 'tfac', 'managed'),
   ('Bright Horizons Foundation', 'bright-horizons', 'managed'),
   ('Lopez Consulting', 'lopez-consulting', 'self_service'),
-  ('Greenleaf Bookkeeping', 'greenleaf', 'self_service')
-ON CONFLICT (slug) DO NOTHING;
+  ('Greenleaf Bookkeeping', 'greenleaf', 'self_service');
 
 INSERT INTO tenant_settings (tenant_id) VALUES
-  ((SELECT id FROM tenants WHERE slug = 'tfac')),
-  ((SELECT id FROM tenants WHERE slug = 'bright-horizons'))
-ON CONFLICT (tenant_id) DO NOTHING;
+  ((SELECT id FROM tenants WHERE slug = 'bright-horizons'));
 
 INSERT INTO tenant_settings (tenant_id, require_grant_approval, require_budget_approval, require_expense_approval) VALUES
   ((SELECT id FROM tenants WHERE slug = 'lopez-consulting'), false, false, false),
