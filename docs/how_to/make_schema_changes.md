@@ -53,6 +53,11 @@ If your schema change affects table columns (adding, renaming, deleting, or chan
 > **You MUST update [supabase/seed.sql](../../supabase/seed.sql) to align with your new schema.**
 > If you skip this, `supabase db reset` (which developers run to sync changes) will fail because the mock data insert statements in `seed.sql` will mismatch the new schema definitions.
 
+> [!WARNING]
+> **`seed.sql` is local/CI only — it never runs in production.** The Supabase GitHub integration ignores seed files (see [How Changes Reach Production](#how-changes-reach-production)). So:
+> - Data that production **needs** (e.g. the bootstrap tenant) belongs in a **migration**, not in `seed.sql`.
+> - If a migration creates a row that `seed.sql` also inserts, the seed insert **must** be idempotent (`ON CONFLICT ... DO NOTHING`) or `supabase db reset`/CI will fail with a duplicate-key error. This is exactly how the `tfac` tenant is handled: created by `bootstrap_initial_tenant` migration, and the seed's `tfac` insert no-ops on top of it.
+
 ### Step 4: Validate the Migration
 Verify that your migrations and seed data apply successfully from scratch:
 
@@ -83,3 +88,23 @@ When another developer commits schema changes and you pull them down, synchroniz
 ```bash
 supabase db reset
 ```
+
+---
+
+## How Changes Reach Production
+
+There is **no manual deploy step** for the database. Production Supabase is connected to this repo through the **Supabase GitHub integration** ("Deploy to production" enabled, production branch `main`). On merge to `main`, the integration automatically:
+
+- Applies any **new migrations** under `supabase/migrations/` (only the pending ones; it never re-runs an applied migration)
+- Deploys the **Edge Functions declared in `supabase/config.toml`**
+- Deploys **storage buckets** created by the migrations
+
+It does **not** run `seed.sql`, set Edge Function secrets, or touch Auth/API config.
+
+> [!IMPORTANT]
+> Because merge = deploy, **a bad migration merged to `main` goes straight to production.** On the current (Free) plan there are no preview databases, so there is no per-PR dry run. Your safety net is CI (`supabase start` replays all migrations from scratch on every push) — keep CI green before merging. The integration cannot replay an edited migration, so never edit an already-applied file; always add a new timestamped one.
+
+> [!NOTE]
+> Secrets are managed separately — newly declared functions will deploy but 500 at runtime until their secrets exist. Set them with `npm run deploy:secrets`. There is no automatic pre-migration backup, so enable **Point-in-Time Recovery** on the production project before it carries live traffic.
+
+The legacy `npm run db:deploy` script has been removed. `npm run db:migrate` (`supabase db push --linked`) remains only as a manual escape hatch; the integration is the normal path.
