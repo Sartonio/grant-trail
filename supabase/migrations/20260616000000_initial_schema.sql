@@ -3468,24 +3468,3 @@ CREATE POLICY "Users can view their own receipts" ON "storage"."objects" FOR SEL
 
 
 
--- ==========================================
--- SECTION 7: BOOTSTRAP DATA
--- ==========================================
--- Data rows the original migration history created but the squashed baseline
--- (generated from a schema dump, which excludes data) omitted. Restored so a
--- database built from scratch matches production. Idempotent for safe re-runs.
-
--- Single platform_settings row. Product IDs are intentionally NULL here and set
--- per-environment (super_admin / Stripe env vars); the seed sets them locally.
-INSERT INTO "public"."platform_settings" ("id") VALUES (1)
-ON CONFLICT ("id") DO NOTHING;
-
--- Storage buckets for receipt and grant-document uploads.
-INSERT INTO "storage"."buckets" ("id", "name", "public") VALUES ('receipts', 'receipts', false)
-ON CONFLICT ("id") DO NOTHING;
-
-INSERT INTO "storage"."buckets" ("id", "name", "public") VALUES ('grant-documents', 'grant-documents', false)
-ON CONFLICT ("id") DO NOTHING;
-
-
-
