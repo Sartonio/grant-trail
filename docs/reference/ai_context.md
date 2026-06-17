@@ -81,3 +81,26 @@ Never insert the Auth UUID into a column that expects the integer user ID. The t
 - **`useCallback` + `useEffect`** — Wrap async data-fetching functions in `useCallback` and pass them as `useEffect` dependencies when they also need to be triggered manually (e.g. on form submit). This prevents render loops.
 - **Set lookups** — When checking membership in a list inside a `.map()`, convert the array to a `Set` first. Avoid `.find()` or `.includes()` in inner loops.
 - **Batching with `.in()`** — Avoid N+1 queries. Collect parent IDs first, then fetch related records in a single `.in('parent_id', ids)` call.
+
+---
+
+## 8. Adding New Integrations & API Keys
+
+When introducing a new integration (e.g., a new SaaS provider, API-based feature, or external service), you must add its API keys and configuration values to the appropriate runtimes and update the project configuration files.
+
+### Step 1: Identify Runtime Scope
+*   **Client-side Only (Vercel/Frontend)**: Keys/endpoints prefixed with `VITE_` (e.g., analytics, monitoring). Exposing these in the browser bundle is safe.
+*   **Server-side Only (Supabase Edge Functions)**: Sensitive secrets (e.g., payment, email, database keys). These must **never** be exposed to the client.
+
+### Step 2: Configure All Environments
+
+| Integration Type | Local Dev Environment | Staging / CI Environment | Production Release Environment |
+| :--- | :--- | :--- | :--- |
+| **Frontend/Client Keys** | Add to `frontend/.env.local` | Set as workflow environment variables in `.github/workflows/ci.yml` (if needed for testing). | Add in Vercel Console: **Project Settings → Environment Variables**. |
+| **Backend/Secret Keys** | Add to `supabase/.env` | Set as workflow environment variables or secret overrides in CI (if needed for testing). | Deploy to Supabase Vault via: `npx supabase secrets set --project-ref <ref> KEY="value"` |
+
+### Step 3: Keep Project Templates in Sync
+Do not leave configuration changes undocumented. Every new environment variable requires:
+1. **Template Updates**: Add the key with placeholder values to `frontend/.env.example` or `supabase/.env.example`.
+2. **Setup Script Sync**: If the key is required for default local setup, verify if `npm run setup` needs to generate it or copy it.
+3. **Reference Documentation**: Document the purpose, options, and source of the variable in [`docs/reference/environment_variables.md`](file:///home/ryan/Documents/grant-trail/docs/reference/environment_variables.md).
