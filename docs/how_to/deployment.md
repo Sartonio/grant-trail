@@ -1,9 +1,22 @@
-# Production Deployment Guide
+# Deployment Guide
+
+> [!IMPORTANT]
+> **There is no production environment yet — everything described here currently
+> ships to _staging_.** The live Supabase project connected to this repository
+> (`grant-trail`, ref `yfkmoeuimqpegfuhplwr`) and every merge to `main` deploy to
+> **staging only**. Supabase labels that project's default branch `PRODUCTION`,
+> but that is just Supabase's name for the project's single environment on the
+> Free plan — treat it as staging.
+>
+> **Production will be a separate GitHub repository** wired to its own Supabase
+> project via the same GitHub integration. Promoting a change to production will
+> mean merging it into that production repo; this repo's `main` is the staging
+> line. Until that repo exists, do not treat any data here as production data.
 
 GrantTrail deployment has two phases:
 
 - **[First-time bootstrap](#part-a--first-time-bootstrap-do-once)** — provision the infrastructure and wire up config. You do this once.
-- **[Deploying changes](#part-b--deploying-changes-every-time-after)** — the steady state after bootstrap: `git push` ships code, one command ships schema changes.
+- **[Deploying changes](#part-b--deploying-changes-every-time-after)** — the steady state after bootstrap: merging to `main` ships both code and schema changes automatically.
 
 **Architecture overview:**
 - **Backend** — Supabase (database, auth, storage, edge functions)
@@ -247,11 +260,11 @@ Once bootstrap is done, the infrastructure and secrets stay put. Day-to-day depl
 | You changed… | Do this |
 |--------------|---------|
 | **Code / UI** | `git push origin main` — Vercel auto-builds and ships. (PRs get a preview deploy automatically.) |
-| **The database schema** | Add an incremental migration under `supabase/migrations/` (see [Making Schema Changes](make_schema_changes.md)), then `npm run db:migrate` to apply it to production. This runs `supabase db push` — it applies *new* migrations only and is **non-destructive**. |
+| **The database schema** | Add an incremental migration under `supabase/migrations/` (see [Making Schema Changes](make_schema_changes.md)) and **merge it**. The Supabase GitHub integration applies *new* migrations only, on merge — there is no manual push step. |
 | **A secret** (rotated Stripe key, etc.) | Recreate just the relevant `.deploy/` file with the new value, then `npm run deploy:secrets`. |
 | **The first super admin** | One-time only — see Step 9. |
 
-> **Schema changes are always incremental.** Never edit an already-applied migration or hand-edit the remote database — add a new timestamped file under `supabase/migrations/`. On merge to the production branch, the **Supabase GitHub integration** applies only the pending migrations (it never re-runs applied ones), so it cannot replay an edited file. Avoid `DROP`/destructive statements unless intended: the integration applies whatever the migration contains and does not back up first. `npm run db:migrate` (`supabase db push --linked`) remains available as a manual escape hatch, but the integration is the normal path.
+> **Schema changes are always incremental.** Never edit an already-applied migration or hand-edit the remote database — add a new timestamped file under `supabase/migrations/`. On merge to the production branch, the **Supabase GitHub integration** applies only the pending migrations (it never re-runs applied ones), so it cannot replay an edited file. Avoid `DROP`/destructive statements unless intended: the integration applies whatever the migration contains and does not back up first. **The integration is the single source of truth for schema deploys** — there is no manual `db push` path. Never run `supabase db push` against the remote by hand; doing so applies migrations out of band and drifts the environment from what the integration believes is deployed.
 
 ---
 

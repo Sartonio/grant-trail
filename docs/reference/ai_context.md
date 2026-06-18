@@ -13,8 +13,7 @@ Always run commands from the repository root:
 | `npm run setup` | Install dependencies and scaffold all local env files |
 | `npm run db:start` | Start local Supabase containers, apply migrations, seed test data |
 | `npm run dev` | Start the Vite development server |
-| _(merge to production branch)_ | Production schema + Edge Functions deploy automatically via the Supabase GitHub integration; there is no deploy script |
-| `npm run db:migrate` | Manual escape hatch: `supabase db push --linked` to apply pending migrations to the linked remote |
+| _(merge to `main`)_ | Schema + Edge Functions deploy automatically to **staging** via the Supabase GitHub integration; there is no deploy script and no manual `db push` path (the integration is the single source of truth). Production will be a separate repo. |
 | `npm run admin:promote <email>` | Promote a registered user to Super Admin on the remote database |
 
 ---

@@ -15,7 +15,6 @@
     "test": "npm run test --prefix frontend",
     "e2e": "npm run e2e --prefix frontend",
     "e2e:install": "npm run e2e:install --prefix frontend",
-    "db:migrate": "npx --prefix frontend supabase db push --linked",
     "deploy:secrets": "node scripts/deploy_secrets.js",
     "admin:promote": "node scripts/promote_admin.js"
   }

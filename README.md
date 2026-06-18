@@ -4,6 +4,9 @@ GrantTrail is a multi-tenant web application for non-profits and public sector o
 
 Built with **React** on the frontend and **Supabase** (Postgres, Auth, Storage, and Edge Functions) on the backend. Supports independent workspaces, configurable approval workflows, and Stripe-based subscription billing.
 
+> [!NOTE]
+> **Deployment status:** merges to `main` deploy to a **staging** environment only — there is no production environment yet. Production will live in a separate GitHub repository wired to its own Supabase project. See the [Deployment Guide](docs/how_to/deployment.md). The Supabase GitHub integration is the single source of truth for schema deploys (migrations apply on merge; there is no manual `db push`).
+
 ---
 
 ## Key Features
