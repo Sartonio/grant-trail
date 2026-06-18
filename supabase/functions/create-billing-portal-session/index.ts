@@ -1,4 +1,4 @@
-import { buildRedirectUrl, corsHeaders, getOrCreateStripeCustomer, requireAuthenticatedProfile, stripe } from '../_shared/stripe.ts';
+import { adminSupabase, buildRedirectUrl, corsHeaders, getOrCreateStripeCustomer, requireAuthenticatedProfile, stripe } from '../_shared/stripe.ts';
 
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') {
@@ -22,6 +22,21 @@ Deno.serve(async (request) => {
       status: 200,
     });
   } catch (error) {
+    console.error('Billing portal session error:', error);
+    try {
+      await adminSupabase.from('system_logs').insert({
+        event_name: 'create_billing_portal_session_failure',
+        error_message: error instanceof Error ? error.message : String(error),
+        error_stack: error instanceof Error ? error.stack : undefined,
+        severity: 'critical',
+        metadata: {
+          path: new URL(request.url).pathname,
+        }
+      });
+    } catch (logError) {
+      console.error('Failed to write system log to database:', logError);
+    }
+
     return new Response(JSON.stringify({ error: error instanceof Error ? error.message : 'Unable to create billing portal session.' }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 400,

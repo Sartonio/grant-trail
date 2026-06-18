@@ -54,6 +54,21 @@ Deno.serve(async (request) => {
       },
     );
   } catch (error) {
+    console.error('Subscription sync error:', error);
+    try {
+      await adminSupabase.from('system_logs').insert({
+        event_name: 'sync_my_subscription_failure',
+        error_message: error instanceof Error ? error.message : String(error),
+        error_stack: error instanceof Error ? error.stack : undefined,
+        severity: 'critical',
+        metadata: {
+          path: new URL(request.url).pathname,
+        }
+      });
+    } catch (logError) {
+      console.error('Failed to write system log to database:', logError);
+    }
+
     return new Response(JSON.stringify({ error: error instanceof Error ? error.message : 'Unable to sync subscription.' }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 400,
