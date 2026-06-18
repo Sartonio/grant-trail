@@ -1,6 +1,7 @@
 // src/App.js
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import * as Sentry from '@sentry/react';
 import './App.css';
 import { supabase } from './supabaseClient';
 import './styles/variables.css';
@@ -82,6 +83,7 @@ function App() {
       setSession(prev => (prev ? { ...prev, membership: { ...membership } } : prev));
     } catch (err) {
       console.error('Failed to refresh membership:', err);
+      Sentry.captureException(err);
     }
   }
 

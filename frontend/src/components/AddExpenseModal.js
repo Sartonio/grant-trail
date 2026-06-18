@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react';
+import * as Sentry from '@sentry/react';
 import { supabase } from '../supabaseClient';
 import {
   FaTimes,
@@ -190,6 +191,7 @@ function AddExpenseModal({ grantId, budgetItemId, budgetItem, expenseItem, exist
       onClose();
     } catch (err) {
       console.error(`Error ${isEditMode ? 'updating' : 'adding'} expense:`, err);
+      Sentry.captureException(err);
       setError(err.message || `Failed to ${isEditMode ? 'update' : 'add'} expense`);
     } finally {
       setLoading(false);

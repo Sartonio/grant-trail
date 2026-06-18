@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import * as Sentry from '@sentry/react';
 import { supabase } from '../supabaseClient';
 import {
   FaUpload,
@@ -125,6 +126,7 @@ function GrantAttachments({ grantId, session, readOnly = false }) {
       await fetchAttachments();
     } catch (err) {
       console.error('Attachment upload error:', err);
+      Sentry.captureException(err);
       setError(err.message || 'Upload failed. Please try again.');
     } finally {
       setUploading(false);
@@ -155,6 +157,7 @@ function GrantAttachments({ grantId, session, readOnly = false }) {
       await fetchAttachments();
     } catch (err) {
       console.error('Delete error:', err);
+      Sentry.captureException(err);
       alert('Could not delete file. Please try again.');
       setDeletingId(null);
     }

@@ -1,6 +1,7 @@
 // src/components/AdminGrantReview.js
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import * as Sentry from '@sentry/react';
 import { supabase } from '../supabaseClient';
 import {
   FiArrowLeft,
@@ -224,6 +225,7 @@ function AdminGrantReview({ session }) {
       setComments(data || []);
     } catch (err) {
       console.error('Comment error:', err);
+      Sentry.captureException(err);
     } finally {
       setCommentLoading(false);
     }

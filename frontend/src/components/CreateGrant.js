@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import * as Sentry from '@sentry/react';
 import { supabase } from '../supabaseClient';
 import {
   FaCalendarAlt,
@@ -176,6 +177,7 @@ function CreateGrant({ session }) {
       }, 1500);
     } catch (err) {
       console.error('Error saving grant:', err);
+      Sentry.captureException(err);
       setError(err.message || 'Failed to save grant application');
     } finally {
       setLoading(false);

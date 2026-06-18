@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import * as Sentry from '@sentry/react';
 import { supabase } from '../supabaseClient';
 import {
   FaTimes,
@@ -106,6 +107,7 @@ function BudgetItemModal({ grantId, budgetItem, grantAmount, totalAllocated, onC
       onClose();
     } catch (err) {
       console.error('Error saving budget item:', err);
+      Sentry.captureException(err);
       setError(err.message || 'Failed to save budget item');
     } finally {
       setLoading(false);

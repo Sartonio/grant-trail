@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import * as Sentry from "@sentry/react";
 import { supabase } from "../supabaseClient";
 
 export function useUser() {
@@ -22,6 +23,7 @@ export function useUser() {
 
         if (error) {
           console.error("Error fetching user record:", error);
+          Sentry.captureException(error);
         } else {
           setUserRecord(data);
         }
