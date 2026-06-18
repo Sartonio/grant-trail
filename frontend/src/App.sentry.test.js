@@ -9,6 +9,12 @@ vi.mock('@sentry/react', () => ({ captureException: (...args) => captureExceptio
 // so the catch block (console.error + Sentry) runs.
 const syncError = new Error('stripe sync failed');
 vi.mock('./lib/billing', () => ({
+  fetchSessionContext: vi.fn(async () => ({
+    userRecord: { id: 'u1', user_id: 'u1', is_active: true, role: 'grantee', tenant_id: 't1' },
+    tenant: { is_active: true, tenant_type: 'self_service', name: 'T' },
+    tenantConfig: { type: 'self_service', name: 'T' },
+    membership: { isExempt: false, hasBasicAccess: true, hasPremiumAccess: false, membership: null, activeSubscription: null },
+  })),
   fetchMembershipStatus: vi.fn(async () => ({ isExempt: false, hasBasicAccess: true, hasPremiumAccess: false, membership: null, activeSubscription: null })),
   syncMembershipFromStripe: vi.fn(async () => { throw syncError; }),
   hasRequiredSubscription: vi.fn(() => true),

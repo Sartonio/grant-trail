@@ -31,12 +31,13 @@ import AdminSettings from './components/AdminSettings';
 import CompleteProfile from './components/CompleteProfile';
 import LandingPage from './components/LandingPage';
 import SubscriptionPage from './components/SubscriptionPage';
-import { fetchMembershipStatus, hasRequiredSubscription, syncMembershipFromStripe } from './lib/billing';
+import { fetchMembershipStatus, fetchSessionContext, hasRequiredSubscription, syncMembershipFromStripe } from './lib/billing';
 
 function App() {
   const [session,         setSession]         = useState(null);
   const [sessionLoading,  setSessionLoading]  = useState(true);
   const [accountDisabled, setAccountDisabled] = useState(false);
+  const [sessionError,    setSessionError]    = useState(false); // session bootstrap failed
   const [needsProfile,   setNeedsProfile]   = useState(false);
   const [authUser,       setAuthUser]       = useState(null); // Auth user without a users table record
   const [platformSettings, setPlatformSettings] = useState(null);
@@ -111,55 +112,45 @@ function App() {
 
   useEffect(() => {
     const getSession = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: userRecord } = await supabase
-          .from('users')
-          .select('*')
-          .eq('user_id', user.id)
-          .single();
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          return;
+        }
 
-        if (!userRecord) {
+        // Single round trip: profile + tenant + settings + membership (issue #12).
+        const context = await fetchSessionContext();
+
+        if (!context) {
           // Auth user exists but no profile — needs to complete profile
           setAuthUser(user);
           setNeedsProfile(true);
-          setSessionLoading(false);
           return;
         }
+
+        const { userRecord, tenant, tenantConfig, membership } = context;
 
         if (!userRecord.is_active) {
           await supabase.auth.signOut();
           setAccountDisabled(true);
-          setSessionLoading(false);
           return;
         }
-
-        // Fetch tenant info and settings for the user's tenant
-        const { data: tenant } = await supabase
-          .from('tenants')
-          .select('*')
-          .eq('id', userRecord.tenant_id)
-          .single();
 
         if (tenant && !tenant.is_active && userRecord.role !== 'super_admin') {
           await supabase.auth.signOut();
           setAccountDisabled(true);
-          setSessionLoading(false);
           return;
         }
 
-        const { data: settings } = await supabase
-          .from('tenant_settings')
-          .select('*')
-          .eq('tenant_id', userRecord.tenant_id)
-          .single();
-
-        const tenantConfig = { ...settings, type: tenant?.tenant_type, name: tenant?.name };
-        const membership = await loadMembershipStatus(userRecord);
-
         setSession({ user, userRecord, tenantConfig, membership });
+      } catch (err) {
+        // Surface the failure instead of leaving the user on a blank screen.
+        console.error('Failed to initialise session:', err);
+        Sentry.captureException(err);
+        setSessionError(true);
+      } finally {
+        setSessionLoading(false);
       }
-      setSessionLoading(false);
     };
     getSession();
   }, []);
@@ -225,24 +216,23 @@ function App() {
 
   // Called after CompleteProfile form submission
   async function handleProfileComplete({ user, userRecord }) {
-    // Fetch tenant info before clearing needsProfile — otherwise the route guard
-    // sees needsProfile=false + session=null and redirects to /login
-    const { data: tenant } = await supabase
-      .from('tenants')
-      .select('*')
-      .eq('id', userRecord.tenant_id)
-      .single();
-    const { data: settings } = await supabase
-      .from('tenant_settings')
-      .select('*')
-      .eq('tenant_id', userRecord.tenant_id)
-      .single();
-    const tenantConfig = { ...settings, type: tenant?.tenant_type, name: tenant?.name };
-    const membership = await loadMembershipStatus(userRecord);
-    // Set session first, then clear needsProfile — both update in the same React batch
-    setSession({ user, userRecord, tenantConfig, membership });
-    setNeedsProfile(false);
-    setAuthUser(null);
+    try {
+      // Single round trip for tenant + settings + membership (issue #12). Fetch
+      // before clearing needsProfile — otherwise the route guard sees
+      // needsProfile=false + session=null and redirects to /login.
+      const context = await fetchSessionContext();
+      const resolvedRecord = context?.userRecord ?? userRecord;
+      const tenantConfig = context?.tenantConfig ?? { type: undefined, name: undefined };
+      const membership = context?.membership ?? await loadMembershipStatus(resolvedRecord);
+      // Set session first, then clear needsProfile — both update in the same React batch
+      setSession({ user, userRecord: resolvedRecord, tenantConfig, membership });
+      setNeedsProfile(false);
+      setAuthUser(null);
+    } catch (err) {
+      console.error('Failed to load session after profile completion:', err);
+      Sentry.captureException(err);
+      setSessionError(true);
+    }
   }
 
   // Called by Login.js after successful auth. Check is_active before setting session.
@@ -252,24 +242,23 @@ function App() {
       setAccountDisabled(true);
       return;
     }
-    const { data: tenant } = await supabase
-      .from('tenants')
-      .select('*')
-      .eq('id', userRecord.tenant_id)
-      .single();
-    if (tenant && !tenant.is_active && userRecord.role !== 'super_admin') {
-      supabase.auth.signOut();
-      setAccountDisabled(true);
-      return;
+    try {
+      // Single round trip for tenant + settings + membership (issue #12).
+      const context = await fetchSessionContext();
+      const resolvedRecord = context?.userRecord ?? userRecord;
+      if (context?.tenant && !context.tenant.is_active && resolvedRecord.role !== 'super_admin') {
+        supabase.auth.signOut();
+        setAccountDisabled(true);
+        return;
+      }
+      const tenantConfig = context?.tenantConfig ?? { type: undefined, name: undefined };
+      const membership = context?.membership ?? await loadMembershipStatus(resolvedRecord);
+      setSession({ user, userRecord: resolvedRecord, tenantConfig, membership });
+    } catch (err) {
+      console.error('Failed to load session after login:', err);
+      Sentry.captureException(err);
+      setSessionError(true);
     }
-    const { data: settings } = await supabase
-      .from('tenant_settings')
-      .select('*')
-      .eq('tenant_id', userRecord.tenant_id)
-      .single();
-    const tenantConfig = { ...settings, type: tenant?.tenant_type, name: tenant?.name };
-    const membership = await loadMembershipStatus(userRecord);
-    setSession({ user, userRecord, tenantConfig, membership });
   }
 
   if (sessionLoading) return null;
@@ -294,6 +283,41 @@ function App() {
           <p style={{ color: '#6b7280', fontSize: '0.95rem', lineHeight: 1.6 }}>
             Your account has been disabled. Please contact your administrator for assistance.
           </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (sessionError) {
+    return (
+      <div style={{
+        minHeight: '100vh', display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center',
+        background: '#f9fafb', fontFamily: 'Montserrat, sans-serif', padding: '2em',
+      }}>
+        <img src="/logo.png" alt="GrantTrail" style={{ height: 56, marginBottom: '1.5em' }} />
+        <div style={{
+          background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10,
+          padding: '2em 2.5em', maxWidth: 420, textAlign: 'center',
+          boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
+        }}>
+          <div style={{ fontSize: '2rem', marginBottom: '0.4em' }}>⚠️</div>
+          <h2 style={{ color: '#111827', marginBottom: '0.5em', fontSize: '1.2rem' }}>
+            Something went wrong
+          </h2>
+          <p style={{ color: '#6b7280', fontSize: '0.95rem', lineHeight: 1.6, marginBottom: '1.2em' }}>
+            We couldn’t load your session. Please check your connection and try again.
+          </p>
+          <button
+            onClick={() => window.location.reload()}
+            style={{
+              background: '#111827', color: '#fff', border: 'none', borderRadius: 8,
+              padding: '0.6em 1.4em', fontSize: '0.95rem', cursor: 'pointer',
+              fontFamily: 'inherit',
+            }}
+          >
+            Retry
+          </button>
         </div>
       </div>
     );

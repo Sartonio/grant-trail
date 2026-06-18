@@ -212,6 +212,30 @@ export async function syncMembershipFromStripe() {
   return invokeFirstAvailable(SYNC_MEMBERSHIP_FUNCTION_CANDIDATES, () => ({}));
 }
 
+// Single-round-trip session bootstrap (issue #12). Returns the authenticated
+// user's profile, tenant, tenant settings and membership status in one RPC,
+// replacing the former chain of sequential queries during login. Resolves to
+// `null` when the auth user has no profile row yet (needs profile completion).
+export async function fetchSessionContext() {
+  const { data, error } = await supabase.rpc('get_session_context');
+  if (error) throw error;
+  if (!data || !data.user) return null;
+
+  const tenant = data.tenant || null;
+  const tenantConfig = {
+    ...(data.tenantSettings || {}),
+    type: tenant?.tenant_type,
+    name: tenant?.name,
+  };
+
+  return {
+    userRecord: data.user,
+    tenant,
+    tenantConfig,
+    membership: data.membership || null,
+  };
+}
+
 export async function fetchMembershipStatus() {
   const [
     exemptRes,
