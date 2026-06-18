@@ -99,6 +99,7 @@ Task-oriented guides for specific goals:
 Lookup material:
 - [Environment Variables](docs/reference/environment_variables.md)
 - [Database Schema](docs/reference/database_schema.md)
+- [RLS Policy Audit](docs/reference/rls_policy_audit.md)
 - [ER Diagram](docs/reference/er_diagram.md)
 - [Routing Index](docs/reference/routing_index.md)
 - [CSS Design Tokens](docs/reference/css_design_tokens.md)

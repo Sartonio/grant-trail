@@ -4,7 +4,7 @@ This is the primary reference for AI agents and contributors working in the Gran
 
 ---
 
-## 1. Bootstrapping & Local Environment
+## 1. Bootstrapping, Local Environment & Deployment
 
 Always run commands from the repository root:
 
@@ -13,9 +13,21 @@ Always run commands from the repository root:
 | `npm run setup` | Install dependencies and scaffold all local env files |
 | `npm run db:start` | Start local Supabase containers, apply migrations, seed test data |
 | `npm run dev` | Start the Vite development server |
-| _(merge to `main`)_ | Schema + Edge Functions deploy automatically to **staging** via the Supabase GitHub integration; there is no deploy script and no manual `db push` path (the integration is the single source of truth). Production will be a separate repo. |
 | `npm run functions:prune -- --project-ref <ref>` | Delete Edge Functions deployed to the project that are no longer declared in `config.toml` (the integration never prunes); `--dry-run` to preview |
 | `npm run admin:promote <email>` | Promote a registered user to Super Admin on the remote database |
+
+### Deployment model
+
+There is **no production environment yet** — `main` deploys to **staging only** (the `grant-trail` Supabase project). Production will be a separate GitHub repo wired to its own Supabase project; see the [Deployment Guide](../how_to/deployment.md) and the staging→prod epic. The Supabase GitHub integration is the **single source of truth**: merging a PR that touches `supabase/` automatically applies new migrations and deploys the Edge Functions declared in `config.toml`. There is **no `supabase db push` path** — never apply migrations to the remote by hand. Removed functions are **not** pruned automatically; use `npm run functions:prune`.
+
+### CI pipeline — [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml)
+
+Runs on every PR and push to `main` (CI is not yet a merge gate — branch protection needs GitHub Pro or a public repo):
+
+- **`build-and-test`** — ESLint → Vitest unit tests → production build → a fresh local Supabase (`supabase start`, all migrations + `seed.sql`), against which it runs the Edge Function failure-logging tests and the Playwright E2E suite.
+- **`migration-replay`** (PRs only) — rebuilds the **base-branch** schema + seed as a baseline, then applies **only the PR's new migrations** on top, catching failures that surface only against existing data (e.g. a `NOT NULL` add on a populated table). Never touches a real database.
+
+A local **pre-push hook** additionally blocks pushes whose local schema has drifted from the committed migration files.
 
 ---
 
@@ -23,11 +35,11 @@ Always run commands from the repository root:
 
 ### Schema changes are local-first
 
-Never modify the schema directly on a production or remote environment.
+Never modify the schema directly on a remote environment — author migrations locally and let the integration apply them on merge (see [Deployment model](#deployment-model) above). Full workflow: [Making Schema Changes](../how_to/make_schema_changes.md).
 
 1. Make the change in your local database via Supabase Studio (`http://127.0.0.1:54323`) or raw SQL
 2. Generate a migration file: `supabase db diff -f your_migration_name`
-3. Commit the file from `supabase/migrations/` to Git
+3. Commit the file from `supabase/migrations/` to Git — on merge it auto-applies to staging
 
 ### Keeping `seed.sql` in sync
 
