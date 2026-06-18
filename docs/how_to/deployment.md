@@ -121,6 +121,13 @@ After that, deploying is just merging a PR that touches `supabase/`. On merge th
 - Deploys **storage buckets** created by the migrations
 - Provisions the default root tenant (`tfac`) and its settings, via the `bootstrap_initial_tenant` migration
 
+> **Removed functions are not pruned.** The integration deploys declared functions but never deletes one you've removed from `config.toml`/`supabase/functions/` — it keeps running in the project. After removing a function, prune it explicitly:
+> ```bash
+> npm run functions:prune -- --project-ref <ref> --dry-run   # preview
+> npm run functions:prune -- --project-ref <ref>             # delete orphans (asks to confirm)
+> ```
+> The script diffs the functions declared in `config.toml` against those deployed in the project and deletes only the difference. It refuses to run if it can't parse any declared functions.
+
 > Secrets are **not** handled by the integration — set them separately with `npm run deploy:secrets` (Step 6). Functions will deploy but fail at runtime until their secrets exist.
 >
 > The integration does **not** snapshot the database before applying migrations. Make sure **Point-in-Time Recovery** is enabled (or take a manual `supabase db dump`) before merging risky migrations.

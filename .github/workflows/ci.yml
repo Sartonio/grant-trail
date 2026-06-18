@@ -59,7 +59,42 @@ jobs:
           echo "SUPABASE_SERVICE_ROLE_KEY=$(supabase status -o env | grep SERVICE_ROLE_KEY | cut -d= -f2- | tr -d '\"')" >> $GITHUB_ENV
         working-directory: .
 
-
+      - name: Run Edge Function tests
+        working-directory: .
+        run: |
+          set -uo pipefail
+          # Dummy, non-empty Stripe secrets so the billing function modules boot
+          # (they throw on an empty STRIPE_SECRET_KEY). These never touch prod.
+          cat > supabase/.env <<'ENVEOF'
+          STRIPE_SECRET_KEY="sk_test_dummy_ci"
+          STRIPE_PRICE_BASIC="price_dummy_basic"
+          STRIPE_PRICE_PRO="price_dummy_pro"
+          STRIPE_WEBHOOK_SECRET="whsec_dummy"
+          APP_URL="http://localhost:3000"
+          ENVEOF
+          # The fixed local-stack demo anon key (a valid JWT for the anon role).
+          ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0"
+          # Serve the functions in the background; wait until the runtime answers.
+          supabase functions serve --env-file supabase/.env &
+          SERVE_PID=$!
+          ready=0
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
+              "http://127.0.0.1:54321/functions/v1/create-checkout-session" \
+              -H "Authorization: Bearer ${ANON_KEY}" -H "apikey: ${ANON_KEY}" \
+              -H "Content-Type: application/json" -d '{}' || true)
+            if [ "$code" = "400" ]; then ready=1; break; fi
+            sleep 2
+          done
+          if [ "$ready" != "1" ]; then
+            echo "::error::Edge runtime did not become ready in time"
+            kill "$SERVE_PID" 2>/dev/null || true
+            exit 1
+          fi
+          bash supabase/functions/tests/system-logs-failure.test.sh
+          status=$?
+          kill "$SERVE_PID" 2>/dev/null || true
+          exit $status
 
       - name: Install Playwright browsers and dependencies
         run: npx playwright install --with-deps
@@ -79,3 +114,44 @@ jobs:
           name: playwright-report
           path: ./frontend/playwright-report/
           retention-days: 30
+
+  # Validate that a PR's NEW migrations apply cleanly on top of the EXISTING
+  # (base-branch) schema + seed data, not just from an empty database. This
+  # catches failures the from-scratch `db reset` above misses — e.g. adding a
+  # NOT NULL column or a unique constraint that current rows would violate.
+  # It NEVER touches a real database: the baseline is reconstructed in CI from
+  # the base-branch migrations + seed.sql (our synthetic fixture).
+  migration-replay:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v2
+        with:
+          version: latest
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Replay pending migrations on the base-branch baseline
+        run: |
+          set -euo pipefail
+          BASE="${{ github.base_ref }}"
+          git fetch origin "$BASE" --depth=1
+          # Stash the PR's migrations, then reset the folder to the base state.
+          mkdir -p /tmp/pr-migrations
+          cp supabase/migrations/*.sql /tmp/pr-migrations/ 2>/dev/null || true
+          rm -f supabase/migrations/*.sql
+          git checkout FETCH_HEAD -- supabase/migrations
+          echo "Baseline (base-branch) migrations:"
+          ls supabase/migrations/
+          # Build the baseline: base migrations + seed.sql (the "existing" data).
+          supabase start
+          supabase db reset
+          # Restore the PR's migrations and apply ONLY the pending (new) ones.
+          cp /tmp/pr-migrations/*.sql supabase/migrations/ 2>/dev/null || true
+          echo "Applying pending migrations on top of the baseline:"
+          supabase migration up --local

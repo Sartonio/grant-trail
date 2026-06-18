@@ -14,6 +14,7 @@ Always run commands from the repository root:
 | `npm run db:start` | Start local Supabase containers, apply migrations, seed test data |
 | `npm run dev` | Start the Vite development server |
 | _(merge to `main`)_ | Schema + Edge Functions deploy automatically to **staging** via the Supabase GitHub integration; there is no deploy script and no manual `db push` path (the integration is the single source of truth). Production will be a separate repo. |
+| `npm run functions:prune -- --project-ref <ref>` | Delete Edge Functions deployed to the project that are no longer declared in `config.toml` (the integration never prunes); `--dry-run` to preview |
 | `npm run admin:promote <email>` | Promote a registered user to Super Admin on the remote database |
 
 ---

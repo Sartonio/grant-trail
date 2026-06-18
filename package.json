@@ -16,6 +16,7 @@
     "e2e": "npm run e2e --prefix frontend",
     "e2e:install": "npm run e2e:install --prefix frontend",
     "deploy:secrets": "node scripts/deploy_secrets.js",
+    "functions:prune": "node scripts/prune_functions.js",
     "admin:promote": "node scripts/promote_admin.js"
   }
 }
