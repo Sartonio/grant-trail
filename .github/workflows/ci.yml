@@ -59,43 +59,6 @@ jobs:
           echo "SUPABASE_SERVICE_ROLE_KEY=$(supabase status -o env | grep SERVICE_ROLE_KEY | cut -d= -f2- | tr -d '\"')" >> $GITHUB_ENV
         working-directory: .
 
-      - name: Run Edge Function tests
-        working-directory: .
-        run: |
-          set -uo pipefail
-          # Dummy, non-empty Stripe secrets so the billing function modules boot
-          # (they throw on an empty STRIPE_SECRET_KEY). These never touch prod.
-          cat > supabase/.env <<'ENVEOF'
-          STRIPE_SECRET_KEY="sk_test_dummy_ci"
-          STRIPE_PRICE_BASIC="price_dummy_basic"
-          STRIPE_PRICE_PRO="price_dummy_pro"
-          STRIPE_WEBHOOK_SECRET="whsec_dummy"
-          APP_URL="http://localhost:3000"
-          ENVEOF
-          # The fixed local-stack demo anon key (a valid JWT for the anon role).
-          ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0"
-          # Serve the functions in the background; wait until the runtime answers.
-          supabase functions serve --env-file supabase/.env &
-          SERVE_PID=$!
-          ready=0
-          for i in $(seq 1 30); do
-            code=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
-              "http://127.0.0.1:54321/functions/v1/create-checkout-session" \
-              -H "Authorization: Bearer ${ANON_KEY}" -H "apikey: ${ANON_KEY}" \
-              -H "Content-Type: application/json" -d '{}' || true)
-            if [ "$code" = "400" ]; then ready=1; break; fi
-            sleep 2
-          done
-          if [ "$ready" != "1" ]; then
-            echo "::error::Edge runtime did not become ready in time"
-            kill "$SERVE_PID" 2>/dev/null || true
-            exit 1
-          fi
-          bash supabase/functions/tests/system-logs-failure.test.sh
-          status=$?
-          kill "$SERVE_PID" 2>/dev/null || true
-          exit $status
-
       - name: Install Playwright browsers and dependencies
         run: npx playwright install --with-deps
 
@@ -155,3 +118,123 @@ jobs:
           cp /tmp/pr-migrations/*.sql supabase/migrations/ 2>/dev/null || true
           echo "Applying pending migrations on top of the baseline:"
           supabase migration up --local
+
+  # FAST gate: edge-function .sh tests that only need the local Supabase stack +
+  # served functions + a (dummy) STRIPE_SECRET_KEY so the billing modules boot.
+  # No `stripe listen` forwarder, no test clocks — runs in ~1-2 min and gates
+  # every PR/push. Tests are DISCOVERED by name from the tier list below, and
+  # only run if the file is present, so this job stays valid/green whether or
+  # not a sibling lane has landed its test file yet.
+  edge-function-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v2
+        with:
+          version: latest
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Start Supabase
+        run: supabase start
+
+      - name: Run fast edge-function tests
+        run: |
+          set -uo pipefail
+          source .github/scripts/edge-fn-ci-lib.sh
+          # Dummy, non-empty Stripe secrets so the billing function modules boot
+          # (they throw on an empty STRIPE_SECRET_KEY). These never touch prod.
+          cat > supabase/.env <<'ENVEOF'
+          STRIPE_SECRET_KEY="sk_test_dummy_ci"
+          STRIPE_PRICE_BASIC="price_dummy_basic"
+          STRIPE_PRICE_PRO="price_dummy_pro"
+          STRIPE_WEBHOOK_SECRET="whsec_dummy"
+          APP_URL="http://localhost:3000"
+          ENVEOF
+          serve_functions_and_wait supabase/.env || exit 1
+          # FAST tier: local-stack-only tests (no Stripe forwarder). The payment
+          # lane will add checkout-sessions.test.sh here; absent files are skipped.
+          mapfile -t FAST_TESTS < <(select_tests \
+            system-logs-failure.test.sh \
+            checkout-sessions.test.sh)
+          run_tests "${FAST_TESTS[@]}"
+          status=$?
+          stop_functions
+          exit $status
+
+  # STRIPE-ENABLED gate: edge-function tests that need the Stripe CLI, a live
+  # `stripe listen` forwarder, and test clocks (~3-4 min). The payment lane (Lane
+  # F) owns the orchestrator supabase/functions/tests/run-all.sh, which manages
+  # the forwarder lifecycle and exits non-zero on failure. We invoke it ONLY IF
+  # PRESENT so this workflow is valid before that lane merges; once it lands, the
+  # job runs and gates. Until then it's a green no-op.
+  stripe-edge-function-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Skip if the Stripe orchestrator is not present yet
+        id: guard
+        run: |
+          if [ -f supabase/functions/tests/run-all.sh ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "run-all.sh not present on this branch — Stripe edge-function tests skipped."
+          fi
+
+      - name: Setup Supabase CLI
+        if: steps.guard.outputs.present == 'true'
+        uses: supabase/setup-cli@v2
+        with:
+          version: latest
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Stripe CLI
+        if: steps.guard.outputs.present == 'true'
+        run: |
+          curl -fsSL https://cli.stripe.com/install.sh | bash
+          stripe version
+
+      - name: Start Supabase
+        if: steps.guard.outputs.present == 'true'
+        run: supabase start
+
+      - name: Run Stripe-enabled edge-function tests
+        if: steps.guard.outputs.present == 'true'
+        env:
+          # TEST-mode Stripe secrets, sourced from CI secrets (never prod keys).
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY_TEST }}
+          STRIPE_PRICE_BASIC: ${{ secrets.STRIPE_PRICE_BASIC_TEST }}
+          STRIPE_PRICE_FISCAL_AGENT_ACCESS: ${{ secrets.STRIPE_PRICE_FISCAL_AGENT_ACCESS_TEST }}
+          STRIPE_API_KEY: ${{ secrets.STRIPE_SECRET_KEY_TEST }}
+          APP_URL: http://localhost:3000
+        run: |
+          set -uo pipefail
+          source .github/scripts/edge-fn-ci-lib.sh
+          # Start the forwarder and derive the signing secret it will use, so the
+          # served stripe-webhook verifies signatures against the live loop.
+          stripe listen --forward-to "${API_URL}/functions/v1/stripe-webhook" \
+            --skip-verify >/tmp/stripe-listen.log 2>&1 &
+          STRIPE_LISTEN_PID=$!
+          STRIPE_WEBHOOK_SECRET="$(stripe listen --print-secret)"
+          export STRIPE_WEBHOOK_SECRET
+          # Hand the (TEST-mode) secrets to the served functions.
+          cat > supabase/.env <<ENVEOF
+          STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+          STRIPE_PRICE_BASIC=${STRIPE_PRICE_BASIC}
+          STRIPE_PRICE_FISCAL_AGENT_ACCESS=${STRIPE_PRICE_FISCAL_AGENT_ACCESS}
+          STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
+          APP_URL=${APP_URL}
+          ENVEOF
+          serve_functions_and_wait supabase/.env || { kill "$STRIPE_LISTEN_PID" 2>/dev/null || true; exit 1; }
+          # run-all.sh owns the test-clock / event orchestration and exits
+          # non-zero on any failure, which gates this job.
+          bash supabase/functions/tests/run-all.sh
+          status=$?
+          stop_functions
+          kill "$STRIPE_LISTEN_PID" 2>/dev/null || true
+          exit $status
