@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { FiArrowLeft, FiActivity, FiX, FiChevronRight, FiChevronDown } from 'react-icons/fi';
+import ReadOnlyBanner from './ReadOnlyBanner';
 import './Admin.css';
 
 const PAGE_SIZE = 50;
@@ -73,7 +74,7 @@ function DiffView({ row, diff }) {
   );
 }
 
-function AdminAuditLog() {
+function AdminAuditLog({ readOnly = false }) {
   const [rows,         setRows]         = useState([]);
   const [userMap,      setUserMap]      = useState({});
   const [loading,      setLoading]      = useState(true);
@@ -247,6 +248,7 @@ function AdminAuditLog() {
 
   return (
     <div className="admin-page">
+      <ReadOnlyBanner readOnly={readOnly} />
       <div className="admin-header">
         <div>
           <h2 className="admin-title"><FiActivity /> Audit Log</h2>

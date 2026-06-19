@@ -31,7 +31,9 @@ import AdminSettings from './components/AdminSettings';
 import CompleteProfile from './components/CompleteProfile';
 import LandingPage from './components/LandingPage';
 import SubscriptionPage from './components/SubscriptionPage';
-import { fetchMembershipStatus, fetchSessionContext, hasRequiredSubscription, syncMembershipFromStripe } from './lib/billing';
+import { fetchMembershipStatus, fetchSessionContext, syncMembershipFromStripe } from './lib/billing';
+import { Guard, GRANTEE_BILLING_REDIRECT } from './lib/guards';
+import { ROLES, needsSubscription } from './lib/policy';
 
 function App() {
   const [session,         setSession]         = useState(null);
@@ -323,10 +325,19 @@ function App() {
     );
   }
 
-  const userNeedsSubscription = session ? !hasRequiredSubscription(session) : false;
-  const isSubscriptionRestricted = !!session && session.userRecord?.role !== 'super_admin' && userNeedsSubscription;
-  const isGranteeWithoutSubscription = session?.userRecord?.role === 'grantee' && userNeedsSubscription;
-  const isAdminWithoutSubscription = session?.userRecord?.role === 'admin' && userNeedsSubscription;
+  // Root ("/") landing decision. Role-based authorization and billing gating are
+  // kept as two separate concerns (issue #41); the rest of the app expresses
+  // them declaratively via <Guard>, but "/" is a multi-target dispatcher so it
+  // resolves them inline against the same centralized policy (lib/policy.js).
+  function resolveRootElement() {
+    if (needsProfile) return <Navigate to="/complete-profile" />;
+    if (!session) return <LandingPage />;
+    if (session.userRecord?.role === ROLES.SUPER_ADMIN) return <Navigate to="/super/tenants" />;
+    // Authenticated-but-unpaid (non-super) -> upgrade landing (the billing nudge target).
+    if (needsSubscription(session)) return <Navigate to={GRANTEE_BILLING_REDIRECT} />;
+    if (session.userRecord?.role === ROLES.ADMIN) return <Navigate to="/admin" />;
+    return <Main session={session} />;
+  }
 
   return (
     <Router>
@@ -342,18 +353,7 @@ function App() {
         <div className="app-content">
         <Routes>
           {/* Root: public landing page for logged-out visitors, dashboard redirect for authenticated users */}
-          <Route
-            path="/"
-            element={
-              needsProfile ? <Navigate to="/complete-profile" /> :
-              !session ? <LandingPage /> :
-              session.userRecord?.role === 'super_admin' ? <Navigate to="/super/tenants" /> :
-              isSubscriptionRestricted ? <Navigate to="/home" /> :
-              session.userRecord?.role === 'admin' ? <Navigate to="/admin" /> :
-              isGranteeWithoutSubscription ? <Navigate to="/home" /> :
-              <Main session={session} />
-            }
-          />
+          <Route path="/" element={resolveRootElement()} />
           <Route
             path="/home"
             element={session ? <LandingPage session={session} /> : <Navigate to="/" />}
@@ -381,67 +381,88 @@ function App() {
             }
           />
 
-          {/* Grantee routes (membership guard: grantees need Basic+ subscription) */}
-          <Route
-            path="/grants"
-            element={session ? (isGranteeWithoutSubscription ? <Navigate to="/home" /> : <Grants session={session} />) : <Navigate to="/login" />}
-          />
-          <Route
-            path="/grants/new"
-            element={session ? (isGranteeWithoutSubscription ? <Navigate to="/home" /> : <CreateGrant session={session} />) : <Navigate to="/login" />}
-          />
-          <Route
-            path="/grants/:id/edit"
-            element={session ? (isGranteeWithoutSubscription ? <Navigate to="/home" /> : <CreateGrant session={session} />) : <Navigate to="/login" />}
-          />
-          <Route
-            path="/grants/:id"
-            element={session ? (isGranteeWithoutSubscription ? <Navigate to="/home" /> : <GrantDetail session={session} />) : <Navigate to="/login" />}
-          />
-          <Route
-            path="/grants/:id/breakdown"
-            element={session ? (isGranteeWithoutSubscription ? <Navigate to="/home" /> : <GrantBreakdown session={session} />) : <Navigate to="/login" />}
-          />
-          <Route
-            path="/expenses"
-            element={session ? (isGranteeWithoutSubscription ? <Navigate to="/home" /> : <ExpenseReports session={session} />) : <Navigate to="/login" />}
-          />
-          <Route
-            path="/subscription"
-            element={session ? <SubscriptionPage session={session} onMembershipUpdated={refreshMembership} /> : <Navigate to="/login" />}
-          />
+          {/*
+            Grantee routes — authz axis: any authenticated user (wrong/none -> /login);
+            billing axis: unpaid grantee redirected to the upgrade landing.
+          */}
+          <Route path="/grants" element={
+            <Guard session={session} requireRole="authenticated" roleRedirect="/login" billingMode="redirect">
+              <Grants session={session} />
+            </Guard>
+          } />
+          <Route path="/grants/new" element={
+            <Guard session={session} requireRole="authenticated" roleRedirect="/login" billingMode="redirect">
+              <CreateGrant session={session} />
+            </Guard>
+          } />
+          <Route path="/grants/:id/edit" element={
+            <Guard session={session} requireRole="authenticated" roleRedirect="/login" billingMode="redirect">
+              <CreateGrant session={session} />
+            </Guard>
+          } />
+          <Route path="/grants/:id" element={
+            <Guard session={session} requireRole="authenticated" roleRedirect="/login" billingMode="redirect">
+              <GrantDetail session={session} />
+            </Guard>
+          } />
+          <Route path="/grants/:id/breakdown" element={
+            <Guard session={session} requireRole="authenticated" roleRedirect="/login" billingMode="redirect">
+              <GrantBreakdown session={session} />
+            </Guard>
+          } />
+          <Route path="/expenses" element={
+            <Guard session={session} requireRole="authenticated" roleRedirect="/login" billingMode="redirect">
+              <ExpenseReports session={session} />
+            </Guard>
+          } />
+          <Route path="/subscription" element={
+            <Guard session={session} requireRole="authenticated" roleRedirect="/login" billingMode="none">
+              <SubscriptionPage session={session} onMembershipUpdated={refreshMembership} />
+            </Guard>
+          } />
 
-          {/* Admin routes */}
-          <Route
-            path="/admin"
-            element={session?.userRecord?.role === 'admin' ? (isAdminWithoutSubscription ? <Navigate to="/home" /> : <AdminDashboard session={session} />) : <Navigate to="/" />}
-          />
-          <Route
-            path="/admin/grants"
-            element={session?.userRecord?.role === 'admin' ? (isAdminWithoutSubscription ? <Navigate to="/home" /> : <AdminGrantList session={session} />) : <Navigate to="/" />}
-          />
-          <Route
-            path="/admin/grants/:id"
-            element={session?.userRecord?.role === 'admin' ? (isAdminWithoutSubscription ? <Navigate to="/home" /> : <AdminGrantReview session={session} />) : <Navigate to="/" />}
-          />
-          <Route
-            path="/admin/audit"
-            element={session?.userRecord?.role === 'admin' ? (isAdminWithoutSubscription ? <Navigate to="/home" /> : <AdminAuditLog session={session} />) : <Navigate to="/" />}
-          />
-          <Route
-            path="/admin/users"
-            element={session?.userRecord?.role === 'admin' ? (isAdminWithoutSubscription ? <Navigate to="/home" /> : <AdminUserList session={session} />) : <Navigate to="/" />}
-          />
-          <Route
-            path="/admin/settings"
-            element={session?.userRecord?.role === 'admin' ? (isAdminWithoutSubscription ? <Navigate to="/home" /> : <AdminSettings session={session} />) : <Navigate to="/" />}
-          />
+          {/*
+            Admin routes — authz axis: role must be admin (else -> /); billing axis:
+            read-only degrade (#40). A lapsed admin VIEWS every admin route; the
+            guard injects readOnly and mutation handlers route writes to the nudge.
+          */}
+          <Route path="/admin" element={
+            <Guard session={session} requireRole={ROLES.ADMIN} roleRedirect="/" billingMode="readOnly">
+              <AdminDashboard session={session} />
+            </Guard>
+          } />
+          <Route path="/admin/grants" element={
+            <Guard session={session} requireRole={ROLES.ADMIN} roleRedirect="/" billingMode="readOnly">
+              <AdminGrantList session={session} />
+            </Guard>
+          } />
+          <Route path="/admin/grants/:id" element={
+            <Guard session={session} requireRole={ROLES.ADMIN} roleRedirect="/" billingMode="readOnly">
+              <AdminGrantReview session={session} />
+            </Guard>
+          } />
+          <Route path="/admin/audit" element={
+            <Guard session={session} requireRole={ROLES.ADMIN} roleRedirect="/" billingMode="readOnly">
+              <AdminAuditLog session={session} />
+            </Guard>
+          } />
+          <Route path="/admin/users" element={
+            <Guard session={session} requireRole={ROLES.ADMIN} roleRedirect="/" billingMode="readOnly">
+              <AdminUserList session={session} />
+            </Guard>
+          } />
+          <Route path="/admin/settings" element={
+            <Guard session={session} requireRole={ROLES.ADMIN} roleRedirect="/" billingMode="readOnly">
+              <AdminSettings session={session} />
+            </Guard>
+          } />
 
-          {/* Super admin routes */}
-          <Route
-            path="/super/tenants"
-            element={session?.userRecord?.role === 'super_admin' ? <TenantManagement session={session} /> : <Navigate to="/" />}
-          />
+          {/* Super admin routes — authz axis only; super_admin is billing-exempt. */}
+          <Route path="/super/tenants" element={
+            <Guard session={session} requireRole={ROLES.SUPER_ADMIN} roleRedirect="/" billingMode="none">
+              <TenantManagement session={session} />
+            </Guard>
+          } />
         </Routes>
         </div>
         <Footer session={session} platformSettings={platformSettings} />

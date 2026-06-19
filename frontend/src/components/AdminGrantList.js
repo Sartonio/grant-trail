@@ -4,6 +4,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { FiSearch, FiArrowRight, FiArrowLeft, FiClock, FiArrowUp, FiArrowDown, FiDownload } from 'react-icons/fi';
 import StatusBadge from './StatusBadge';
+import ReadOnlyBanner from './ReadOnlyBanner';
 import './Admin.css';
 
 const TABS = [
@@ -14,7 +15,7 @@ const TABS = [
   { key: 'rejected',      label: 'Rejected' },
 ];
 
-function AdminGrantList() {
+function AdminGrantList({ readOnly = false }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const [grants, setGrants]   = useState([]);
   const [pendingBiCounts, setPendingBiCounts] = useState({});
@@ -204,6 +205,7 @@ function AdminGrantList() {
 
   return (
     <div className="admin-page">
+      <ReadOnlyBanner readOnly={readOnly} />
       <div className="admin-header">
         <div>
           <h2 className="admin-title">All Grants</h2>

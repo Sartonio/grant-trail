@@ -39,7 +39,13 @@ describe('AdminGrantReview error reporting', () => {
 
   it('captures the error in Sentry and preserves console.error when posting a comment fails', async () => {
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    const session = { user: { id: 'u1' }, userRecord: { id: 'u1', role: 'admin' } };
+    // Subscribed admin (premium) so the write guard (#40) allows the mutation
+    // and the insert-error path under test is actually exercised.
+    const session = {
+      user: { id: 'u1' },
+      userRecord: { id: 'u1', role: 'admin' },
+      membership: { hasPremiumAccess: true },
+    };
 
     render(
       <MemoryRouter initialEntries={['/admin/grants/1']}>

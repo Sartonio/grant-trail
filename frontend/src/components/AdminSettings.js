@@ -3,9 +3,12 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { FiArrowLeft, FiSettings, FiSave } from 'react-icons/fi';
+import { useWriteGuard } from '../lib/useWriteGuard';
+import ReadOnlyBanner from './ReadOnlyBanner';
 import './Admin.css';
 
-function AdminSettings({ session }) {
+function AdminSettings({ session, readOnly = false }) {
+  const guardWrite = useWriteGuard(session);
   const tenantConfig = session?.tenantConfig;
   const tenantId = session?.userRecord?.tenant_id;
 
@@ -27,6 +30,7 @@ function AdminSettings({ session }) {
     supportPhone !== (tenantConfig?.support_phone || '');
 
   async function handleSave() {
+    if (!guardWrite()) return;
     setSaving(true);
     setError('');
     setSuccess('');
@@ -60,6 +64,7 @@ function AdminSettings({ session }) {
 
   return (
     <div className="admin-page">
+      <ReadOnlyBanner readOnly={readOnly} />
       <div className="admin-header">
         <div>
           <h2 className="admin-title"><FiSettings /> Settings</h2>
@@ -137,8 +142,8 @@ function AdminSettings({ session }) {
           <button
             className="admin-approve-btn"
             onClick={handleSave}
-            disabled={saving || !hasChanges}
-            style={{ display: 'flex', alignItems: 'center', gap: '0.4em', opacity: hasChanges ? 1 : 0.5 }}
+            disabled={saving || !hasChanges || readOnly}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.4em', opacity: (hasChanges && !readOnly) ? 1 : 0.5 }}
           >
             <FiSave size={15} /> {saving ? 'Saving…' : 'Save Settings'}
           </button>

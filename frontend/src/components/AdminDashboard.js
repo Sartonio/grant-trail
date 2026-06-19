@@ -4,13 +4,14 @@ import { Link } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { FiUsers, FiGrid, FiClock, FiCheckCircle, FiDollarSign, FiArrowRight, FiAlertCircle, FiActivity } from 'react-icons/fi';
 import StatusBadge from './StatusBadge';
+import ReadOnlyBanner from './ReadOnlyBanner';
 import './Admin.css';
 import {
   ResponsiveContainer, PieChart, Pie, Cell, Tooltip, Legend,
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
 } from 'recharts';
 
-function AdminDashboard({ session }) {
+function AdminDashboard({ session, readOnly = false }) {
   const [stats, setStats] = useState(null);
   const [queue, setQueue] = useState([]);
   const [topGrantees, setTopGrantees] = useState([]);
@@ -101,6 +102,7 @@ function AdminDashboard({ session }) {
 
   return (
     <div className="admin-page">
+      <ReadOnlyBanner readOnly={readOnly} />
       <div className="admin-header">
         <div>
           <h2 className="admin-title">Admin Dashboard</h2>

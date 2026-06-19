@@ -19,6 +19,8 @@ import {
 import StatusBadge from './StatusBadge';
 import GrantAttachments from './GrantAttachments';
 import { FiPaperclip } from 'react-icons/fi';
+import { useWriteGuard } from '../lib/useWriteGuard';
+import ReadOnlyBanner from './ReadOnlyBanner';
 import './Admin.css';
 
 const ACTION_LABEL = {
@@ -27,8 +29,9 @@ const ACTION_LABEL = {
   reject:  'Reject',
 };
 
-function AdminGrantReview({ session }) {
+function AdminGrantReview({ session, readOnly = false }) {
   const { id } = useParams();
+  const guardWrite = useWriteGuard(session);
 
   const [grant,   setGrant]   = useState(null);
   const [grantee, setGrantee] = useState(null);
@@ -164,6 +167,7 @@ function AdminGrantReview({ session }) {
 
   async function handleSubmitAction() {
     if (!selectedAction) return;
+    if (!guardWrite()) return;
     setActionLoading(true);
     setActionError('');
 
@@ -202,6 +206,7 @@ function AdminGrantReview({ session }) {
 
   async function handleAddComment() {
     if (!commentText.trim()) return;
+    if (!guardWrite()) return;
     setCommentLoading(true);
     setCommentSuccess('');
     try {
@@ -235,6 +240,7 @@ function AdminGrantReview({ session }) {
   //  Disbursed funds handler
   // -------------------------------------------------------
   async function handleUpdateDisbursedFunds() {
+    if (!guardWrite()) return;
     setDisbursedLoading(true);
     setDisbursedError('');
     setDisbursedSuccess('');
@@ -258,6 +264,7 @@ function AdminGrantReview({ session }) {
   //  Budget item & expense approval handlers
   // -------------------------------------------------------
   const handleApproveBudgetItem = async (item) => {
+    if (!guardWrite()) return;
     setApprovalLoading(`bi-${item.id}`);
     setApprovalError('');
     try {
@@ -273,6 +280,7 @@ function AdminGrantReview({ session }) {
   };
 
   const handleRejectBudgetItem = async (item) => {
+    if (!guardWrite()) return;
     setApprovalLoading(`bi-${item.id}`);
     setApprovalError('');
     try {
@@ -290,6 +298,7 @@ function AdminGrantReview({ session }) {
   };
 
   const handleApproveExpense = async (exp) => {
+    if (!guardWrite()) return;
     setApprovalLoading(`exp-${exp.id}`);
     setApprovalError('');
     try {
@@ -305,6 +314,7 @@ function AdminGrantReview({ session }) {
   };
 
   const handleRejectExpense = async (exp) => {
+    if (!guardWrite()) return;
     setApprovalLoading(`exp-${exp.id}`);
     setApprovalError('');
     try {
@@ -343,6 +353,7 @@ function AdminGrantReview({ session }) {
 
   return (
     <div className="admin-review-page">
+      <ReadOnlyBanner readOnly={readOnly} />
 
       {/* Nav bar */}
       <div className="admin-review-nav">

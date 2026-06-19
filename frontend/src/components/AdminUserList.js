@@ -7,9 +7,12 @@ import {
   FiCheckCircle, FiXCircle, FiLink, FiAlertCircle,
   FiUserPlus, FiCopy, FiX,
 } from 'react-icons/fi';
+import { useWriteGuard } from '../lib/useWriteGuard';
+import ReadOnlyBanner from './ReadOnlyBanner';
 import './Admin.css';
 
-function AdminUserList({ session }) {
+function AdminUserList({ session, readOnly = false }) {
+  const guardWrite = useWriteGuard(session);
   const [users,          setUsers]          = useState([]);
   const [loading,        setLoading]        = useState(true);
   const [error,          setError]          = useState('');
@@ -60,6 +63,7 @@ function AdminUserList({ session }) {
   // --- Handlers ---
 
   async function handleRoleToggle(u) {
+    if (!guardWrite()) return;
     const newRole = u.role === 'admin' ? 'grantee' : 'admin';
     setSaving(u.id);
     const { error: err } = await supabase
@@ -73,6 +77,7 @@ function AdminUserList({ session }) {
   }
 
   async function handleToggleActive(u) {
+    if (!guardWrite()) return;
     const newActive = !u.is_active;
     setSaving(u.id);
     const { error: err } = await supabase
@@ -86,6 +91,7 @@ function AdminUserList({ session }) {
   }
 
   async function handleWaiveSubscription(u) {
+    if (!guardWrite()) return;
     const waiverTier = u.role === 'admin' ? 'premium' : 'basic';
     setSaving(u.id);
     const { data, error: err } = await supabase
@@ -104,6 +110,7 @@ function AdminUserList({ session }) {
   }
 
   async function handleRemoveWaiver(u) {
+    if (!guardWrite()) return;
     setSaving(u.id);
     const { error: err } = await supabase
       .from('user_memberships')
@@ -115,6 +122,7 @@ function AdminUserList({ session }) {
   }
 
   async function handleCreateInvite() {
+    if (!guardWrite()) return;
     setInviteLoading(true);
     setInviteError('');
     setInviteLink('');
@@ -186,6 +194,7 @@ function AdminUserList({ session }) {
 
   return (
     <div className="admin-page">
+      <ReadOnlyBanner readOnly={readOnly} />
       {/* Page header */}
       <div className="admin-header">
         <div>

@@ -1,4 +1,9 @@
 import { supabase } from '../supabaseClient';
+// Subscription/routing policy lives in lib/policy.js (single source of truth,
+// issue #41). Re-export for backward compatibility with existing importers.
+import { hasRequiredSubscription } from './policy';
+
+export { hasRequiredSubscription };
 
 export const MEMBERSHIP_TIERS = {
   BASIC: 'basic',
@@ -281,16 +286,6 @@ export function isOrgAdminSubscriptionRequired(session) {
   const role = session?.userRecord?.role;
   if (role !== 'admin') return false;
   return !session?.membership?.isExempt;
-}
-
-export function hasRequiredSubscription(session) {
-  const role = session?.userRecord?.role;
-  if (!role) return false;
-  if (role === 'super_admin') return true;
-  if (role === 'admin') {
-    return !!session?.membership?.isExempt || !!session?.membership?.hasPremiumAccess;
-  }
-  return !!session?.membership?.hasBasicAccess;
 }
 
 export function hasFeature(session, featureKey) {
