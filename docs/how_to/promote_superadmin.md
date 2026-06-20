@@ -40,3 +40,25 @@ The promotion script executes a secure database operation that:
 2. Links the user profile to the root platform tenant (`tfac`).
 3. Elevates the user's role to `super_admin` in the database.
 4. Grants them the necessary bypasses for Stripe subscriptions and cross-tenant visibility.
+
+> **Note on the platform-root tenant.** The script links the promoted user to the
+> `tfac` tenant by slug. Which tenant counts as the *platform root* (exempt from
+> subscription gating, granted cross-tenant scope) is now **config-driven** rather
+> than hardcoded in the SECURITY DEFINER logic: it's read from
+> `platform_settings.platform_root_slug` (DEFAULT `'tfac'`) via the
+> `platform_root_slug()` / `is_platform_root_tenant()` helpers. TFAC is still the
+> platform root by default. If you re-point the root with
+> `UPDATE platform_settings SET platform_root_slug='<slug>' WHERE id=1;`, update
+> the slug this script links against accordingly.
+
+---
+
+## What a Super Admin Can Do
+
+Once promoted, a `super_admin` operates the platform via **`/super/tenants`** — they
+are intentionally **not** part of the `/admin*` UI (which is tenant-scoped admin
+tooling). At the database layer they now have **read-only** visibility into other
+tenants' `subscriptions`, `user_memberships`, `billing_customers`, `notifications`,
+and `grant_comments` (additive `SELECT` RLS policies keyed on `is_super_admin()`).
+Writes to those tables are intentionally **not** granted — billing/membership
+mutations stay on the `service_role` (Stripe) path.
