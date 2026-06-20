@@ -22,6 +22,14 @@ Playwright is configured to automatically start the local React development serv
 
 ## Test Flows
 
+The suite spans 12 spec files (26 test cases) covering onboarding, billing, the three
+roles (grantee / admin / super-admin), and negative authorization / tenant-isolation
+checks. The core flows are described below.
+
+### 0. Smoke (`smoke.spec.js`)
+**What it does:**
+- Loads the public landing page and asserts it renders, as a fast liveness check for the dev server and app boot.
+
 ### 1. Onboarding (`onboarding.spec.js`)
 **What it does:**
 - Navigates to the `/signup` page.
@@ -37,6 +45,7 @@ Playwright is configured to automatically start the local React development serv
 - Navigates the browser to `/signup?invite=<token>` and verifies the signup page pre-fills the invite email and shows the invite role context.
 - Fills the password and signs up, redirects to `/complete-profile?invite=<token>`, fills in profile details, and clicks "Complete Setup".
 - Verifies that the new user is redirected correctly and assigned the correct role and tenant in the database, and that the invite is marked as consumed.
+  - *Note:* invite reads and consumption go through the `get_invite_by_token` / `consume_invite` SECURITY DEFINER RPCs; the `invites` table is no longer anon-readable.
 
 ### 3. Subscription (`subscription.spec.js`)
 **What it does:**
@@ -82,6 +91,22 @@ Playwright is configured to automatically start the local React development serv
 - Clicks the bell trigger and asserts that the dropdown panel contains the two notifications mentioning the correct grant name.
 - Directly queries the `audit_log` table via Supabase to verify that both `UPDATE` entries exist with the corresponding status change values.
 - Wipes all seeded data (grant, users, tenant, auth user) bottom-up in a `finally` block to prevent foreign key errors.
+
+### 8. Grantee Flows (`grantee-flows.spec.js`)
+**What it does:**
+- Exercises grantee-owned views: the grant detail status-history timeline, uploading an attachment and seeing it listed, and exporting the expense report as CSV.
+
+### 9. Admin Management Flows (`admin-flows.spec.js`)
+**What it does:**
+- Covers tenant-admin actions: requesting changes on a pending grant, generating an invite link from user management, promoting a grantee to admin, toggling an approval workflow in settings, filtering the audit log by table, and exporting the grant list as CSV.
+
+### 10. Super-Admin Platform Flows (`super-admin-flows.spec.js`)
+**What it does:**
+- Logs in as a super admin and verifies the platform surface at `/super/tenants`: landing on tenant management with cross-tenant data, disabling and re-enabling a tenant, and saving platform defaults.
+
+### 11. Authorization & Tenant Isolation (`authz-negative.spec.js`)
+**What it does:**
+- Negative authz checks: a logged-out visitor is redirected to `/login` on protected routes; a grantee is bounced from admin/super routes; an admin is bounced from super-admin routes; and an admin in tenant A cannot see or directly open tenant B's grant (RLS-backed tenant isolation).
 
 ## Playwright Best Practices Used
 - **User-Facing Locators**: Instead of targeting brittle CSS classes or specific `name` attributes, tests use `getByPlaceholder` and `getByRole`. This ensures tests only pass when the elements are genuinely accessible and visible to a real user.

@@ -11,9 +11,10 @@ Built with **React** on the frontend and **Supabase** (Postgres, Auth, Storage, 
 
 ## Key Features
 
-- **Multi-tenant isolation** — Independent workspaces (managed or self-service) with database-level tenant isolation via Postgres Row Level Security
+- **Multi-tenant isolation** — Independent workspaces (managed or self-service) with database-level tenant isolation via Postgres Row Level Security. RLS is the enforcement boundary — the frontend mirrors it for UX, but access is decided in the database.
 - **Subscription billing** — Stripe integration for tier-based access with admin waiver support
-- **Role-based workflows** — Distinct interfaces for Grantees, Tenant Admins, and Platform Super Admins
+- **Role-based workflows** — Three roles with distinct interfaces: **grantees** (own grants/expenses), **tenant admins** (review workflows for their workspace), and **platform super admins** (operate across tenants via `/super/tenants`). `/grants*` and `/expenses` are grantee-only; an admin whose tenant subscription has lapsed keeps **read-only** admin access rather than being locked out.
+- **Tenant-agnostic platform root** — The platform-root workspace is config-driven via `platform_settings.platform_root_slug` (default `'tfac'`), not hardcoded.
 - **Audit logging** — Trigger-based change log across all key tables
 - **Realtime notifications** — Live updates via Supabase Realtime on status changes
 - **Data visualization** — Recharts-based spending and budget charts throughout the app
@@ -33,6 +34,8 @@ grant-trail/
 ├── supabase/                      # Backend
 │   ├── migrations/                # Database schema migrations
 │   ├── functions/                 # Edge Functions (Stripe, billing)
+│   │   └── tests/                 # Shell-based payment-flow integration tests
+│   ├── tests/                     # RLS adversarial / platform-root SQL tests
 │   └── seed.sql                   # Local dev seed data
 │
 ├── scripts/                       # CLI automation (deploy, promote admin)
@@ -113,3 +116,11 @@ Background and design rationale:
 - [Authentication Flow](docs/explanation/authentication_flow.md)
 - [Development Patterns](docs/explanation/development_patterns.md)
 - [Scalability & Performance](docs/explanation/scalability.md)
+
+### Security & Roadmap Analysis
+Hardening reviews behind the recent security work (RLS as the enforcement boundary, fixed privilege-escalation paths, tenant-scoped storage, token-scoped invites):
+- [Role Matrix](docs/roadmap/role-matrix.md)
+- [RLS Audit](docs/roadmap/rls-audit.md)
+- [Security Hygiene](docs/roadmap/security-hygiene.md)
+- [Data Protection Baseline](docs/roadmap/data-protection-baseline.md)
+- [Edge Function Authz Review](docs/roadmap/edge-function-authz-review.md)

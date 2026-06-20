@@ -136,7 +136,6 @@ supabase functions deploy create-basic-membership-checkout-session --no-verify-j
 supabase functions deploy create-billing-portal-session --no-verify-jwt
 supabase functions deploy sync-my-subscription --no-verify-jwt
 supabase functions deploy stripe-webhook --no-verify-jwt
-supabase functions deploy send-test-email --no-verify-jwt
 ```
 
 ## Local Development
@@ -179,6 +178,18 @@ Then set the webhook signing secret:
 ```bash
 supabase secrets set STRIPE_WEBHOOK_SECRET=<your-webhook-signing-secret>
 ```
+
+## Automated Tests
+
+- **Payment-flow integration tests** — shell-based suites under `functions/tests/`
+  (checkout, webhook matrix, billing portal + sync, authz/identity, system-log failures).
+  Orchestrate the Stripe suites with `bash functions/tests/run-all.sh`. See
+  [functions/tests/README.md](functions/tests/README.md).
+- **RLS adversarial tests** — `tests/rls-adversarial.test.sh` proves the multi-tenant
+  RLS model holds against an authenticated attacker (no cross-tenant read/write, no
+  role escalation), alongside `tests/platform-root-config.test.sh`.
+
+Both tiers run against a local Supabase stack and are exercised in CI.
 
 ## Quick Smoke Test
 
