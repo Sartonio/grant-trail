@@ -121,6 +121,14 @@ The migration history is intentionally split:
 | `…_bootstrap_initial_tenant.sql` | The `tfac` tenant + its settings (data prod needs). |
 | `…_restore_platform_and_storage_data.sql` | The single `platform_settings` row and the `receipts` / `grant-documents` storage buckets. |
 
+> [!NOTE]
+> **Which tenant is the platform root is config-driven, not hardcoded.** The
+> `tfac` tenant is the platform root by default, but the SECURITY DEFINER logic
+> reads the slug from `platform_settings.platform_root_slug` (DEFAULT `'tfac'`)
+> via the `platform_root_slug()` / `is_platform_root_tenant()` helpers (added by
+> `…_tenant_agnostic_platform_root.sql`). To re-point it, don't edit those
+> helpers — `UPDATE platform_settings SET platform_root_slug='<slug>' WHERE id=1;`.
+
 All bootstrap **data** lives in migrations (never in `seed.sql`, which is local/CI only), and the schema baseline stays data-free.
 
 ### If you squash the migration history

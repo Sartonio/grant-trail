@@ -119,6 +119,41 @@ frontend and start a checkout — the `checkout.session.completed` event flows b
 through `stripe listen` into `upsertSubscriptionFromStripe`, which writes to
 `subscriptions` and `user_memberships`.
 
+## Automated payment test suite
+
+Manual triggering is fine for spot checks, but the billing flows now have a full
+shell-based integration suite under `supabase/functions/tests/`. It drives **real
+Stripe TEST mode** (no real charges), a live `stripe listen` forwarder, and Stripe
+**test clocks**, then polls the DB to prove the webhook-synced projection
+(`subscriptions`, `user_memberships`) against Stripe as the source of truth.
+
+`run-all.sh` is the orchestrator. It owns the forwarder lifecycle and runs the
+suites in order:
+
+- `checkout-sessions.test.sh` — both checkout functions, both tiers, success/cancel + auth/input guards
+- `authz-identity.test.sh` — authz / identity guards (needs the Stripe key, no webhook)
+- `webhook-matrix.test.sh` — live webhook loop: created/updated/past_due/deleted end-state, idempotency, lapse→reactivate, waiver (needs the forwarder)
+- `portal-and-sync.test.sh` — billing portal URL + `sync-my-subscription` reconciliation (forwarder off, so sync is the sole DB writer)
+
+Together these assert **69 checks**. To run the whole suite:
+
+```bash
+# 1. Bring up the local stack
+npm run db:start
+
+# 2. Serve the functions with your TEST-mode .env (see One-time setup above)
+npx --prefix frontend supabase functions serve --env-file ./supabase/functions/.env
+
+# 3. In another shell, run everything (it starts/stops the forwarder for you)
+bash supabase/functions/tests/run-all.sh
+```
+
+`STRIPE_WEBHOOK_SECRET` in the `.env` must match the `stripe listen` signing
+secret (`stripe listen --api-key <key> --print-secret`). See
+[`supabase/functions/tests/README.md`](../../supabase/functions/tests/README.md)
+for the full breakdown, including how the webhook loop is exercised and the two CI
+gating tiers.
+
 ## Common gotchas
 
 | Symptom | Cause / fix |

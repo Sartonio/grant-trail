@@ -119,7 +119,7 @@ After that, deploying is just merging a PR that touches `supabase/`. On merge th
 - Applies any **new migrations** under `supabase/migrations/` (builds the schema; never re-runs applied migrations)
 - Deploys the **Edge Functions declared in `config.toml`** (`verify_jwt = false` for `stripe-webhook`)
 - Deploys **storage buckets** created by the migrations
-- Provisions the default root tenant (`tfac`) and its settings, via the `bootstrap_initial_tenant` migration
+- Provisions the default root tenant (`tfac`) and its settings, via the `bootstrap_initial_tenant` migration. The platform-root tenant is now **config-driven**: `platform_settings.platform_root_slug` (DEFAULT `'tfac'`) is read by the `platform_root_slug()` / `is_platform_root_tenant()` SECURITY DEFINER helpers — it is no longer hardcoded in the RLS/role logic. TFAC remains the platform root and exempt **by default**; to re-point it, `UPDATE platform_settings SET platform_root_slug='<slug>' WHERE id=1;`.
 
 > **Removed functions are not pruned.** The integration deploys declared functions but never deletes one you've removed from `config.toml`/`supabase/functions/` — it keeps running in the project. After removing a function, prune it explicitly:
 > ```bash
@@ -272,6 +272,30 @@ Once bootstrap is done, the infrastructure and secrets stay put. Day-to-day depl
 | **The first super admin** | One-time only — see Step 9. |
 
 > **Schema changes are always incremental.** Never edit an already-applied migration or hand-edit the remote database — add a new timestamped file under `supabase/migrations/`. On merge to the integration's tracked branch (`main`), the **Supabase GitHub integration** applies only the pending migrations (it never re-runs applied ones), so it cannot replay an edited file. Avoid `DROP`/destructive statements unless intended: the integration applies whatever the migration contains and does not back up first. **The integration is the single source of truth for schema deploys** — there is no manual `db push` path. Never run `supabase db push` against the remote by hand; doing so applies migrations out of band and drifts the environment from what the integration believes is deployed.
+
+## Deploy-gating CI checks
+
+Because merge = deploy, CI is the safety net before anything reaches the live
+(staging) environment. `.github/workflows/ci.yml` runs these gating jobs on every
+push and PR to `main` — keep them green before merging:
+
+| Job | What it gates | Needs Stripe secrets |
+|-----|---------------|----------------------|
+| `build-and-test` | Lint, unit tests, production build, and Playwright E2E against a from-scratch local Supabase stack | no |
+| `migration-replay` (PRs only) | Applies a PR's **new** migrations on top of the **base-branch** schema + seed (not just from an empty DB), catching failures like a `NOT NULL` add or unique constraint that existing rows would violate | no |
+| `edge-function-tests` | **FAST** edge-function tier: local stack + served functions + a **dummy** `STRIPE_SECRET_KEY` so the billing modules boot. No `stripe listen` forwarder, no test clocks (~1–2 min) | no (dummy key) |
+| `stripe-edge-function-tests` | **Stripe-enabled** edge-function tier: installs the Stripe CLI, starts a live `stripe listen` forwarder, derives `STRIPE_WEBHOOK_SECRET` at runtime via `stripe listen --print-secret`, and runs `supabase/functions/tests/run-all.sh` (~3–4 min) | yes — TEST mode |
+
+The Stripe-enabled job reads **TEST-mode** secrets from the GitHub repo's CI
+secrets (never production keys):
+
+- `STRIPE_SECRET_KEY_TEST`
+- `STRIPE_PRICE_BASIC_TEST`
+- `STRIPE_PRICE_FISCAL_AGENT_ACCESS_TEST`
+
+`STRIPE_WEBHOOK_SECRET` is **not** stored — it is derived at runtime from the live
+forwarder. See [Local Stripe / Billing Testing](local_stripe_testing.md) for the
+suite these jobs run.
 
 ---
 
