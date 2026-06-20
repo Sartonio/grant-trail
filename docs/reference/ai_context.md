@@ -71,6 +71,9 @@ Never insert the Auth UUID into a column that expects the integer user ID. The t
 
 - **Silent failures** — RLS filters rows at the database level. A query for a resource the user cannot access returns `data: null, error: null`, not an exception. Always null-check returned data before accessing properties.
 - **`.single()`** — Returns an error if zero rows are found. Handle the error object gracefully rather than assuming success.
+- **Invites are not directly readable/writable by clients** — `anon` has no `invites` table access. Resolve and consume invites via the SECURITY DEFINER RPCs `get_invite_by_token` / `consume_invite` (wrapped in `frontend/src/lib/invites.js`), never a direct `supabase.from('invites')` query.
+- **Storage is tenant-scoped by path** — `grant-documents` and `receipts` policies require the object path's 2nd folder segment to be the caller's tenant (`storage_object_tenant_id(name) = current_tenant_id()`). Uploads MUST follow the path convention `attachments/<tenant_id>/<grant_id>/...` and `receipts/<tenant_id>/<grant_id>/<expense_id>/...` or the write is denied.
+- **Privilege columns are frozen on self-update** — a trigger blocks a user changing their own `role` / `tenant_id` / `is_active`; grant `tenant_id` is derived server-side. Do not attempt to set these from the client.
 
 ---
 
@@ -94,6 +97,7 @@ Never insert the Auth UUID into a column that expects the integer user ID. The t
 - **`useCallback` + `useEffect`** — Wrap async data-fetching functions in `useCallback` and pass them as `useEffect` dependencies when they also need to be triggered manually (e.g. on form submit). This prevents render loops.
 - **Set lookups** — When checking membership in a list inside a `.map()`, convert the array to a `Set` first. Avoid `.find()` or `.includes()` in inner loops.
 - **Batching with `.in()`** — Avoid N+1 queries. Collect parent IDs first, then fetch related records in a single `.in('parent_id', ids)` call.
+- **Route guards / authz live in `frontend/src/lib/`** — not inline in `App.js`. Use `policy.js` for role/billing decisions (`hasRequiredSubscription`, `canMutate`, `isReadOnlyAdmin`), `guards.js` `<Guard>` to protect a route, and `useWriteGuard(session)` to gate admin mutations. Admin routes degrade to **read-only** when the admin's subscription lapses (they are not redirected); grantee routes hard-redirect unpaid users to `/home`. See [routing_index.md](routing_index.md).
 
 ---
 

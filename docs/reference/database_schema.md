@@ -81,8 +81,15 @@ Single-row platform-wide configuration managed by the super admin. Provides defa
 | `default_support_phone` | VARCHAR(20) | no | `'(555) 123-4567'` | Default support phone for all tenants |
 | `basic_membership_product_id` | VARCHAR | yes | `NULL` | Stripe product ID for the Basic tier. Not hard-coded — synced from `STRIPE_PRICE_BASIC` by the Edge Functions, or set by a super admin. |
 | `premium_membership_product_id` | VARCHAR | yes | `NULL` | Stripe product ID for the Premium (Org Admin) tier. Not hard-coded — synced from `STRIPE_PRICE_PRO` by the Edge Functions, or set by a super admin. |
+| `platform_root_slug` | VARCHAR(100) | no | `'tfac'` | Slug of the platform-root (operator) tenant whose admins are membership-exempt. Replaces the previously hard-coded `'tfac'` literal so the platform root is config-driven (GitHub #29, `20260619130000`). Read via `platform_root_slug()`; compared via `is_platform_root_tenant(slug, name)`. Re-point with `UPDATE platform_settings SET platform_root_slug = '<new-slug>' WHERE id = 1`. |
 
 **RLS:** Anyone can read. Only super admins can update.
+
+> **Platform root is no longer hard-coded.** The platform-root tenant (whose
+> admins are never billed) was previously matched against the literal `'tfac'`
+> slug inside SECURITY DEFINER logic. It is now resolved from
+> `platform_root_slug` (default `'tfac'`, so behaviour is unchanged by default).
+> TFAC remains exempt out of the box; the mechanism is just config-driven now.
 
 **Used by:** `billing.js` → `getMembershipProductIds()` reads these at startup to resolve which Stripe product to use for each membership tier.
 
@@ -105,7 +112,7 @@ Signup invite tokens for onboarding new users into managed tenants.
 | `expires_at` | TIMESTAMPTZ | no | NOW() + 7 days | Invite expiry |
 | `created_at` | TIMESTAMPTZ | yes | NOW() | Row creation timestamp |
 
-**RLS:** Anyone can read invites by token (needed during signup). Admins can create and view invites for their tenant.
+**RLS:** Only admins can directly read invites for their own tenant (and create them). `anon` has **no** table access. Token-scoped reads/consumption during signup go through SECURITY DEFINER RPCs `get_invite_by_token(p_token text)` and `consume_invite(p_token text, p_user_id uuid)` — never a direct client query (D7 hardening, `20260619140000` / `20260619170000`). See `frontend/src/lib/invites.js`.
 
 ---
 
@@ -133,6 +140,7 @@ Application user profiles. Linked to Supabase Auth via `user_id` (UUID). Scoped 
 - `id` (integer) is used as FK everywhere — never use the UUID `user_id` as a FK
 - When `is_active = false`, the user can still SELECT their own row (so App.js can read the flag), but App.js signs them out and shows an "Account Disabled" message
 - RLS: users can read/update their own row; admins can read all rows and update `role` / `is_active` via the `"Admins can update users"` policy
+- **Self-update is privilege-frozen:** the `trg_aa_enforce_user_self_update_guard` BEFORE UPDATE trigger blocks a self-service user from changing their own `role`, `tenant_id`, or `is_active` (closes self-promotion to super_admin and tenant-hopping). service_role, `is_admin()`, and `is_super_admin()` sessions are exempt. See `20260619120000`.
 - All changes to this table are written to `audit_log` via `trg_audit_users`
 
 ---
@@ -308,7 +316,7 @@ Admin comments on a grant, visible to the grantee. Separate from `approval_notes
 
 **Note:** `user_id` here is the auth UUID (unlike most other tables which use the integer PK). This is intentional — comments reference auth users directly.
 
-**RLS:** Grantees can read comments on their own grants; admins can read all and insert.
+**RLS:** Grantees can read comments on their own grants; admins can read all and insert. Super admins have a read-only SELECT policy (`OR is_super_admin()`, `20260619160000`).
 
 ---
 
@@ -348,7 +356,7 @@ In-app notifications for users. Created automatically by database triggers when 
 | `is_read` | BOOLEAN | yes | `false` | Read/unread state — toggled by the frontend |
 | `created_at` | TIMESTAMPTZ | yes | NOW() | When the notification was created |
 
-**RLS:** Users can view, update (mark as read), and delete their own notifications. Admins can also view their own. Triggers insert via a system-level INSERT policy.
+**RLS:** Users can view, update (mark as read), and delete their own notifications. Admins can also view their own. Super admins have a read-only SELECT policy (`OR is_super_admin()`, `20260619160000`). Triggers insert via a system-level INSERT policy.
 
 **Realtime:** Enabled via `ALTER PUBLICATION supabase_realtime ADD TABLE notifications`. The frontend subscribes to INSERT events filtered by `user_id`.
 
@@ -380,6 +388,8 @@ Stripe subscription records synced from Stripe webhooks. One active row per subs
 
 **Read by:** `billing.js` → `fetchMembershipStatus()` queries for rows with `status IN ('active', 'trialing', 'past_due')`.
 
+**RLS:** Read own; `service_role` manages writes. Super admins have a read-only SELECT policy (`OR is_super_admin()`, `20260619160000`).
+
 ---
 
 ### `user_memberships`
@@ -399,9 +409,9 @@ Tracks the active membership tier for each user. Updated by the subscription syn
 | `created_at` | TIMESTAMPTZ | no | NOW() | Row creation timestamp |
 | `updated_at` | TIMESTAMPTZ | no | NOW() | Last updated |
 
-**Read by:** `billing.js`, `AdminUserList.js`, `TenantManagement.js`.
+**Read by:** `billing.js`, `AdminUserList.js`, `TenantManagement.js`. Super admins have a read-only SELECT policy (`OR is_super_admin()`, `20260619160000`).
 
-**Route guard:** `App.js` calls `hasRequiredSubscription(session)` which uses the membership data to allow or redirect users to `/home` (the subscription paywall).
+**Route guard:** `hasRequiredSubscription(session)` (now in `frontend/src/lib/policy.js`) decides whether a session satisfies its role's subscription. Lapse handling diverges by role: a **grantee** without basic membership is redirected to `/home` (billing nudge); a lapsed **admin** is *not* redirected — they get a read-only admin UI (`ReadOnlyBanner` + disabled mutations, with blocked writes routed to `/subscription` via `useWriteGuard`). See `frontend/src/lib/guards.js` and [routing_index.md](routing_index.md).
 
 ---
 
@@ -417,6 +427,8 @@ Links a `users` row to a Stripe customer ID. Created when a user initiates their
 | `created_at` | TIMESTAMPTZ | no | NOW() | Row creation timestamp |
 
 **Written by:** Stripe checkout edge function when creating a new Stripe customer. Not queried directly by the frontend.
+
+**RLS:** Read own; `service_role` manages writes. Super admins have a read-only SELECT policy (`OR is_super_admin()`, `20260619160000`).
 
 ---
 
@@ -480,6 +492,7 @@ Per-user feature flag overrides. Allows granting or revoking specific features i
 | `trg_zz_auto_approve_budget_item` | `budget_items` | BEFORE INSERT | Auto-approves if tenant_settings.require_budget_approval is false |
 | `trg_zz_auto_approve_expense` | `expenses` | BEFORE INSERT | Auto-approves if tenant_settings.require_expense_approval is false |
 | `trg_enforce_self_service_role` | `users` | BEFORE INSERT/UPDATE | Blocks admin role on self-service tenants |
+| `trg_aa_enforce_user_self_update_guard` | `users` | BEFORE UPDATE | Freezes `role` / `tenant_id` / `is_active` on self-service self-updates (privilege-escalation guard; service_role / admin / super_admin exempt). Fires before `trg_audit_users`. |
 
 ---
 
@@ -490,7 +503,7 @@ Per-user feature flag overrides. Allows granting or revoking specific features i
 | `is_admin()` | BOOLEAN | Returns true if the current auth user has `role = 'admin'` **and** `is_active = true` **within the current tenant**. SECURITY DEFINER to prevent RLS recursion. Used by all admin RLS policies — a disabled admin is locked out of all admin-gated policies. |
 | `current_tenant_id()` | INT | Returns the tenant_id for the current authenticated user. SECURITY DEFINER + STABLE. Used in all tenant-scoped RLS policies. |
 | `is_super_admin()` | BOOLEAN | Returns true if current user has role = 'super_admin' and is_active = true. Cross-tenant access. |
-| `is_membership_exempt()` | BOOLEAN | Returns true if the current user is exempt from membership requirements (e.g. super_admin). Used in billing access checks. |
+| `is_membership_exempt(p_user_id int)` | BOOLEAN | Returns true if the user is exempt from membership requirements: super_admin, a platform-root admin (`is_platform_root_tenant`, config-driven via `platform_root_slug()`), or a tenant with `require_subscription = false`. Used in billing access checks. |
 | `has_basic_membership()` | BOOLEAN | Returns true if the current user has an active basic or premium membership. |
 | `has_premium_membership()` | BOOLEAN | Returns true if the current user has an active premium membership. |
 | `has_feature_access(p_feature_key)` | BOOLEAN | Returns true if the current user has a specific feature enabled via entitlements. |
@@ -499,6 +512,12 @@ Per-user feature flag overrides. Allows granting or revoking specific features i
 | `get_admin_user_ids()` | SETOF INT | Returns all active admin user integer PKs. Used by notification triggers to notify all admins. |
 | `get_grant_name(g_id)` | TEXT | Returns the grant name (or `'Grant #N'` fallback) for display in notification messages. |
 | `calculate_grant_budget_totals(grant_id INT)` | TABLE | Returns count, total allocated, total spent, total remaining across all budget items for a grant. Not currently used in the frontend. |
+| `get_invite_by_token(p_token text)` | TABLE | SECURITY DEFINER. Returns the single invite (id, tenant_id, role, email, used_at, expires_at, tenant_name) matching the token. anon + authenticated EXECUTE. Token-scoped — no enumeration. (`20260619140000`) |
+| `consume_invite(p_token text, p_user_id uuid)` | BOOLEAN | SECURITY DEFINER. Stamps `used_by`/`used_at` for the invite matching the token, only if unused; enforces `p_user_id = auth.uid()`; idempotent. authenticated EXECUTE only. Returns whether a row was consumed. (`20260619170000`) |
+| `platform_root_slug()` | TEXT | SECURITY DEFINER + STABLE. Returns the configured platform-root tenant slug from `platform_settings.platform_root_slug` (lower-cased; falls back to `'tfac'`). (`20260619130000`) |
+| `is_platform_root_tenant(p_slug text, p_name text)` | BOOLEAN | SECURITY DEFINER + STABLE. True when the given tenant slug equals `platform_root_slug()`. Centralises the platform-root check for `enforce_membership_eligibility()` / `is_membership_exempt()`. (`20260619130000`) |
+| `storage_object_tenant_id(p_name text)` | INT | IMMUTABLE. Returns the `tenant_id` encoded in a storage object's path (2nd folder segment), or NULL on a malformed/too-shallow path. Backs the tenant-scoped storage policies. (`20260619150000`) |
+| `enforce_user_self_update_guard()` | TRIGGER | SECURITY DEFINER. Backs `trg_aa_enforce_user_self_update_guard` — see Triggers Summary. (`20260619120000`) |
 
 ---
 
@@ -511,4 +530,4 @@ Per-user feature flag overrides. Allows granting or revoking specific features i
 
 Both buckets are private. Files are accessed via short-lived signed URLs (`createSignedUrl(path, 60)`).
 
-**Storage RLS:** Authenticated users can upload, view, and delete files in both buckets. Admins can view all files in their bucket.
+**Storage RLS (tenant-scoped, `20260619150000`):** Read/insert/delete in both buckets require the object path's tenant segment to equal the caller's `current_tenant_id()` — i.e. `storage_object_tenant_id(name) = current_tenant_id()`, where the 2nd path folder is the owning `tenant_id`. Super admins keep tenant-agnostic **read** (`OR is_super_admin()`); writes stay on the tenant path. (Previously these policies only checked `auth.uid() IS NOT NULL`, so any authenticated user could touch any tenant's files.)

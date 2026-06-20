@@ -32,6 +32,9 @@ erDiagram
     int       id              PK "always 1"
     varchar   default_support_email
     varchar   default_support_phone
+    varchar   basic_membership_product_id "nullable, Stripe"
+    varchar   premium_membership_product_id "nullable, Stripe"
+    varchar   platform_root_slug "default: tfac; config-driven platform root"
   }
 
   invites {
