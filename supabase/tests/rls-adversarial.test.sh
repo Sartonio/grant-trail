@@ -247,6 +247,55 @@ SQL
 )
 assert_eq "anon gets zero rows for an unknown token" "0" "$(echo "$out" | grep -E '^[0-9]+$' | head -1)"
 
+# --- consume_invite RPC: token-scoped, idempotent, on-behalf-of guard ----------
+# A user holding a VALID token CAN consume that invite, stamping used_by=auth.uid.
+out=$(docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -tA -v ON_ERROR_STOP=0 <<SQL 2>&1
+BEGIN;
+${INV_SETUP}
+SELECT set_config('request.jwt.claims',
+  json_build_object('sub','${GRANTEE_TFAC}','role','authenticated')::text, true);
+SET LOCAL ROLE authenticated;
+SELECT consume_invite('11111111-1111-1111-1111-111111111111', '${GRANTEE_TFAC}'::uuid);
+RESET ROLE;
+SELECT (used_by = '${GRANTEE_TFAC}'::uuid AND used_at IS NOT NULL)
+  FROM invites WHERE token='11111111-1111-1111-1111-111111111111';
+ROLLBACK;
+SQL
+)
+assert_contains "user CAN consume their own invite via consume_invite RPC" "t" "$out"
+
+# A caller CANNOT consume an invite on behalf of a DIFFERENT user (p_user_id != auth.uid()).
+out=$(docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -tA -v ON_ERROR_STOP=0 <<SQL 2>&1
+BEGIN;
+${INV_SETUP}
+SELECT set_config('request.jwt.claims',
+  json_build_object('sub','${GRANTEE_BRIGHT}','role','authenticated')::text, true);
+SET LOCAL ROLE authenticated;
+SELECT consume_invite('22222222-2222-2222-2222-222222222222', '${GRANTEE_TFAC}'::uuid);
+RESET ROLE;
+SELECT used_at IS NULL FROM invites WHERE token='22222222-2222-2222-2222-222222222222';
+ROLLBACK;
+SQL
+)
+assert_contains "user CANNOT consume an invite on behalf of another user" "Not allowed to consume an invite on behalf of another user" "$out"
+# …and the invite remains unconsumed.
+assert_contains "invite stays unconsumed after on-behalf-of attempt" "t" "$out"
+
+# consume_invite is idempotent: a second call on an already-used invite consumes nothing.
+out=$(docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -tA -v ON_ERROR_STOP=0 <<SQL 2>&1
+BEGIN;
+${INV_SETUP}
+SELECT set_config('request.jwt.claims',
+  json_build_object('sub','${GRANTEE_TFAC}','role','authenticated')::text, true);
+SET LOCAL ROLE authenticated;
+SELECT consume_invite('11111111-1111-1111-1111-111111111111', '${GRANTEE_TFAC}'::uuid);
+SELECT consume_invite('11111111-1111-1111-1111-111111111111', '${GRANTEE_TFAC}'::uuid);
+ROLLBACK;
+SQL
+)
+# First call -> t, second call (already used) -> f.
+assert_contains "consume_invite is idempotent (re-consume returns false)" "f" "$out"
+
 # ============================================================================
 # D5 — storage objects are tenant-scoped
 # ============================================================================
