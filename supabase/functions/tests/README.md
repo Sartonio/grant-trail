@@ -9,9 +9,10 @@ Shell-based integration tests for the Supabase Edge Functions. They run against 
 |---|---|---|
 | `system-logs-failure.test.sh` | Each billing fn logs a `critical` `system_logs` row on failure (#4) | no |
 | `checkout-sessions.test.sh` | Both checkout fns, both tiers, success/cancel paths, auth + input guards (WS5 b) | yes |
+| `authz-identity.test.sh` | Identity is taken from the JWT, never the request body: caller A cannot bind a checkout/customer to caller B's id/email; unauthenticated/invalid-JWT rejected | yes |
 | `webhook-matrix.test.sh` | Live webhook loop: created/updated/past_due/deleted -> DB end-state; idempotency; lapse->reactivate; waiver x live sub (WS5 a, d) | yes + `stripe listen` |
 | `portal-and-sync.test.sh` | Billing portal URL; `sync-my-subscription` upgrade/downgrade/cancel/no-sub reconciliation (WS5 c) | yes |
-| `run-all.sh` | Orchestrates the three Stripe suites and owns the `stripe listen` forwarder lifecycle | yes |
+| `run-all.sh` | Orchestrates the four Stripe suites and owns the `stripe listen` forwarder lifecycle | yes |
 
 `lib/stripe_test_helpers.sh` holds shared helpers (test-user/fixtures via the
 GoTrue admin API, Stripe customer/subscription scaffolding, DB polling assertions).
