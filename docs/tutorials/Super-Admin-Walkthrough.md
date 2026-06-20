@@ -278,7 +278,7 @@ If a tenant admin sets their own support email/phone, that takes priority. Other
 
 By default, all tenants require grantees to have an active subscription (Basic or Premium) to access grants and expenses. Super admins can exempt individual tenants from this requirement.
 
-> ℹ️ Super admins and TFAC admins are always exempt from subscriptions regardless of tenant settings. Other tenant admins require subscriptions unless their account or tenant is exempt.
+> ℹ️ Super admins and TFAC admins are always exempt from subscriptions regardless of tenant settings. Other tenant admins require a Premium subscription unless their account or tenant is exempt. An admin whose subscription lapses is **not** locked out — the admin console degrades to **read-only** (they can still view everything and export, but cannot make changes until they reactivate). See the Admin Walkthrough, Section 13.
 
 ### The Subscription Column
 

@@ -519,3 +519,14 @@ The grantee's Subscription badge changes to **Waived** (purple) and they receive
 
 - Admins cannot change a grantee's Stripe subscription tier (Basic ↔ Premium). The grantee manages this via their Subscription page
 - Admins cannot exempt the entire tenant from subscriptions. This is a super admin action (see the Super Admin Walkthrough)
+
+### If Your Own Subscription Lapses (Read-Only Mode)
+
+The subscription requirement also applies to **your own** admin account. If your Premium subscription lapses or is cancelled — and you are not exempt (TFAC admin or super admin) or waived — the admin console switches to **read-only mode** rather than locking you out:
+
+- You can still **view everything**: the dashboard, all grants and reviews, the audit log, user management, and settings, and you can still **export** data (CSV/Excel).
+- **Actions are disabled.** A yellow banner — *"Your subscription has lapsed — this view is read-only. Reactivate your subscription to make changes."* — appears at the top of admin pages, and the controls that change data are greyed out: status changes and budget/expense approve/reject, adding comments, setting disbursed funds, changing a user's role or active state, waiving or removing a waiver, generating invites, and saving settings.
+- Clicking a disabled action or the banner's **Manage billing** link takes you to your **Subscription** page to reactivate.
+- **Reactivating** a Premium subscription restores full write access immediately (refresh the page if a control still appears disabled).
+
+> ℹ️ This is a billing nudge, not a permissions change — your admin role is unchanged. Read-only access to the audit log and export means you keep compliance and offboarding visibility even while billing is being sorted out.
