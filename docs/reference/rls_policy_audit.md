@@ -31,7 +31,7 @@ previously only checked in the React router.
 | tenants | ✓ | ✓ | svc | svc | svc | Super-admin `ALL`; authenticated read names + own tenant. OK |
 | tenant_settings | ✓ | ✓ | ✓ | ✓ | — | Settings rows are never deleted. Intentional |
 | platform_settings | ✓ | ✓ | — | ✓ | — | Single fixed row (id=1), bootstrapped; super-admin updates. Intentional |
-| invites | ✓ | ✓ | ✓ | ✓ | — | Invites expire/consume, not deleted. Intentional |
+| invites | ✓ | ✓ | ✓ | ✓ | — | Admin own-tenant read only; token reads/consumes go via SECURITY DEFINER RPCs (anon has no table access). Invites expire/consume, not deleted. Intentional |
 | users | ✓ | ✓ | ✓ | ✓ | — | Soft-delete via `is_active`; no hard delete. Intentional |
 | grant_record | ✓ | ✓ | ✓ | ✓ | **—** | **No delete policy → nobody can delete grants via the API.** See findings |
 | budget_items | ✓ | ✓ | ✓ | ✓ | ✓ | Full CRUD for grant owners + admins. OK |
@@ -55,10 +55,43 @@ previously only checked in the React router.
   can read tenant `name`/`slug` (needed for the tenant picker on signup).
 - `platform_settings` — "Anyone can read platform settings": `USING (true)`,
   product IDs / public config only (no secrets).
-- `invites` — "Anyone can read invites by token": `USING (true)`, required so an
-  unauthenticated invitee can resolve their invite during signup.
 
 These are intentional cross-/pre-auth reads and expose no tenant-private rows.
+
+## Security hardening (WS7.1 — `2026061912xx`–`2026061917xx`)
+
+Six forward migrations closed the gaps found in [rls-audit.md](../roadmap/rls-audit.md).
+Cross-reference that doc for the full per-finding analysis; the summary here:
+
+- **Invites are no longer world-readable (D7).** The old `"Anyone can read invites
+  by token"` (`USING (true)`) policy is **dropped** and `anon`'s table/sequence
+  privileges are **revoked**. Token reads now flow through the SECURITY DEFINER
+  `get_invite_by_token(p_token text)` (anon + authenticated EXECUTE; returns the
+  one matching invite). Consumption flows through `consume_invite(p_token text,
+  p_user_id uuid)` — token-scoped, idempotent (`used_at IS NULL` only), enforces
+  `p_user_id = auth.uid()`, authenticated only. The admin own-tenant SELECT and
+  the consume-update policies are unchanged. (`20260619140000`, `20260619170000`)
+- **Storage objects are tenant-scoped by path (D5).** The `grant-documents` and
+  `receipts` bucket policies previously only checked `auth.uid() IS NOT NULL`.
+  They now require `storage_object_tenant_id(name) = current_tenant_id()` — the
+  2nd path segment is the owning `tenant_id` (`grant-documents` =
+  `attachments/<tenant_id>/<grant_id>/<file>`; `receipts` =
+  `receipts/<tenant_id>/<grant_id>/<expense_id>/<file>`) for read/insert/delete.
+  `super_admin` keeps tenant-agnostic **read** (`OR is_super_admin()`); writes
+  stay on the tenant path. (`20260619150000`)
+- **super_admin read-only ops visibility (D4).** Additive, **SELECT-only**
+  policies (`OR is_super_admin()`) were added to `subscriptions`,
+  `user_memberships`, `billing_customers`, `notifications`, and `grant_comments`
+  so platform-root can inspect a tenant's billing/membership/notifications. No
+  write access is granted. (`20260619160000`)
+- **Privilege-escalation fixes.** A `BEFORE UPDATE` guard trigger on `users`
+  (`enforce_user_self_update_guard`) freezes `role`, `tenant_id`, and `is_active`
+  for self-service updates (service_role / `is_admin()` / `is_super_admin()`
+  exempt), closing self-promotion to super_admin and tenant-hopping. Grant /
+  child-row INSERT triggers (`set_grant_tenant_id`, `set_tenant_from_grant`) now
+  derive `tenant_id` **authoritatively** from the owning user / parent grant,
+  ignoring any client-supplied value, closing cross-tenant grant inserts.
+  (`20260619120000`)
 
 ## Findings (reviewed — kept immutable by decision)
 

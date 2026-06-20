@@ -38,8 +38,8 @@ Read by the Supabase CLI when serving Edge Functions locally (`supabase function
 |----------|----------|-------------|----------------|
 | `STRIPE_SECRET_KEY` | ✅ | Stripe secret API key used to create checkout sessions, portal sessions, and retrieve subscriptions | [Stripe Dashboard → Developers → API keys](https://dashboard.stripe.com/apikeys) — use `sk_test_...` locally, `sk_live_...` in production |
 | `STRIPE_PRICE_BASIC` | ✅ | Stripe Price ID for the Basic membership plan | [Stripe Dashboard → Product Catalog](https://dashboard.stripe.com/products) → Basic plan → Price ID (`price_...`) |
-| `STRIPE_PRICE_PRO` | ✅ | Stripe Price ID for the Pro / Fiscal Agent Access plan | Same as above, for the Pro plan |
-| `STRIPE_PRICE_FISCAL_AGENT_ACCESS` | ❌ Optional | Alternative Price ID for the Fiscal Agent Access plan. Falls back to `STRIPE_PRICE_PRO` if not set. | Same as above |
+| `STRIPE_PRICE_FISCAL_AGENT_ACCESS` | ✅ | Stripe Price ID for the Premium / Fiscal Agent Access plan. This is the var the Edge Functions read first (`create-checkout-session`, `_shared/stripe.ts`); `STRIPE_PRICE_PRO` is only a legacy fallback. | Same as above, for the Premium plan |
+| `STRIPE_PRICE_PRO` | ❌ Optional | Legacy fallback Price ID used only when `STRIPE_PRICE_FISCAL_AGENT_ACCESS` is unset. Prefer `STRIPE_PRICE_FISCAL_AGENT_ACCESS`. | Same as above |
 | `STRIPE_WEBHOOK_SECRET` | ✅ | Signing secret used to verify that webhook events genuinely came from Stripe | [Stripe Dashboard → Developers → Webhooks](https://dashboard.stripe.com/webhooks) → your endpoint → Signing secret (`whsec_...`) |
 | `STRIPE_BILLING_PORTAL_CONFIGURATION_ID` | ❌ Optional | ID of a custom Stripe Billing Portal configuration. If omitted, Stripe uses the default portal configuration. | [Stripe Dashboard → Billing → Customer Portal](https://dashboard.stripe.com/settings/billing/portal) → Configuration ID (`bpc_...`) |
 | `APP_URL` | ✅ | The frontend URL, used for Stripe redirect URLs after checkout/portal | Local: `http://localhost:3000`. Production: your Vercel URL |
@@ -70,14 +70,14 @@ Set via the Supabase CLI. These are stored encrypted in Supabase's secrets vault
 npx supabase secrets set --project-ref <your-project-ref> \
   STRIPE_SECRET_KEY="sk_live_..." \
   STRIPE_PRICE_BASIC="price_..." \
-  STRIPE_PRICE_PRO="price_..." \
+  STRIPE_PRICE_FISCAL_AGENT_ACCESS="price_..." \
   STRIPE_WEBHOOK_SECRET="whsec_..." \
   APP_URL="https://your-app.vercel.app"
 ```
 
 Optionally also set:
 ```bash
-  STRIPE_PRICE_FISCAL_AGENT_ACCESS="price_..." \
+  STRIPE_PRICE_PRO="price_..." \
   STRIPE_BILLING_PORTAL_CONFIGURATION_ID="bpc_..."
 ```
 
@@ -97,6 +97,18 @@ The Playwright and k6 test suites read env vars directly from the shell environm
 | `SUPABASE_URL` | k6 load tests | Supabase URL |
 | `SUPABASE_ANON_KEY` | k6 load tests | Supabase anon key |
 
+### CI: Stripe-enabled edge-function tests
+
+The `build-and-test` job in [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) runs the Stripe edge-function tests against **TEST-mode** keys sourced from GitHub Actions secrets (never prod keys). They are mapped onto the runtime var names the functions expect:
+
+| CI secret | Mapped to | Description |
+|-----------|-----------|-------------|
+| `STRIPE_SECRET_KEY_TEST` | `STRIPE_SECRET_KEY` (and `STRIPE_API_KEY`) | Test-mode Stripe secret key |
+| `STRIPE_PRICE_BASIC_TEST` | `STRIPE_PRICE_BASIC` | Test-mode Basic price ID |
+| `STRIPE_PRICE_FISCAL_AGENT_ACCESS_TEST` | `STRIPE_PRICE_FISCAL_AGENT_ACCESS` | Test-mode Premium price ID |
+
+`STRIPE_WEBHOOK_SECRET` is derived at runtime from `stripe listen --print-secret` (the forwarder's signing secret), and `APP_URL` is set to `http://localhost:3000`.
+
 ---
 
 ## Quick Reference
@@ -108,8 +120,8 @@ The Playwright and k6 test suites read env vars directly from the shell environm
 | `VITE_SENTRY_DSN` | `frontend/.env.local` | ✅ optional | — |
 | `STRIPE_SECRET_KEY` | `supabase/.env` | — | ✅ |
 | `STRIPE_PRICE_BASIC` | `supabase/.env` | — | ✅ |
-| `STRIPE_PRICE_PRO` | `supabase/.env` | — | ✅ |
-| `STRIPE_PRICE_FISCAL_AGENT_ACCESS` | `supabase/.env` optional | — | ✅ optional |
+| `STRIPE_PRICE_FISCAL_AGENT_ACCESS` | `supabase/.env` | — | ✅ |
+| `STRIPE_PRICE_PRO` | `supabase/.env` optional (legacy fallback) | — | ✅ optional |
 | `STRIPE_WEBHOOK_SECRET` | `supabase/.env` | — | ✅ |
 | `STRIPE_BILLING_PORTAL_CONFIGURATION_ID` | `supabase/.env` optional | — | ✅ optional |
 | `APP_URL` | `supabase/.env` | — | ✅ |
