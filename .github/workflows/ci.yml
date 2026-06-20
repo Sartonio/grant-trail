@@ -44,6 +44,12 @@ jobs:
           VITE_SUPABASE_KEY: dummy-key
         run: npm run build
 
+      # Advisory only: surfaces HIGH/CRITICAL dependency advisories without
+      # failing the pipeline (|| true). Promote to a hard gate once the known
+      # xlsx advisory is resolved (see docs/roadmap/security-hygiene.md).
+      - name: Dependency audit (advisory)
+        run: npm audit --audit-level=high || true
+
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v2
         with:
