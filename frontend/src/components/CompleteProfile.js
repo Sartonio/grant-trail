@@ -3,7 +3,7 @@
 // Handles both invite-based (managed tenant) and self-service flows.
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
-import { getInviteByToken } from '../lib/invites';
+import { getInviteByToken, consumeInvite } from '../lib/invites';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { FaUser, FaBuilding, FaPhone, FaCalendarAlt, FaCheckCircle } from 'react-icons/fa';
 import '../styles/Login.css';
@@ -97,11 +97,9 @@ function CompleteProfile({ session, onProfileComplete }) {
         }
         userRecord = record;
 
-        // Mark invite as used
-        await supabase
-          .from('invites')
-          .update({ used_by: user.id, used_at: new Date().toISOString() })
-          .eq('id', invite.id);
+        // Mark invite as used via the token-scoped SECURITY DEFINER RPC.
+        // (Post-D7 the client can't write the invites table directly.)
+        await consumeInvite(inviteToken, user.id);
 
       } else {
         // Self-service flow - provision a new tenant atomically via RPC
