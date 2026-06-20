@@ -39,17 +39,22 @@ export const GRANTEE_BILLING_REDIRECT = '/home';
 // requireRole:
 //   - a role string  -> exactly this role is required
 //   - 'authenticated'-> any logged-in user
-// roleRedirect: where to send a user who fails the role check.
+// roleRedirect: where to send a user who fails the role check. Either a path
+//   string, or a function (session) => path so a route can send different
+//   roles to their own home (e.g. admin -> /admin, super_admin -> /super/tenants).
 // billingMode:
 //   - 'none'     -> billing not gated on this route
 //   - 'redirect' -> unpaid user redirected (grantee routes)
 //   - 'readOnly' -> route renders; lapsed admin gets read-only (no redirect)
 export function resolveGuard(session, { requireRole, roleRedirect, billingMode = 'none', billingRedirect = GRANTEE_BILLING_REDIRECT }) {
+  const resolveRoleRedirect = () =>
+    typeof roleRedirect === 'function' ? roleRedirect(session) : roleRedirect;
+
   // --- Role axis ---
   if (requireRole === 'authenticated') {
-    if (!isAuthenticated(session)) return { redirect: roleRedirect };
+    if (!isAuthenticated(session)) return { redirect: resolveRoleRedirect() };
   } else if (requireRole) {
-    if (getRole(session) !== requireRole) return { redirect: roleRedirect };
+    if (getRole(session) !== requireRole) return { redirect: resolveRoleRedirect() };
   }
 
   // --- Billing axis ---

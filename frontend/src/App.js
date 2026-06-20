@@ -325,6 +325,17 @@ function App() {
     );
   }
 
+  // Grantee routes are grantee-only. A non-grantee that lands on one is sent to
+  // their own home (the same role redirect targets "/" uses): super_admin ->
+  // /super/tenants, admin -> /admin. Anyone without a recognized role (i.e.
+  // unauthenticated) keeps the historical /login redirect.
+  function granteeRoleRedirect(s) {
+    const role = s?.userRecord?.role;
+    if (role === ROLES.SUPER_ADMIN) return '/super/tenants';
+    if (role === ROLES.ADMIN) return '/admin';
+    return '/login';
+  }
+
   // Root ("/") landing decision. Role-based authorization and billing gating are
   // kept as two separate concerns (issue #41); the rest of the app expresses
   // them declaratively via <Guard>, but "/" is a multi-target dispatcher so it
@@ -382,36 +393,38 @@ function App() {
           />
 
           {/*
-            Grantee routes — authz axis: any authenticated user (wrong/none -> /login);
-            billing axis: unpaid grantee redirected to the upgrade landing.
+            Grantee routes — authz axis: grantee-only. A non-grantee is sent to
+            its own home (granteeRoleRedirect: admin -> /admin, super_admin ->
+            /super/tenants; unauthenticated -> /login). Billing axis: unpaid
+            grantee redirected to the upgrade landing (unchanged).
           */}
           <Route path="/grants" element={
-            <Guard session={session} requireRole="authenticated" roleRedirect="/login" billingMode="redirect">
+            <Guard session={session} requireRole={ROLES.GRANTEE} roleRedirect={granteeRoleRedirect} billingMode="redirect">
               <Grants session={session} />
             </Guard>
           } />
           <Route path="/grants/new" element={
-            <Guard session={session} requireRole="authenticated" roleRedirect="/login" billingMode="redirect">
+            <Guard session={session} requireRole={ROLES.GRANTEE} roleRedirect={granteeRoleRedirect} billingMode="redirect">
               <CreateGrant session={session} />
             </Guard>
           } />
           <Route path="/grants/:id/edit" element={
-            <Guard session={session} requireRole="authenticated" roleRedirect="/login" billingMode="redirect">
+            <Guard session={session} requireRole={ROLES.GRANTEE} roleRedirect={granteeRoleRedirect} billingMode="redirect">
               <CreateGrant session={session} />
             </Guard>
           } />
           <Route path="/grants/:id" element={
-            <Guard session={session} requireRole="authenticated" roleRedirect="/login" billingMode="redirect">
+            <Guard session={session} requireRole={ROLES.GRANTEE} roleRedirect={granteeRoleRedirect} billingMode="redirect">
               <GrantDetail session={session} />
             </Guard>
           } />
           <Route path="/grants/:id/breakdown" element={
-            <Guard session={session} requireRole="authenticated" roleRedirect="/login" billingMode="redirect">
+            <Guard session={session} requireRole={ROLES.GRANTEE} roleRedirect={granteeRoleRedirect} billingMode="redirect">
               <GrantBreakdown session={session} />
             </Guard>
           } />
           <Route path="/expenses" element={
-            <Guard session={session} requireRole="authenticated" roleRedirect="/login" billingMode="redirect">
+            <Guard session={session} requireRole={ROLES.GRANTEE} roleRedirect={granteeRoleRedirect} billingMode="redirect">
               <ExpenseReports session={session} />
             </Guard>
           } />

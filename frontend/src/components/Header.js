@@ -28,6 +28,7 @@ function Header({ session, onLogout, notifications, onMarkRead, onMarkAllRead, o
 
   const isAdmin = session?.userRecord?.role === 'admin';
   const isSuperAdmin = session?.userRecord?.role === 'super_admin';
+  const isGrantee = session?.userRecord?.role === 'grantee';
   const subscriptionLocked = !!session && !isSuperAdmin && !session?.membership?.isExempt && !(
     isAdmin ? session?.membership?.hasPremiumAccess : session?.membership?.hasBasicAccess
   );
@@ -146,6 +147,8 @@ function Header({ session, onLogout, notifications, onMarkRead, onMarkAllRead, o
                   Dashboard
                 </NavLink>
               </li>
+              {isGrantee && (
+                <>
               <li>
                 <NavLink to="/grants" className={({ isActive }) => isActive ? "active" : ""}>
                   Grants
@@ -156,6 +159,8 @@ function Header({ session, onLogout, notifications, onMarkRead, onMarkAllRead, o
                   Expenses
                 </NavLink>
               </li>
+                </>
+              )}
                 </>
               )}
               <li>

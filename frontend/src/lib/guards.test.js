@@ -25,8 +25,18 @@ const sessions = {
   adminLapsed: { userRecord: { role: ROLES.ADMIN }, membership: { hasPremiumAccess: false, isExempt: false } },
 };
 
+// Mirrors App.js granteeRoleRedirect: non-grantee roles go to their own home,
+// everyone else (unauthenticated) keeps the historical /login redirect.
+function granteeRoleRedirect(s) {
+  const role = s?.userRecord?.role;
+  if (role === ROLES.SUPER_ADMIN) return '/super/tenants';
+  if (role === ROLES.ADMIN) return '/admin';
+  return '/login';
+}
+
 // Route guard configs — mirror exactly how App.js declares each <Guard>.
-const granteeGuard = { requireRole: 'authenticated', roleRedirect: '/login', billingMode: 'redirect' };
+// Grantee routes are grantee-only with a per-role redirect (discrepancy D1).
+const granteeGuard = { requireRole: ROLES.GRANTEE, roleRedirect: granteeRoleRedirect, billingMode: 'redirect' };
 const subscriptionGuard = { requireRole: 'authenticated', roleRedirect: '/login', billingMode: 'none' };
 const adminGuard = { requireRole: ROLES.ADMIN, roleRedirect: '/', billingMode: 'readOnly' };
 const superGuard = { requireRole: ROLES.SUPER_ADMIN, roleRedirect: '/', billingMode: 'none' };
@@ -39,15 +49,18 @@ function destOf(sessionKey, guard) {
 }
 
 describe('Redirect matrix — grantee routes (/grants, /expenses, ...)', () => {
-  // BEFORE: session ? (granteeUnpaid ? /home : render) : /login
+  // Discrepancy D1: grantee routes are grantee-only. Non-grantees are no longer
+  // dead/ambiguous UI — they're redirected to their own home BEFORE the billing
+  // axis is consulted (role check precedes billing). Grantee behavior unchanged:
+  //   logged out -> /login; paid grantee renders; unpaid grantee -> billing nudge.
   const cases = [
     ['loggedOut', '/login'],
     ['granteePaid', null],
     ['granteeUnpaid', NUDGE],
-    ['adminPaid', null],      // admin meets billing on grantee routes (premium)
-    ['adminExempt', null],
-    ['adminLapsed', NUDGE],   // lapsed admin lacks required sub -> nudged
-    ['superAdmin', null],     // super_admin never billing-restricted
+    ['adminPaid', '/admin'],          // non-grantee role -> admin home
+    ['adminExempt', '/admin'],
+    ['adminLapsed', '/admin'],        // role redirect wins over billing nudge
+    ['superAdmin', '/super/tenants'], // non-grantee role -> super-admin home
   ];
   it.each(cases)('%s -> %s', (sessionKey, expected) => {
     expect(destOf(sessionKey, granteeGuard)).toBe(expected);
