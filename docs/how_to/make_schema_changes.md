@@ -102,12 +102,12 @@ There is **no manual deploy step** for the database. Production Supabase is conn
 It does **not** run `seed.sql`, set Edge Function secrets, or touch Auth/API config.
 
 > [!IMPORTANT]
-> Because merge = deploy, **a bad migration merged to `main` goes straight to the live (staging) environment.** (There is no production yet — see [Deployment Guide](deployment.md); production will be a separate repo.) On the current (Free) plan there are no preview databases, so there is no per-PR dry run. Your safety net is CI (`supabase start` replays all migrations from scratch on every push) — keep CI green before merging. The integration cannot replay an edited migration, so never edit an already-applied file; always add a new timestamped one.
+> A migration merged to `main` is applied by the next **Deploy to Production** run (see the [Production Setup Checklist](prod_setup.md)), so a bad migration reaches the live database on the next deploy. There are no preview databases, so there is no per-PR dry run. Your safety net is CI (`supabase start` replays all migrations from scratch on every push) — keep CI green before merging. The integration cannot replay an edited migration, so never edit an already-applied file; always add a new timestamped one.
 
 > [!NOTE]
 > Secrets are managed separately — newly declared functions will deploy but 500 at runtime until their secrets exist. Set them with `npm run deploy:secrets`. There is no automatic pre-migration backup, so enable **Point-in-Time Recovery** on the production project before it carries live traffic.
 
-The legacy `npm run db:deploy` and `npm run db:migrate` scripts have been removed. The Supabase GitHub integration is the **single source of truth** for schema deploys — migrations apply on merge, and there is no manual `supabase db push` path. Do not run `db push` against the remote by hand; it drifts the environment from what the integration tracks as deployed.
+The legacy `npm run db:deploy` and `npm run db:migrate` scripts have been removed. Schema deploys go through the gated **Deploy to Production** workflow, which runs `supabase db push` against the prod project. Don't run `db push` against the remote by hand from your machine — let the workflow do it so the deployed state matches `main`.
 
 ---
 

@@ -1,29 +1,62 @@
 const { spawnSync } = require('child_process');
 const fs = require('fs');
-const os = require('os');
 const path = require('path');
-const readline = require('readline');
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Sync production config → the GitHub `production` environment.
+//
+// One source of truth: `.deploy/prod.env` (git-ignored). This script pushes
+// every key into the GitHub environment as a Secret or Variable. The
+// "Deploy to Production" workflow is the ONLY consumer — it sets Supabase
+// secrets and injects the Vite build vars from there. No dashboard clicking.
+//
+//   npm run deploy:secrets            push everything
+//   npm run deploy:secrets -- --dry-run   show what would be pushed, change nothing
+//   npm run deploy:secrets -- --shred     delete .deploy/prod.env after a successful push
+// ─────────────────────────────────────────────────────────────────────────────
+
+const ENV_NAME = 'production';
 const DEPLOY_DIR = path.join(__dirname, '..', '.deploy');
-const SUPABASE_FILE = path.join(DEPLOY_DIR, 'supabase.env');
-const VERCEL_FILE = path.join(DEPLOY_DIR, 'vercel.env');
+const ENV_FILE = path.join(DEPLOY_DIR, 'prod.env');
+const EXAMPLE_FILE = path.join(__dirname, '..', 'deploy', 'prod.env.example');
 
-// Required keys per file. Used both to validate the scratch files before we
-// touch any platform, and to push only the intended keys to each destination.
-const REQUIRED = {
-  [SUPABASE_FILE]: ['STRIPE_SECRET_KEY', 'STRIPE_PRICE_BASIC', 'STRIPE_PRICE_PRO', 'STRIPE_WEBHOOK_SECRET', 'APP_URL'],
-  [VERCEL_FILE]: ['VITE_SUPABASE_URL', 'VITE_SUPABASE_KEY'],
-};
+// Keys stored as GitHub Actions *secrets* (masked). Everything else is a *variable*.
+const SECRETS = new Set([
+  'SUPABASE_ACCESS_TOKEN',
+  'STRIPE_SECRET_KEY',
+  'STRIPE_WEBHOOK_SECRET',
+  'VERCEL_TOKEN',
+  'VERCEL_ORG_ID',
+  'VERCEL_PROJECT_ID',
+]);
 
-const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-const askQuestion = (query) => new Promise((resolve) => rl.question(query, resolve));
+const VARIABLES = new Set([
+  'SUPABASE_PROD_PROJECT_REF',
+  'STRIPE_PRICE_BASIC',
+  'STRIPE_PRICE_PRO',
+  'STRIPE_BILLING_PORTAL_CONFIGURATION_ID',
+  'APP_URL',
+  'VITE_SUPABASE_URL',
+  'VITE_SUPABASE_KEY',
+  'VITE_SENTRY_DSN',
+]);
 
-// Minimal .env parser: KEY=VALUE per line, skips blanks/comments, strips a
+// Keys allowed to be blank. Everything else must have a value.
+const OPTIONAL = new Set([
+  'STRIPE_BILLING_PORTAL_CONFIGURATION_ID',
+  'VITE_SENTRY_DSN',
+  'VITE_SUPABASE_URL', // derived from SUPABASE_PROD_PROJECT_REF when blank
+]);
+
+const args = process.argv.slice(2);
+const dryRun = args.includes('--dry-run');
+const shred = args.includes('--shred');
+
+const run = (cmd, cmdArgs, opts = {}) => spawnSync(cmd, cmdArgs, { ...opts });
+
+// Minimal .env parser: KEY=VALUE per line; skips blanks/comments; strips a
 // trailing " # comment" on unquoted values and surrounding quotes on quoted ones.
 function parseEnvFile(file) {
-  if (!fs.existsSync(file)) {
-    throw new Error(`Missing ${path.relative(process.cwd(), file)} — work through Step 2 of the deployment guide first.`);
-  }
   const map = {};
   for (let line of fs.readFileSync(file, 'utf8').split('\n')) {
     line = line.trim();
@@ -44,118 +77,113 @@ function parseEnvFile(file) {
   return map;
 }
 
-function validate(file, map) {
-  const missing = REQUIRED[file].filter((k) => !map[k]);
-  if (missing.length) {
-    throw new Error(
-      `${path.basename(file)} is missing values for: ${missing.join(', ')}.\n` +
-      'Did you fill in the webhook secret (Step 4) and APP_URL (Step 5)?'
-    );
-  }
+function mask(value) {
+  if (value.length <= 8) return '*'.repeat(value.length);
+  return `${value.slice(0, 4)}…${value.slice(-2)} (${value.length} chars)`;
 }
 
-const run = (cmd, args, opts = {}) => spawnSync(cmd, args, { shell: true, ...opts });
-
-// Both pushes need a logged-in CLI. Probe each up front so we fail with a clear
-// instruction instead of a cryptic error halfway through pushing.
-function preflightAuth() {
-  console.log('🔑 Checking CLI authentication...');
-  const sb = run('npx', ['--prefix', 'frontend', 'supabase', 'projects', 'list'], { stdio: 'ignore' });
-  if (sb.status !== 0) {
-    throw new Error('Supabase CLI is not logged in. Run `npx supabase login`, then re-run.');
-  }
-  const vc = run('npx', ['vercel', 'whoami'], { stdio: 'ignore' });
-  if (vc.status !== 0) {
-    throw new Error('Vercel CLI is not logged in. Run `npx vercel login` (and `npx vercel link` to connect this repo), then re-run.');
-  }
-  console.log('✅ Supabase and Vercel CLIs authenticated.\n');
-}
-
-async function main() {
+function main() {
   console.log('====================================================');
-  console.log('🔐 GrantTrail Production Secrets Deployment');
+  console.log('🔐 Sync production config → GitHub `production` env');
   console.log('====================================================\n');
 
-  let tempEnv;
-  try {
-    let projectRef = process.argv[2];
-    if (!projectRef) {
-      projectRef = await askQuestion('Enter your Supabase Project Ref: ');
-    }
-    projectRef = projectRef.trim();
-    if (!projectRef) {
-      throw new Error('Project Ref cannot be empty.');
-    }
-
-    // Parse and validate BOTH files before touching any platform, so we never
-    // end up half-pushed because a value was missing.
-    const supabaseVars = parseEnvFile(SUPABASE_FILE);
-    const vercelVars = parseEnvFile(VERCEL_FILE);
-    validate(SUPABASE_FILE, supabaseVars);
-    validate(VERCEL_FILE, vercelVars);
-    console.log('✅ Both .deploy/ files present and complete.\n');
-
-    preflightAuth();
-
-    // --- Supabase Edge Function secrets ---
-    console.log('⚡ Pushing Edge Function secrets to Supabase...');
-    // Write a normalized temp env file (only the required keys, comments stripped)
-    // so --env-file never trips on template comments or stray entries.
-    tempEnv = path.join(os.tmpdir(), `granttrail-supabase-${Date.now()}.env`);
-    fs.writeFileSync(
-      tempEnv,
-      REQUIRED[SUPABASE_FILE].map((k) => `${k}=${supabaseVars[k]}`).join('\n') + '\n',
-      { mode: 0o600 }
-    );
-    const sbPush = run('npx', [
-      '--prefix', 'frontend', 'supabase', 'secrets', 'set',
-      '--project-ref', projectRef, '--env-file', tempEnv,
-    ], { stdio: 'inherit' });
-    if (sbPush.status !== 0) {
-      throw new Error('Failed to push Supabase secrets. Check the Project Ref and that you are logged in (`npx supabase login`).');
-    }
-    console.log('✅ Supabase secrets set.\n');
-
-    // --- Vercel production env vars ---
-    console.log('▲ Pushing frontend env vars to Vercel (production)...');
-    for (const key of REQUIRED[VERCEL_FILE]) {
-      // Remove any existing value first so a re-run overwrites cleanly (ignore "not found").
-      run('npx', ['vercel', 'env', 'rm', key, 'production', '-y'], { stdio: 'ignore' });
-      const add = run('npx', ['vercel', 'env', 'add', key, 'production'], { input: vercelVars[key] });
-      if (add.status !== 0) {
-        throw new Error(
-          `Failed to set ${key} on Vercel.\n${(add.stderr || '').toString().trim()}\n` +
-          'If the CLI is not authed/linked, run `npx vercel login` then `npx vercel link`, ' +
-          'or set the two VITE_ vars in the Vercel dashboard — then re-run.'
-        );
-      }
-      console.log(`   ✅ ${key}`);
-    }
-    console.log('');
-
-    // --- Verify both landed ---
-    console.log('🔎 Verifying Supabase secrets:');
-    run('npx', ['--prefix', 'frontend', 'supabase', 'secrets', 'list', '--project-ref', projectRef], { stdio: 'inherit' });
-    console.log('\n🔎 Verifying Vercel production env:');
-    run('npx', ['vercel', 'env', 'ls', 'production'], { stdio: 'inherit' });
-
-    // --- Shred only after both pushes succeeded ---
-    fs.rmSync(DEPLOY_DIR, { recursive: true, force: true });
-    console.log('\n🧹 Shredded .deploy/ — no production keys left on disk.');
-
-    console.log('\n====================================================');
-    console.log('🎉 Secrets deployed. Deploy the app with `git push` (Vercel rebuilds on push to main).');
-    console.log('====================================================\n');
-  } catch (err) {
-    console.error(`\n❌ Error: ${err.message}`);
-    console.error('\n.deploy/ was left in place so you can fix the issue and re-run.');
-    process.exitCode = 1;
-  } finally {
-    if (tempEnv && fs.existsSync(tempEnv)) {
-      try { fs.unlinkSync(tempEnv); } catch (_) { /* ignore */ }
-    }
-    rl.close();
+  // Scaffold the file from the committed template on first run.
+  if (!fs.existsSync(ENV_FILE)) {
+    fs.mkdirSync(DEPLOY_DIR, { recursive: true });
+    fs.copyFileSync(EXAMPLE_FILE, ENV_FILE);
+    console.log(`📝 Created ${path.relative(process.cwd(), ENV_FILE)} from the template.`);
+    console.log('   Fill in the values, then run this again.\n');
+    return;
   }
+
+  const vars = parseEnvFile(ENV_FILE);
+
+  // Derive VITE_SUPABASE_URL from the project ref if it was left blank.
+  if (!vars.VITE_SUPABASE_URL && vars.SUPABASE_PROD_PROJECT_REF) {
+    vars.VITE_SUPABASE_URL = `https://${vars.SUPABASE_PROD_PROJECT_REF}.supabase.co`;
+    console.log(`ℹ️  Derived VITE_SUPABASE_URL = ${vars.VITE_SUPABASE_URL}\n`);
+  }
+
+  // Warn on unknown keys (typos), then validate required values are present.
+  const known = new Set([...SECRETS, ...VARIABLES]);
+  for (const key of Object.keys(vars)) {
+    if (!known.has(key)) console.warn(`⚠️  Ignoring unrecognized key: ${key}`);
+  }
+  const missing = [...known].filter((k) => !OPTIONAL.has(k) && !vars[k]?.trim());
+  if (missing.length) {
+    console.error(`\n❌ Missing values in ${path.relative(process.cwd(), ENV_FILE)}: ${missing.join(', ')}`);
+    process.exitCode = 1;
+    return;
+  }
+
+  // Preflight: gh must be authenticated and pointed at a repo.
+  if (!dryRun) {
+    const auth = run('gh', ['auth', 'status'], { stdio: 'ignore' });
+    if (auth.status !== 0) {
+      console.error('❌ GitHub CLI is not logged in. Run `gh auth login`, then re-run.');
+      process.exitCode = 1;
+      return;
+    }
+
+    // Ensure the environment exists so first-time setup needs no manual GitHub
+    // dashboard step. Check first and only create when missing — a blind PUT
+    // would reset protection rules (required reviewers) on an existing env.
+    const exists = run('gh', ['api', `repos/{owner}/{repo}/environments/${ENV_NAME}`], { stdio: 'ignore' });
+    if (exists.status !== 0) {
+      console.log(`ℹ️  Creating the \`${ENV_NAME}\` environment…`);
+      const create = run('gh', ['api', '-X', 'PUT', `repos/{owner}/{repo}/environments/${ENV_NAME}`], {
+        stdio: ['ignore', 'ignore', 'pipe'],
+      });
+      if (create.status !== 0) {
+        console.error(`❌ Could not create the \`${ENV_NAME}\` environment:\n${(create.stderr || '').toString().trim()}`);
+        process.exitCode = 1;
+        return;
+      }
+    }
+  }
+
+  // Push every present key to its destination kind.
+  const pushed = [];
+  for (const key of [...known]) {
+    const value = vars[key]?.trim();
+    if (!value) continue; // optional + blank → skip
+    const kind = SECRETS.has(key) ? 'secret' : 'variable';
+
+    if (dryRun) {
+      console.log(`   [dry-run] ${kind.padEnd(8)} ${key} = ${mask(value)}`);
+      continue;
+    }
+
+    // Value is passed on stdin so it never lands in argv / process listings.
+    const res = run('gh', [kind, 'set', key, '--env', ENV_NAME], { input: value, stdio: ['pipe', 'ignore', 'pipe'] });
+    if (res.status !== 0) {
+      console.error(`❌ Failed to set ${kind} ${key}:\n${(res.stderr || '').toString().trim()}`);
+      process.exitCode = 1;
+      return;
+    }
+    console.log(`   ✅ ${kind.padEnd(8)} ${key}`);
+    pushed.push(key);
+  }
+
+  if (dryRun) {
+    console.log('\nDry run only — nothing was changed.');
+    return;
+  }
+
+  console.log(`\n🎉 Synced ${pushed.length} keys to the GitHub \`${ENV_NAME}\` environment.`);
+  console.log('\n🔎 Current environment contents:');
+  run('gh', ['secret', 'list', '--env', ENV_NAME], { stdio: 'inherit' });
+  run('gh', ['variable', 'list', '--env', ENV_NAME], { stdio: 'inherit' });
+
+  if (shred) {
+    fs.rmSync(ENV_FILE, { force: true });
+    console.log('\n🧹 Shredded .deploy/prod.env (re-create from deploy/prod.env.example next time).');
+  } else {
+    console.log('\n💡 .deploy/prod.env kept as your editable source of truth. Re-run anytime; it is idempotent.');
+    console.log('   (Pass --shred to delete it after pushing.)');
+  }
+
+  console.log('\nNext: GitHub → Actions → "Deploy to Production" → Run workflow → approve.');
 }
 
 main();

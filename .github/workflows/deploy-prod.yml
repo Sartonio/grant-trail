@@ -79,6 +79,7 @@ jobs:
           # anon key ships in the client bundle), so they're plain vars.
           VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
           VITE_SUPABASE_KEY: ${{ vars.VITE_SUPABASE_KEY }}
+          VITE_SENTRY_DSN: ${{ vars.VITE_SENTRY_DSN }}
 
       - name: Deploy Project Artifacts to Vercel
         run: npx vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}

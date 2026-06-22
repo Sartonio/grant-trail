@@ -18,7 +18,7 @@ Always run commands from the repository root:
 
 ### Deployment model
 
-There is **no production environment yet** — `main` deploys to **staging only** (the `grant-trail` Supabase project). Production will be a separate GitHub repo wired to its own Supabase project; see the [Deployment Guide](../how_to/deployment.md) and the staging→prod epic. The Supabase GitHub integration is the **single source of truth**: merging a PR that touches `supabase/` automatically applies new migrations and deploys the Edge Functions declared in `config.toml`. There is **no `supabase db push` path** — never apply migrations to the remote by hand. Removed functions are **not** pruned automatically; use `npm run functions:prune`.
+Production is deployed from **this** repo by the gated **Deploy to Production** workflow ([`.github/workflows/deploy-prod.yml`](../../.github/workflows/deploy-prod.yml)) — a manual `workflow_dispatch` with environment approval. It applies migrations (`supabase db push`), deploys the Edge Functions, and builds + deploys the Vercel frontend. All prod config has one source of truth: `.deploy/prod.env`, synced to the GitHub `production` environment with `npm run deploy:secrets`; see the [Production Setup Checklist](../how_to/prod_setup.md). `main` is not auto-deployed (`vercel.json` disables it). Removed functions are **not** pruned automatically; use `npm run functions:prune`.
 
 ### CI pipeline — [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml)
 
@@ -35,7 +35,7 @@ A local **pre-push hook** additionally blocks pushes whose local schema has drif
 
 ### Schema changes are local-first
 
-Never modify the schema directly on a remote environment — author migrations locally and let the integration apply them on merge (see [Deployment model](#deployment-model) above). Full workflow: [Making Schema Changes](../how_to/make_schema_changes.md).
+Never modify the schema directly on a remote environment — author migrations locally; the **Deploy to Production** workflow applies them via `supabase db push` (see [Deployment model](#deployment-model) above). Full workflow: [Making Schema Changes](../how_to/make_schema_changes.md).
 
 1. Make the change in your local database via Supabase Studio (`http://127.0.0.1:54323`) or raw SQL
 2. Generate a migration file: `supabase db diff -f your_migration_name`
