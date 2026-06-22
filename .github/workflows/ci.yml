@@ -171,6 +171,30 @@ jobs:
           stop_functions
           exit $status
 
+  # DB-level trigger / function proof tests. These drive the local Supabase
+  # Postgres directly (docker exec psql, rolled-back transactions) — no edge
+  # functions, no Stripe — so they're fast (~1 min) and gate every PR/push.
+  # They assert the grant-lifecycle product rules (auto-approve, totals roll-up,
+  # subscription exemption, submit/resubmit notifications) that used to be
+  # checked through the browser by the LS1 e2e walkthroughs.
+  db-trigger-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v2
+        with:
+          version: latest
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Start Supabase
+        run: supabase start
+
+      - name: Run DB trigger-behavior tests
+        run: bash supabase/tests/grant-trigger-behaviors.test.sh
+
   # STRIPE-ENABLED gate: edge-function tests that need the Stripe CLI, a live
   # `stripe listen` forwarder, and test clocks (~3-4 min). The payment lane (Lane
   # F) owns the orchestrator supabase/functions/tests/run-all.sh, which manages
