@@ -80,7 +80,7 @@ Add these remaining variables to their respective platforms:
 
 ## 7. Trigger the first prod deploy
 
-1. Go to your GitHub repo → [Actions → `Deploy to Production`](../../actions/workflows/deploy-prod.yml).
+1. Go to your GitHub repo → [Actions → `Deploy to Production`](https://github.com/Programmer484/grant-trail/actions/workflows/deploy-prod.yml).
 2. Click **Run workflow**.
 3. GitHub will pause and prompt for Environment approval — approve it.
 4. The workflow will:
