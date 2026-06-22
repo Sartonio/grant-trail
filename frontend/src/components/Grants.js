@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { supabase } from "../supabaseClient";
+import { filterSortGrants } from "../utils/grantsList";
 import {
   FaFileAlt,
   FaClock,
@@ -83,31 +84,8 @@ function Grants({ session }) {
     fetchGrants();
   }, [session]);
 
-  // Filter by status and expired toggle
-  const filteredGrants = grants.filter((grant) => {
-    if (filter !== "all" && grant.status?.toLowerCase() !== filter) return false;
-    if (hideExpired && grant.end_spend_period && new Date(grant.end_spend_period + 'T23:59:59') < new Date()) return false;
-    return true;
-  });
-
-  // Search by keyword (here we only have numeric/date fields, so search on amount or status)
-  const searchedGrants = filteredGrants.filter(
-    (grant) =>
-      (grant.grant_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      grant.status?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      String(grant.grant_amount).includes(searchTerm)
-  );
-
-  // Sort
-  const sortedGrants = [...searchedGrants].sort((a, b) => {
-    if (sortBy === "grant_amount") {
-      return b.grant_amount - a.grant_amount;
-    } else if (sortBy === "status") {
-      return a.status.localeCompare(b.status);
-    } else {
-      return new Date(b.start_spend_period) - new Date(a.start_spend_period);
-    }
-  });
+  // Filter (status tab + expired toggle), search, and sort — see grantsList util.
+  const sortedGrants = filterSortGrants(grants, { filter, searchTerm, sortBy, hideExpired });
 
   // Pagination
   const indexOfLastGrant = currentPage * grantsPerPage;
