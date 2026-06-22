@@ -12,8 +12,8 @@ For the easiest experience, open four tabs: **GitHub**, **Supabase**, **Stripe**
 3. **Vercel:** Go to your Vercel project → [Settings → Environment Variables](https://vercel.com/dashboard). Make sure to select the **Production** environment only when adding variables below.
 4. **Vercel Credentials (for GitHub Actions):** Go to your Vercel Account settings to create a token and gather your IDs, then add them as **Secrets** to your GitHub `production` environment:
    - **Name:** `VERCEL_TOKEN` | **Value:** Create a personal token with full access scope at [vercel.com/account/tokens](https://vercel.com/account/tokens).
-   - **Name:** `VERCEL_ORG_ID` | **Value:** Find your Org/User ID under **Settings → General** (labeled **Your ID**, starts with `usr_...` or `team_...`) at `https://vercel.com/<your-org-slug>/~/settings`.
-   - **Name:** `VERCEL_PROJECT_ID` | **Value:** Find your Project ID under **Settings → General** (labeled **Project ID**, starts with `prj_...`) at `https://vercel.com/<your-org-slug>/<your-project-slug>/settings`.
+   - **Name:** `VERCEL_ORG_ID` | **Value:** Find your Org/User ID under **Settings → General** (labeled **Your ID**, starts with `usr_...` or `team_...`) at [vercel.com/~/settings](https://vercel.com/~/settings).
+   - **Name:** `VERCEL_PROJECT_ID` | **Value:** Find your Project ID under **Settings → General** (labeled **Project ID**, starts with `prj_...`) at [vercel.com/~/grant-trail/settings](https://vercel.com/~/grant-trail/settings).
 
 > Note: To keep PR previews working but prevent out-of-order production deploys, the root `vercel.json` has disabled automatic deployments specifically for the `main` branch (`git.deploymentEnabled.main: false`). All production deploys are coordinated by GitHub Actions.
 
