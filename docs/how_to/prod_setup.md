@@ -51,35 +51,32 @@ comes from.
 
 ## 3. Fill in the values
 
-Gather these into `.deploy/prod.env`. Most are a copy from a dashboard or a
-one-line CLI command — collect them in a single pass:
+You only fill in **six** things by hand — three account tokens plus three ids
+you choose/know. Everything else is auto-fetched on the next run (leave it blank).
+
+First run `npx vercel link` once so the script can read your Vercel IDs.
+
+**Fill these in `.deploy/prod.env`:**
 
 | Key | Where it comes from |
 |-----|---------------------|
 | `SUPABASE_ACCESS_TOKEN` | Supabase → [Account → Access Tokens](https://supabase.com/dashboard/account/tokens) |
-| `SUPABASE_PROD_PROJECT_REF` | Your project ref from Step 1 |
-| `VITE_SUPABASE_KEY` | Supabase → Project Settings → API → **publishable** key (`sb_publishable_…`) |
-| `VITE_SUPABASE_URL` | *Leave blank* — derived from the project ref automatically |
 | `STRIPE_SECRET_KEY` | Stripe → [Developers → API keys](https://dashboard.stripe.com/apikeys) (`sk_live_…`) |
-| `STRIPE_PRICE_BASIC` / `STRIPE_PRICE_PRO` | `stripe prices list --limit 100` |
-| `STRIPE_WEBHOOK_SECRET` | See the Stripe CLI snippet below (`whsec_…`) |
-| `STRIPE_BILLING_PORTAL_CONFIGURATION_ID` | *Optional* — `stripe billing_portal configurations list` (blank = Stripe default) |
-| `APP_URL` | Your live URL (defaults to `https://grant-trail.vercel.app`) |
 | `VERCEL_TOKEN` | [vercel.com/account/tokens](https://vercel.com/account/tokens) |
-| `VERCEL_ORG_ID` / `VERCEL_PROJECT_ID` | `npx vercel link`, then read `.vercel/project.json` (`orgId` / `projectId`) |
-| `VITE_SENTRY_DSN` | *Optional* — your prod Sentry DSN (blank = Sentry disabled) |
+| `SUPABASE_PROD_PROJECT_REF` | Your project ref from Step 1 |
+| `STRIPE_PRICE_BASIC` / `STRIPE_PRICE_PRO` | `stripe prices list --limit 100` — **you** pick which id is which tier (the script won't guess; wrong mapping = wrong charge) |
+| `APP_URL` | Your live URL (defaults to `https://grant-trail.vercel.app`) |
 
-**Create the Stripe webhook + capture its secret in one shot** (no dashboard):
+**Leave these blank — auto-filled on run:**
 
-```bash
-stripe webhook_endpoints create \
-  --url https://<prod-ref>.supabase.co/functions/v1/stripe-webhook \
-  --enabled-events checkout.session.completed \
-  --enabled-events customer.subscription.updated \
-  --enabled-events customer.subscription.deleted
-```
-
-Copy the `secret` (`whsec_…`) from the response into `STRIPE_WEBHOOK_SECRET`.
+| Key | How |
+|-----|-----|
+| `VITE_SUPABASE_URL` | Derived from the project ref |
+| `VITE_SUPABASE_KEY` | Fetched via the Supabase CLI (your access token) |
+| `VERCEL_ORG_ID` / `VERCEL_PROJECT_ID` | Read from `.vercel/project.json` (after `vercel link`) |
+| `STRIPE_WEBHOOK_SECRET` | The prod webhook endpoint is **created** via the Stripe CLI and its secret captured |
+| `STRIPE_BILLING_PORTAL_CONFIGURATION_ID` | Optional — blank uses the Stripe default |
+| `VITE_SENTRY_DSN` | Optional — blank disables Sentry |
 
 ---
 
@@ -89,17 +86,26 @@ Copy the `secret` (`whsec_…`) from the response into `STRIPE_WEBHOOK_SECRET`.
 npm run deploy:secrets
 ```
 
-This time the file is filled in, so the script:
+This time the file has the six values, so the script:
 
-1. Ensures the GitHub `production` environment exists (creates it if missing).
-2. Validates every required value is present (optional keys may be blank).
-3. Pushes each key as a **secret** (sensitive) or **variable** (public) — values
+1. **Auto-fetches** the blanks (Supabase URL + key, Vercel IDs, and creates the
+   Stripe webhook to capture its secret), writing them back into the file.
+2. Ensures the GitHub `production` environment exists (creates it if missing).
+3. Validates every required value is present (optional keys may be blank).
+4. Pushes each key as a **secret** (sensitive) or **variable** (public) — values
    go over stdin, never your shell history.
-4. Prints the resulting environment contents so you can confirm.
+5. Prints the resulting environment contents, then **deletes `.deploy/prod.env`**
+   so no live secrets sit on disk.
 
-Preview without changing anything with `npm run deploy:secrets -- --dry-run`.
-Re-run any time you rotate a key — it's idempotent. The file stays on disk as
-your editable source of truth (pass `--shred` to delete it after pushing).
+Preview without changing anything (no webhook is created) with
+`npm run deploy:secrets -- --dry-run`. Re-run any time you rotate a key — it's
+idempotent. Pass `--keep` to retain the file, or `--recreate-webhook` to rotate
+the Stripe endpoint's signing secret.
+
+> **Live customers:** because the file is shredded by default, the only standing
+> copy of your prod secrets is GitHub's encrypted `production` environment. When
+> you outgrow that, move the source of truth to a secrets manager
+> (Doppler / Infisical / 1Password) and have the script pull from it.
 
 > **One manual GitHub step (recommended, once):** add a **required reviewer** to
 > the `production` environment (Settings → Environments → production) so prod
