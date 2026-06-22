@@ -10,6 +10,12 @@ For the easiest experience, open four tabs: **GitHub**, **Supabase**, **Stripe**
 1. **GitHub:** Go to your repo → [Settings → Environments](https://github.com/settings/environments) → **New environment**. Name it `production`.
 2. Add a required reviewer (yourself or a team).
 3. **Vercel:** Go to your Vercel project → [Settings → Environment Variables](https://vercel.com/dashboard). Make sure to select the **Production** environment only when adding variables below.
+4. **Vercel Credentials (for GitHub Actions):** Go to your Vercel Account settings to create a token and gather your IDs, then add them as **Secrets** to your GitHub `production` environment:
+   - **Name:** `VERCEL_TOKEN` | **Value:** Create a personal token with full access scope at [vercel.com/account/tokens](https://vercel.com/account/tokens).
+   - **Name:** `VERCEL_ORG_ID` | **Value:** Find your Org ID in your Vercel Team settings (or run `vercel link` locally).
+   - **Name:** `VERCEL_PROJECT_ID` | **Value:** Find your Project ID in Vercel Project settings.
+
+> Note: To keep PR previews working but prevent out-of-order production deploys, the root `vercel.json` has disabled automatic deployments specifically for the `main` branch (`git.deploymentEnabled.main: false`). All production deploys are coordinated by GitHub Actions.
 
 ---
 
@@ -83,11 +89,14 @@ Add these remaining variables to their respective platforms:
 1. Go to your GitHub repo → [Actions → `Deploy to Production`](https://github.com/Programmer484/grant-trail/actions/workflows/deploy-prod.yml).
 2. Click **Run workflow**.
 3. GitHub will pause and prompt for Environment approval — approve it.
-4. The workflow will:
-    - Push Supabase secrets from GitHub Environment secrets/vars into your prod project
-    - Apply all DB migrations (`supabase db push`)
-    - Deploy all edge functions (`supabase functions deploy`)
-5. Verify in the Supabase dashboard that migrations applied and functions are listed.
+4. The workflow will run the following sequence:
+    - Push Supabase secrets from GitHub Environment secrets/vars into your prod project.
+    - Apply all DB migrations (`supabase db push`).
+    - Deploy all edge functions (`supabase functions deploy`).
+    - Pull your Vercel project configuration (`vercel pull`).
+    - Build your frontend using the production environment variables (`vercel build`).
+    - Deploy the prebuilt assets to production on Vercel (`vercel deploy --prebuilt --prod`).
+5. Verify in the Supabase dashboard that migrations applied and functions are listed, and check your Vercel dashboard to verify the production deployment succeeded.
 
 ---
 
