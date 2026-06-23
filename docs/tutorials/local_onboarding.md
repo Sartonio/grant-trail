@@ -102,17 +102,16 @@ The default test users (with password `password123`) are:
 - *See `seed.sql` for other accounts (e.g. Carlos Lopez & Nadia Park also have seeded **Basic** memberships, and Bright Horizons admin Amara Okafor has a seeded **Premium** membership).*
 
 ### Connecting the Frontend
-1. Create or edit `frontend/.env.local`:
-   ```env
-   VITE_SUPABASE_URL=http://127.0.0.1:54321
-   VITE_SUPABASE_KEY=your-local-anon-key-here
-   ```
-   *Replace `your-local-anon-key-here` with the `anon key` printed in the terminal after running `supabase start`.*
-2. Start the React app:
-   ```bash
-   cd frontend
-   npm run dev
-   ```
+
+`npm run setup` (Step 2 in [Section 3](#3-local-setup)) automatically creates `frontend/.env.local` with the correct local Supabase URL and anon key. You do **not** need to create or edit this file manually.
+
+If you ever need to regenerate it (e.g. after a fresh clone without running setup), run `npm run setup` again or copy `frontend/.env.example` and fill in the values printed by `supabase start`.
+
+Start the React app:
+```bash
+cd frontend
+npm run dev
+```
 
 ---
 
@@ -123,6 +122,51 @@ grant-trail/
 ├── frontend/                     # React application
 │   ├── public/
 │   └── src/
+│       ├── App.js                # Root: auth, session, routing
+│       ├── supabaseClient.js     # Supabase singleton client
+│       │
+│       ├── components/
+│       │   ├── Header.js / .css          # Top nav bar (role-conditional links)
+│       │   ├── Footer.js / .css          # Page footer
+│       │   ├── Main.js / .css            # Grantee dashboard (stats + charts)
+│       │   ├── Login.js                  # Auth login form
+│       │   ├── SignUpClean.js            # Auth signup form (invite + self-service flows)
+│       │   ├── CompleteProfile.js        # Profile completion after OAuth/invite signup
+│       │   ├── ResetPassword.js          # Password reset page
+│       │   ├── LandingPage.js / .css     # Public landing page + logged-in home
+│       │   ├── NotificationBell.js / .css# Notification bell in header (realtime)
+│       │   ├── SubscriptionPage.js / .css# Stripe membership / subscription management
+│       │   ├── Grants.js / .css          # Grantee grants list with filter/search
+│       │   ├── GrantDetail.js / .css     # Single grant: info, status history, charts
+│       │   ├── GrantBreakdown.js / .css  # Budget items + expenses for a grant
+│       │   ├── CreateGrant.js / .css     # New grant form + edit grant form
+│       │   ├── ExpenseReports.js / .css  # Expense analytics dashboard
+│       │   ├── AddExpenseModal.js        # Modal: add/edit expense + receipt upload
+│       │   ├── BudgetItemModal.js        # Modal: add/edit budget item
+│       │   ├── GrantAttachments.js / .css# File upload/view/delete for grant docs
+│       │   ├── StatusBadge.js            # Reusable status pill (pending/approved/etc.)
+│       │   ├── StatCard.js               # Reusable stat card
+│       │   ├── ConfirmDialog.js          # Reusable confirm dialog
+│       │   ├── AdminDashboard.js         # Admin home: stats + charts
+│       │   ├── AdminGrantList.js         # Admin: table of all grants
+│       │   ├── AdminGrantReview.js       # Admin: review single grant, change status, approve/reject budget items & expenses
+│       │   ├── AdminAuditLog.js          # Admin: audit log viewer with filters and diff view
+│       │   ├── AdminUserList.js          # Admin: user management — role toggle, enable/disable, membership status
+│       │   ├── AdminSettings.js          # Admin: tenant approval workflow settings
+│       │   ├── TenantManagement.js       # Super admin: create and manage all tenants
+│       │   └── Admin.css                 # Shared admin styles
+│       │
+│       ├── hooks/
+│       │   └── useGrantee.js     # Custom hook: fetch current user's DB record
+│       ├── lib/
+│       │   └── billing.js        # Stripe billing helpers: checkout, portal, membership status
+│       └── styles/
+│           ├── variables.css     # CSS custom properties (colors, spacing, fonts)
+│           ├── global.css        # Base element resets
+│           ├── utilities.css     # Utility classes
+│           ├── Forms.css         # Modal and form styles (shared)
+│           ├── Charts.css        # recharts card wrappers (shared)
+│           └── Login.css         # Auth page styles
 ├── supabase/                     # Supabase local environment
 │   ├── migrations/               # Version-controlled schema changes
 │   ├── seed.sql                  # Auto-executed local sample data + Auth users
@@ -131,60 +175,13 @@ grant-trail/
 ├── tests/
 │   └── load/                     # Load testing scripts
 └── docs/                         # Project documentation + brand assets
-    ├── public/
-    └── src/
-        ├── App.js                # Root: auth, session, routing
-        ├── supabaseClient.js     # Supabase singleton client
-        │
-        ├── components/
-        │   ├── Header.js / .css          # Top nav bar (role-conditional links)
-        │   ├── Footer.js / .css          # Page footer
-        │   ├── Main.js / .css            # Grantee dashboard (stats + charts)
-        │   ├── Login.js                  # Auth login form
-        │   ├── SignUpClean.js            # Auth signup form (invite + self-service flows)
-        │   ├── CompleteProfile.js        # Profile completion after OAuth/invite signup
-        │   ├── ResetPassword.js          # Password reset page
-        │   ├── LandingPage.js / .css     # Public landing page + logged-in home
-        │   ├── NotificationBell.js / .css# Notification bell in header (realtime)
-        │   ├── SubscriptionPage.js / .css# Stripe membership / subscription management
-        │   ├── Grants.js / .css          # Grantee grants list with filter/search
-        │   ├── GrantDetail.js / .css     # Single grant: info, status history, charts
-        │   ├── GrantBreakdown.js / .css  # Budget items + expenses for a grant
-        │   ├── CreateGrant.js / .css     # New grant form + edit grant form
-        │   ├── ExpenseReports.js / .css  # Expense analytics dashboard
-        │   ├── AddExpenseModal.js        # Modal: add/edit expense + receipt upload
-        │   ├── BudgetItemModal.js        # Modal: add/edit budget item
-        │   ├── GrantAttachments.js / .css# File upload/view/delete for grant docs
-        │   ├── StatusBadge.js            # Reusable status pill (pending/approved/etc.)
-        │   ├── StatCard.js               # Reusable stat card
-        │   ├── ConfirmDialog.js          # Reusable confirm dialog
-        │   ├── AdminDashboard.js         # Admin home: stats + charts
-        │   ├── AdminGrantList.js         # Admin: table of all grants
-        │   ├── AdminGrantReview.js       # Admin: review single grant, change status, approve/reject budget items & expenses
-        │   ├── AdminAuditLog.js          # Admin: audit log viewer with filters and diff view
-        │   ├── AdminUserList.js          # Admin: user management — role toggle, enable/disable, membership status
-        │   ├── AdminSettings.js          # Admin: tenant approval workflow settings
-        │   ├── TenantManagement.js       # Super admin: create and manage all tenants
-        │   └── Admin.css                 # Shared admin styles
-        │
-        ├── hooks/
-        │   └── useGrantee.js     # Custom hook: fetch current user's DB record
-        ├── lib/
-        │   └── billing.js        # Stripe billing helpers: checkout, portal, membership status
-        └── styles/
-            ├── variables.css     # CSS custom properties (colors, spacing, fonts)
-            ├── global.css        # Base element resets
-            ├── utilities.css     # Utility classes
-            ├── Forms.css         # Modal and form styles (shared)
-            ├── Charts.css        # recharts card wrappers (shared)
-            └── Login.css         # Auth page styles
 ```
 
 ---
 
 ## 6. Environment Variables
 
-Create `frontend/.env.local` for local development. This file is git-ignored. Use `frontend/.env.example` (committed to the repo) as a template.
+`frontend/.env.local` is created automatically by `npm run setup`. This file is git-ignored. Use `frontend/.env.example` (committed to the repo) as a reference template.
 
 | Variable | Required | Used by | Where to find it |
 |----------|----------|---------|-----------------|

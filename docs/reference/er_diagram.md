@@ -95,6 +95,7 @@ erDiagram
     text      description
     decimal   budget_allocated
     decimal   amount_spent    "auto: sum of expenses"
+    varchar   status          "pending|approved|rejected"
     timestamptz created_at
     timestamptz updated_at
   }
@@ -107,6 +108,7 @@ erDiagram
     varchar   item_name
     decimal   amount_spent
     date      expense_date
+    varchar   status          "pending|approved|rejected"
     timestamptz created_at
     timestamptz updated_at
   }

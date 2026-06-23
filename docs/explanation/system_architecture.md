@@ -377,32 +377,24 @@ Settings are independent — you could require grant approval but skip budget an
 
 #### Settings storage
 
-**Single-tenant (no multi-tenancy):** A single-row settings table:
+Approval settings live on `tenant_settings` (one row per tenant — see [Section 1.2](#12-new-tables)).
 
-```sql
-CREATE TABLE app_settings (
-  id                       INT PRIMARY KEY DEFAULT 1,  -- enforces single row
-  require_grant_approval   BOOLEAN NOT NULL DEFAULT true,
-  require_budget_approval  BOOLEAN NOT NULL DEFAULT true,
-  require_expense_approval BOOLEAN NOT NULL DEFAULT true,
-  CONSTRAINT single_row CHECK (id = 1)
-);
-
-INSERT INTO app_settings DEFAULT VALUES;
-```
-
-**Multi-tenant:** These columns live on `tenant_settings` instead (one row per tenant).
+> [!NOTE]
+> An earlier single-tenant design used a standalone `app_settings` table with a single-row constraint. That design was superseded when multi-tenancy was implemented — the approval columns now live on `tenant_settings`.
 
 #### RLS on settings table
 
 ```sql
--- Anyone authenticated can read settings (needed at login time)
+-- Anyone authenticated can read their own tenant's settings (needed at login time)
 CREATE POLICY "Anyone can read settings"
-ON app_settings FOR SELECT USING (auth.role() = 'authenticated');
+ON tenant_settings FOR SELECT
+USING (tenant_id = current_tenant_id());
 
--- Only admins can update settings
+-- Only admins can update their own tenant's settings
 CREATE POLICY "Admins can update settings"
-ON app_settings FOR UPDATE USING (is_admin()) WITH CHECK (is_admin());
+ON tenant_settings FOR UPDATE
+USING (is_admin() AND tenant_id = current_tenant_id())
+WITH CHECK (is_admin() AND tenant_id = current_tenant_id());
 ```
 
 ---
@@ -418,7 +410,7 @@ The INSERT trigger on each table checks the relevant setting and overrides `stat
 CREATE OR REPLACE FUNCTION auto_approve_grant()
 RETURNS TRIGGER AS $$
 BEGIN
-  IF NOT (SELECT require_grant_approval FROM app_settings LIMIT 1) THEN
+  IF NOT (SELECT require_grant_approval FROM tenant_settings WHERE tenant_id = NEW.tenant_id) THEN
     NEW.status := 'approved';
   END IF;
   RETURN NEW;
@@ -435,7 +427,7 @@ FOR EACH ROW EXECUTE FUNCTION auto_approve_grant();
 CREATE OR REPLACE FUNCTION auto_approve_budget_item()
 RETURNS TRIGGER AS $$
 BEGIN
-  IF NOT (SELECT require_budget_approval FROM app_settings LIMIT 1) THEN
+  IF NOT (SELECT require_budget_approval FROM tenant_settings WHERE tenant_id = NEW.tenant_id) THEN
     NEW.status := 'approved';
   END IF;
   RETURN NEW;
@@ -452,7 +444,7 @@ FOR EACH ROW EXECUTE FUNCTION auto_approve_budget_item();
 CREATE OR REPLACE FUNCTION auto_approve_expense()
 RETURNS TRIGGER AS $$
 BEGIN
-  IF NOT (SELECT require_expense_approval FROM app_settings LIMIT 1) THEN
+  IF NOT (SELECT require_expense_approval FROM tenant_settings WHERE tenant_id = NEW.tenant_id) THEN
     NEW.status := 'approved';
   END IF;
   RETURN NEW;
@@ -468,7 +460,7 @@ Because these are `BEFORE INSERT` triggers, the `status = 'approved'` value is i
 
 #### Option B — Application-side (simpler triggers, more frontend work)
 
-After inserting a record, the React component checks `tenantConfig` and immediately calls `.update({ status: 'approved' })` if approval is not required. Two database round-trips instead of one, and every INSERT call site in the frontend needs to be aware of the setting.
+After inserting a record, the React component checks `session.tenantConfig` and immediately calls `.update({ status: 'approved' })` if approval is not required. Two database round-trips instead of one, and every INSERT call site in the frontend needs to be aware of the setting.
 
 Option A is cleaner and is the recommended approach.
 
@@ -478,13 +470,13 @@ Option A is cleaner and is the recommended approach.
 
 #### Session carries the settings
 
-`App.js` fetches `app_settings` once at login and adds it to the session:
+`App.js` fetches `tenant_settings` once at login and adds it to the session as `tenantConfig` (see [Section 1.7](#17-frontend-changes)):
 
 ```js
 session = {
   user,
   userRecord,
-  appSettings: {
+  tenantConfig: {
     requireGrantApproval:   true/false,
     requireBudgetApproval:  true/false,
     requireExpenseApproval: true/false,
@@ -492,7 +484,7 @@ session = {
 }
 ```
 
-All components that need to adapt their UI read from `session.appSettings`.
+All components that need to adapt their UI read from `session.tenantConfig`.
 
 #### Component-by-component impact
 
@@ -532,7 +524,7 @@ All components that need to adapt their UI read from `session.appSettings`.
 
 A page at `/admin/settings` where an admin can toggle the three approval flags with immediate effect. Changes apply to newly created records — records already in `pending` are not retroactively approved.
 
-UI: three toggle switches with labels and a short explanation of what each controls. Save button calls `.update()` on `app_settings`.
+UI: three toggle switches with labels and a short explanation of what each controls. Save button calls `.update()` on `tenant_settings`.
 
 ---
 
@@ -556,9 +548,9 @@ The "Needs Changes" status requires an admin to have set it, which requires gran
 
 | Area | Size |
 |------|------|
-| `app_settings` table + RLS | Small |
+| `tenant_settings` approval columns + RLS | Small |
 | 3 BEFORE INSERT trigger functions | Small |
-| `App.js` — fetch and carry `appSettings` in session | Small |
+| `App.js` — fetch and carry `tenantConfig` in session | Small |
 | `CreateGrant.js` — success messaging | Trivial |
 | `GrantDetail.js` — conditional status history | Small |
 | `Grants.js` — hide resubmit button | Trivial |
