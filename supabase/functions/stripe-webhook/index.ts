@@ -1,5 +1,6 @@
 import { adminSupabase, corsHeaders, stripe, upsertSubscriptionFromStripe } from '../_shared/stripe.ts';
 import { assertPostRequest, ValidationError } from '../_shared/validation.ts';
+import { sendPaymentConfirmationEmail } from '../_shared/email.ts';
 
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') {
@@ -37,6 +38,58 @@ Deno.serve(async (request) => {
         if (session.mode === 'subscription' && session.subscription) {
           const subscription = await stripe.subscriptions.retrieve(String(session.subscription));
           await upsertSubscriptionFromStripe(subscription);
+
+          // Send payment confirmation email — errors are isolated so Stripe never retries due to email failure.
+          try {
+            const customerEmail = session.customer_details?.email ?? session.customer_email ?? '';
+            if (customerEmail) {
+              const stripeCustomerId = String(session.customer ?? '');
+              let firstName = '';
+              if (stripeCustomerId) {
+                const { data: billingCustomer } = await adminSupabase
+                  .from('billing_customers')
+                  .select('user_id')
+                  .eq('stripe_customer_id', stripeCustomerId)
+                  .maybeSingle();
+                if (billingCustomer?.user_id) {
+                  const { data: userRecord } = await adminSupabase
+                    .from('users')
+                    .select('firstname')
+                    .eq('id', billingCustomer.user_id)
+                    .maybeSingle();
+                  firstName = String(userRecord?.firstname ?? '');
+                }
+              }
+
+              const meta = subscription.metadata ?? {};
+              let tier = String(meta.membership_tier ?? meta.feature_key ?? '').toLowerCase();
+              if (tier === 'basic_membership') tier = 'basic';
+              if (['admin_membership', 'premium_membership', 'excel_export'].includes(tier)) tier = 'premium';
+              const planName = tier === 'premium' ? 'Fiscal Agents Plan' : 'Basic Plan';
+
+              const periodEndTs = subscription.items.data[0]?.current_period_end;
+              const periodEnd = periodEndTs ? new Date(periodEndTs * 1000) : null;
+
+              await sendPaymentConfirmationEmail({
+                to: customerEmail,
+                firstName,
+                planName,
+                amountCents: session.amount_total ?? 0,
+                currency: session.currency ?? 'cad',
+                subscriptionId: subscription.id,
+                paymentDate: new Date(event.created * 1000),
+                periodEnd,
+              });
+            }
+          } catch (emailError) {
+            console.error('Payment confirmation email failed:', emailError);
+            await adminSupabase.from('system_logs').insert({
+              event_name: 'payment_confirmation_email_failure',
+              error_message: emailError instanceof Error ? emailError.message : String(emailError),
+              severity: 'error',
+              metadata: { stripe_event_id: event.id },
+            }).catch(() => {});
+          }
         }
         break;
       }

@@ -42,6 +42,8 @@ Read by the Supabase CLI when serving Edge Functions locally (`supabase function
 | `STRIPE_WEBHOOK_SECRET` | ✅ | Signing secret used to verify that webhook events genuinely came from Stripe | [Stripe Dashboard → Developers → Webhooks](https://dashboard.stripe.com/webhooks) → your endpoint → Signing secret (`whsec_...`) |
 | `STRIPE_BILLING_PORTAL_CONFIGURATION_ID` | ❌ Optional | ID of a custom Stripe Billing Portal configuration. If omitted, Stripe uses the default portal configuration. | [Stripe Dashboard → Billing → Customer Portal](https://dashboard.stripe.com/settings/billing/portal) → Configuration ID (`bpc_...`) |
 | `APP_URL` | ✅ | The frontend URL, used for Stripe redirect URLs after checkout/portal | Local: `http://localhost:3000`. Production: your Vercel URL |
+| `RESEND_API_KEY` | ❌ Optional (disables email) | API key for [Resend](https://resend.com) — used to send payment confirmation emails after a successful Stripe checkout. Leave blank locally to skip email sending. | [Resend Dashboard → API Keys](https://resend.com/api-keys) |
+| `RESEND_FROM_EMAIL` | ❌ Optional | The `From` address for outgoing emails (e.g. `GrantTrail <noreply@granttrail.ca>`). Must be a domain verified in Resend. Defaults to `GrantTrail <noreply@granttrail.ca>`. | Resend Dashboard → Domains |
 
 > **Note:** `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` are automatically injected by the Supabase runtime into every Edge Function. You do not need to set these manually.
 
@@ -76,7 +78,9 @@ npx supabase secrets set --project-ref <your-project-ref> \
 
 Optionally also set:
 ```bash
-  STRIPE_BILLING_PORTAL_CONFIGURATION_ID="bpc_..."
+  STRIPE_BILLING_PORTAL_CONFIGURATION_ID="bpc_..." \
+  RESEND_API_KEY="re_..." \
+  RESEND_FROM_EMAIL="GrantTrail <noreply@granttrail.ca>"
 ```
 
 You can also view and manage these in the Supabase Dashboard under **Project Settings → Edge Functions → Secrets**.
@@ -122,3 +126,5 @@ The `build-and-test` job in [`.github/workflows/ci.yml`](../../.github/workflows
 | `STRIPE_WEBHOOK_SECRET` | `supabase/.env` | — | ✅ |
 | `STRIPE_BILLING_PORTAL_CONFIGURATION_ID` | `supabase/.env` optional | — | ✅ optional |
 | `APP_URL` | `supabase/.env` | — | ✅ |
+| `RESEND_API_KEY` | `supabase/.env` optional | — | ✅ optional |
+| `RESEND_FROM_EMAIL` | `supabase/.env` optional | — | ✅ optional |

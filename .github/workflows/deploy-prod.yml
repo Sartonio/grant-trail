@@ -29,6 +29,8 @@ jobs:
             STRIPE_PRICE_PRO="${{ vars.STRIPE_PRICE_PRO }}" \
             STRIPE_BILLING_PORTAL_CONFIGURATION_ID="${{ vars.STRIPE_BILLING_PORTAL_CONFIGURATION_ID }}" \
             APP_URL="${{ vars.APP_URL }}" \
+            RESEND_API_KEY="${{ secrets.RESEND_API_KEY }}" \
+            RESEND_FROM_EMAIL="${{ vars.RESEND_FROM_EMAIL }}" \
             --project-ref "${{ vars.SUPABASE_PROD_PROJECT_REF }}"
 
       - name: Link Supabase project

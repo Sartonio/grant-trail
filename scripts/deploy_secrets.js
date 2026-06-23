@@ -38,6 +38,7 @@ const SECRETS = new Set([
   'VERCEL_TOKEN',
   'VERCEL_ORG_ID',
   'VERCEL_PROJECT_ID',
+  'RESEND_API_KEY',
 ]);
 
 const VARIABLES = new Set([
@@ -49,10 +50,16 @@ const VARIABLES = new Set([
   'VITE_SUPABASE_URL',
   'VITE_SUPABASE_KEY',
   'VITE_SENTRY_DSN',
+  'RESEND_FROM_EMAIL',
 ]);
 
 // Keys allowed to be blank after auto-fetch.
-const OPTIONAL = new Set(['STRIPE_BILLING_PORTAL_CONFIGURATION_ID', 'VITE_SENTRY_DSN']);
+const OPTIONAL = new Set([
+  'STRIPE_BILLING_PORTAL_CONFIGURATION_ID',
+  'VITE_SENTRY_DSN',
+  'RESEND_API_KEY',
+  'RESEND_FROM_EMAIL',
+]);
 
 const args = process.argv.slice(2);
 const dryRun = args.includes('--dry-run');
