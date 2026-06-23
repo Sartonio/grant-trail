@@ -32,6 +32,7 @@ import CompleteProfile from './components/CompleteProfile';
 import LandingPage from './components/LandingPage';
 import SubscriptionPage from './components/SubscriptionPage';
 import FiscalAgentDirectory from './components/FiscalAgentDirectory';
+import FiscalAgentProfile from './components/FiscalAgentProfile';
 import { fetchMembershipStatus, fetchSessionContext, syncMembershipFromStripe } from './lib/billing';
 import { Guard, GRANTEE_BILLING_REDIRECT } from './lib/guards';
 import { ROLES, needsSubscription } from './lib/policy';
@@ -386,6 +387,11 @@ function App() {
           <Route
             path="/fiscal-agents"
             element={<FiscalAgentDirectory />}
+          />
+          {/* MOCKUP — shareable public Fiscal Agent profile page (frontend-only) */}
+          <Route
+            path="/fiscal-agents/:id"
+            element={<FiscalAgentProfile />}
           />
           <Route
             path="/complete-profile"
