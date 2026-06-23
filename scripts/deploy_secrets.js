@@ -5,16 +5,24 @@ const path = require('path');
 // ─────────────────────────────────────────────────────────────────────────────
 // Sync production config → the GitHub `production` environment.
 //
-// One source of truth: `.deploy/prod.env` (git-ignored). You mint the three
-// account-level tokens by hand (Supabase / Stripe / Vercel) and pick the project
-// ref + app URL; this script auto-fetches everything else it safely can, then
-// pushes each key into the GitHub environment as a Secret or Variable. The
-// "Deploy to Production" workflow is the ONLY consumer.
+// Source of truth: `.deploy/prod.env` (git-ignored) by default, or a Bitwarden
+// vault item with `--from-bitwarden`. You mint the three account-level tokens by
+// hand (Supabase / Stripe / Vercel) and pick the project ref + app URL; this
+// script auto-fetches everything else it safely can, then pushes each key into
+// the GitHub environment as a Secret or Variable. The "Deploy to Production"
+// workflow is the ONLY consumer.
 //
 //   npm run deploy:secrets              fetch + push, then delete the local file
 //   npm run deploy:secrets -- --keep    keep .deploy/prod.env on disk afterward
 //   npm run deploy:secrets -- --dry-run show what would happen, change nothing
 //   npm run deploy:secrets -- --recreate-webhook  delete + recreate the Stripe endpoint
+//
+// Bitwarden mode (no local file is written, fetched, or shredded):
+//   export BW_SESSION="$(bw unlock --raw)"     # unlock your Password Manager vault
+//   npm run deploy:secrets -- --from-bitwarden
+//   npm run deploy:secrets -- --from-bitwarden --bw-item="My Item Name"
+// Store each key as a custom field on the item, named EXACTLY like the env keys
+// (SUPABASE_ACCESS_TOKEN, STRIPE_SECRET_KEY, …). Default item name: "GrantTrail Prod".
 // ─────────────────────────────────────────────────────────────────────────────
 
 const ENV_NAME = 'production';
@@ -65,6 +73,9 @@ const args = process.argv.slice(2);
 const dryRun = args.includes('--dry-run');
 const keep = args.includes('--keep');
 const recreateWebhook = args.includes('--recreate-webhook');
+const fromBitwarden = args.includes('--from-bitwarden');
+const bwItemArg = args.find((a) => a.startsWith('--bw-item='));
+const BW_ITEM = bwItemArg ? bwItemArg.slice('--bw-item='.length) : 'GrantTrail Prod';
 
 const run = (cmd, cmdArgs, opts = {}) => spawnSync(cmd, cmdArgs, { encoding: 'utf8', ...opts });
 
@@ -101,6 +112,61 @@ function writeBack(file, updates) {
     else text += `\n${k}=${v}\n`;
   }
   fs.writeFileSync(file, text, { mode: 0o600 });
+}
+
+// Read prod config from a Bitwarden Password Manager item's custom fields.
+// Returns a { KEY: value } map (same shape parseEnvFile produces), or null on
+// failure after setting process.exitCode. Requires an unlocked vault: run
+// `export BW_SESSION="$(bw unlock --raw)"` first.
+function loadFromBitwarden(itemName) {
+  if (run('bw', ['--version']).status !== 0) {
+    console.error('❌ Bitwarden CLI (`bw`) not found. Install it — https://bitwarden.com/help/cli/ — then re-run.');
+    process.exitCode = 1;
+    return null;
+  }
+
+  // bw needs a session key to decrypt the vault. `bw status` reports it; the
+  // session can also live in $BW_SESSION, which spawnSync inherits.
+  let status = {};
+  try { status = JSON.parse(run('bw', ['status']).stdout); } catch (_) { /* ignore */ }
+  if (status.status !== 'unlocked' && !process.env.BW_SESSION) {
+    console.error(
+      '❌ Bitwarden vault is locked. Unlock it and export the session key, then re-run:\n' +
+      '     export BW_SESSION="$(bw unlock --raw)"\n' +
+      '     npm run deploy:secrets -- --from-bitwarden'
+    );
+    process.exitCode = 1;
+    return null;
+  }
+
+  const res = run('bw', ['get', 'item', itemName, '--raw']);
+  if (res.status !== 0) {
+    console.error(`❌ Could not read Bitwarden item "${itemName}":\n${(res.stderr || '').trim()}`);
+    process.exitCode = 1;
+    return null;
+  }
+
+  let item;
+  try {
+    item = JSON.parse(res.stdout);
+  } catch (e) {
+    console.error(`❌ Bitwarden returned output that is not valid JSON: ${e.message}`);
+    process.exitCode = 1;
+    return null;
+  }
+
+  // Map each custom field into a KEY=value entry. Unknown fields fall through to
+  // the same "unrecognized key" warning the file path uses; the push loop only
+  // ever iterates the known set, so extras are harmless.
+  const vars = {};
+  for (const f of item.fields || []) {
+    if (!f || !f.name) continue;
+    const val = f.value == null ? '' : String(f.value).trim();
+    if (val) vars[f.name] = val;
+  }
+
+  console.log(`🔓 Loaded ${Object.keys(vars).length} fields from Bitwarden item "${itemName}".\n`);
+  return vars;
 }
 
 function mask(value) {
@@ -238,20 +304,26 @@ function main() {
   console.log('🔐 Sync production config → GitHub `production` env');
   console.log('====================================================\n');
 
-  // Scaffold the file from the committed template on first run.
-  if (!fs.existsSync(ENV_FILE)) {
-    fs.mkdirSync(DEPLOY_DIR, { recursive: true });
-    fs.copyFileSync(EXAMPLE_FILE, ENV_FILE);
-    console.log(`📝 Created ${path.relative(process.cwd(), ENV_FILE)} from the template.`);
-    console.log('   Fill in the 3 tokens + project ref + app URL + price ids, then run this again.\n');
-    return;
+  let vars;
+  if (fromBitwarden) {
+    vars = loadFromBitwarden(BW_ITEM);
+    if (!vars) return; // exitCode already set
+  } else {
+    // Scaffold the file from the committed template on first run.
+    if (!fs.existsSync(ENV_FILE)) {
+      fs.mkdirSync(DEPLOY_DIR, { recursive: true });
+      fs.copyFileSync(EXAMPLE_FILE, ENV_FILE);
+      console.log(`📝 Created ${path.relative(process.cwd(), ENV_FILE)} from the template.`);
+      console.log('   Fill in the 3 tokens + project ref + app URL + price ids, then run this again.\n');
+      return;
+    }
+    vars = parseEnvFile(ENV_FILE);
   }
 
-  const vars = parseEnvFile(ENV_FILE);
-
-  // Auto-fetch everything we safely can, then persist it back into the file.
+  // Auto-fetch everything we safely can. With a local file, persist it back so
+  // the derived values stick; in Bitwarden mode there is no file to write to.
   const fetched = resolve(vars);
-  if (!dryRun && Object.keys(fetched).length) writeBack(ENV_FILE, fetched);
+  if (!fromBitwarden && !dryRun && Object.keys(fetched).length) writeBack(ENV_FILE, fetched);
 
   // Warn on unknown keys (typos), then validate required values are present.
   const known = new Set([...SECRETS, ...VARIABLES]);
@@ -260,7 +332,19 @@ function main() {
   }
   const missing = [...known].filter((k) => !OPTIONAL.has(k) && !vars[k]?.trim());
   if (missing.length) {
-    console.error(`\n❌ Still missing values in ${path.relative(process.cwd(), ENV_FILE)}: ${missing.join(', ')}`);
+    const src = fromBitwarden ? `Bitwarden item "${BW_ITEM}"` : path.relative(process.cwd(), ENV_FILE);
+    console.error(`\n❌ Still missing values in ${src}: ${missing.join(', ')}`);
+    process.exitCode = 1;
+    return;
+  }
+
+  // Money-critical: Basic and Pro must be distinct prices. A shared id means one
+  // tier is silently billing at the other's rate — refuse rather than deploy it.
+  if (vars.STRIPE_PRICE_BASIC?.trim() === vars.STRIPE_PRICE_PRO?.trim()) {
+    console.error(
+      `\n❌ STRIPE_PRICE_BASIC and STRIPE_PRICE_PRO are the same id (${vars.STRIPE_PRICE_BASIC}).\n` +
+      '   Set two distinct Stripe price ids before deploying.'
+    );
     process.exitCode = 1;
     return;
   }
@@ -323,7 +407,9 @@ function main() {
   run('gh', ['secret', 'list', '--env', ENV_NAME], { stdio: 'inherit' });
   run('gh', ['variable', 'list', '--env', ENV_NAME], { stdio: 'inherit' });
 
-  if (keep) {
+  if (fromBitwarden) {
+    console.log('\n🔒 Read from Bitwarden — no local secrets file was written or shredded.');
+  } else if (keep) {
     console.log('\n💡 Kept .deploy/prod.env (--keep). It holds live secrets — store it safely.');
   } else {
     fs.rmSync(ENV_FILE, { force: true });
