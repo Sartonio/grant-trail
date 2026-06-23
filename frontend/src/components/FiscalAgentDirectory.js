@@ -25,6 +25,8 @@ import {
   FaShieldAlt,
   FaUsers,
 } from 'react-icons/fa';
+import SponsorshipApplicationModal from './SponsorshipApplicationModal';
+import FiscalAgentInbox from './FiscalAgentInbox';
 import './FiscalAgentDirectory.css';
 
 /*
@@ -210,6 +212,87 @@ const AGENTS = [
 ];
 
 const PAGE_SIZE = 4;
+
+// In the mockup the "charity — listing owner" perspective stands in for the
+// owner of this one agent listing, so the inbox can be filtered to it.
+const OWNER_AGENT_ID = 'a1';
+
+// Seed inquiries so the inbox demos with realistic content. agentIds match
+// existing AGENTS; the owner perspective (OWNER_AGENT_ID) only sees its own.
+const SAMPLE_INQUIRIES = [
+  {
+    id: 'inq-1',
+    agentId: 'a1',
+    status: 'new',
+    submittedAt: new Date(Date.now() - 1000 * 60 * 90).toISOString(),
+    project: {
+      name: 'Riverside Pollinator Corridor',
+      mission:
+        'Restoring native-plant pollinator habitat along three miles of urban riverbank with volunteer crews.',
+      focus: 'Environment',
+      projectType: 'New project',
+      estAnnualBudget: '$25k–$100k',
+      fundingSources: 'Individual donors, a pending city micro-grant',
+      timeline: 'Within 1 month',
+      startDate: '2026-08-01',
+    },
+    contact: {
+      name: 'Maya Okafor',
+      email: 'maya@riversidecorridor.org',
+      organization: 'Riverside Corridor Project',
+      phone: '(503) 555-0110',
+    },
+    message:
+      'We need a fiscal sponsor to receive grant funds and handle reporting while we build out our board. Your environmental focus is a perfect fit.',
+  },
+  {
+    id: 'inq-2',
+    agentId: 'a1',
+    status: 'reviewing',
+    submittedAt: new Date(Date.now() - 1000 * 60 * 60 * 26).toISOString(),
+    project: {
+      name: 'Eastside Community Fridges',
+      mission: 'Operating a network of free, stocked community refrigerators across the east side.',
+      focus: 'Food Security',
+      projectType: 'Existing program',
+      estAnnualBudget: '$100k–$250k',
+      fundingSources: 'Recurring donors, in-kind grocery partnerships',
+      timeline: 'Ready now',
+      startDate: '',
+    },
+    contact: {
+      name: 'Devon Pierce',
+      email: 'devon@eastsidefridges.org',
+      organization: 'Eastside Mutual Aid',
+      phone: '',
+    },
+    message:
+      'We have outgrown our previous sponsor and are looking for a partner who understands mutual-aid disbursement.',
+  },
+  {
+    id: 'inq-3',
+    agentId: 'a2',
+    status: 'accepted',
+    submittedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 5).toISOString(),
+    project: {
+      name: 'Teen Film Lab',
+      mission: 'After-school filmmaking workshops for high-school students in underserved districts.',
+      focus: 'Youth',
+      projectType: 'Ongoing initiative',
+      estAnnualBudget: 'Under $25k',
+      fundingSources: 'Local arts council grant',
+      timeline: '1–3 months',
+      startDate: '2026-09-15',
+    },
+    contact: {
+      name: 'Priya Nair',
+      email: 'priya@teenfilmlab.org',
+      organization: 'Teen Film Lab',
+      phone: '(512) 555-0144',
+    },
+    message: 'Excited to formalize our partnership for the fall cohort.',
+  },
+];
 
 /* ------------------------------------------------------------------ */
 /* Small presentational helpers                                        */
@@ -473,81 +556,6 @@ function ProfileModal({ agent, saved, onToggleSave, onClose, onContact }) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Contact / partnership request modal                                 */
-/* ------------------------------------------------------------------ */
-
-function ContactModal({ agent, onClose, onSent }) {
-  const [sending, setSending] = useState(false);
-  const [form, setForm] = useState({ org: '', email: '', project: '', message: '' });
-
-  const valid = form.org && form.email && form.message;
-
-  function submit(e) {
-    e.preventDefault();
-    if (!valid) return;
-    setSending(true);
-    // Simulate a network round-trip.
-    setTimeout(() => {
-      setSending(false);
-      onSent(agent);
-    }, 700);
-  }
-
-  return (
-    <Modal onClose={onClose} labelledBy="fad-contact-title">
-      <h2 id="fad-contact-title" className="fad-modal-title">
-        Contact {agent.name}
-      </h2>
-      <p className="fad-modal-sub">
-        Send a partnership request. Typical response: {agent.responseTime}.
-      </p>
-      <form className="fad-form" onSubmit={submit}>
-        <Field label="Your organization" required>
-          <input
-            type="text"
-            value={form.org}
-            onChange={(e) => setForm({ ...form, org: e.target.value })}
-            placeholder="e.g. Riverside Youth Project"
-          />
-        </Field>
-        <Field label="Contact email" required>
-          <input
-            type="email"
-            value={form.email}
-            onChange={(e) => setForm({ ...form, email: e.target.value })}
-            placeholder="you@org.org"
-          />
-        </Field>
-        <Field label="Project / grant name">
-          <input
-            type="text"
-            value={form.project}
-            onChange={(e) => setForm({ ...form, project: e.target.value })}
-            placeholder="Optional"
-          />
-        </Field>
-        <Field label="Message" required>
-          <textarea
-            rows={4}
-            value={form.message}
-            onChange={(e) => setForm({ ...form, message: e.target.value })}
-            placeholder="Tell them about your project and what you need from a fiscal agent…"
-          />
-        </Field>
-        <div className="fad-form-foot">
-          <button type="button" className="fad-btn fad-btn-ghost" onClick={onClose}>
-            Cancel
-          </button>
-          <button type="submit" className="fad-btn fad-btn-primary" disabled={!valid || sending}>
-            {sending ? 'Sending…' : 'Send request'}
-          </button>
-        </div>
-      </form>
-    </Modal>
-  );
-}
-
-/* ------------------------------------------------------------------ */
 /* "List your charity" — multi-step flow                               */
 /* ------------------------------------------------------------------ */
 
@@ -772,10 +780,13 @@ export default function FiscalAgentDirectory() {
 
   const [saved, setSaved] = useState(() => new Set());
   const [profileAgent, setProfileAgent] = useState(null);
-  const [contactAgent, setContactAgent] = useState(null);
+  const [applyAgent, setApplyAgent] = useState(null);
   const [showListing, setShowListing] = useState(false);
   const [myListing, setMyListing] = useState(null);
   const [toast, setToast] = useState(null);
+
+  // In-memory inquiry store — the apply -> inbox loop lives entirely here.
+  const [inquiries, setInquiries] = useState(SAMPLE_INQUIRIES);
 
   const isSubscribed = viewAs !== 'locked';
 
@@ -824,10 +835,35 @@ export default function FiscalAgentDirectory() {
     });
   }
 
-  function handleSent(agent) {
-    setContactAgent(null);
-    setToast({ msg: `Request sent to ${agent.name}` });
+  function handleApplicationSubmit(application) {
+    const agent = applyAgent;
+    const inquiry = {
+      id: `inq-${Date.now()}`,
+      agentId: agent.id,
+      status: 'new',
+      submittedAt: new Date().toISOString(),
+      ...application,
+    };
+    setInquiries((prev) => [inquiry, ...prev]);
+    setApplyAgent(null);
+    setToast({ msg: `Application sent to ${agent.name}` });
   }
+
+  function handleUpdateStatus(inquiryId, nextStatus) {
+    setInquiries((prev) =>
+      prev.map((q) => (q.id === inquiryId ? { ...q, status: nextStatus } : q)),
+    );
+  }
+
+  function handleOnboard(inquiry) {
+    setToast({ msg: `Onboarding ${inquiry.project.name} as a grantee…` });
+  }
+
+  // Inbox for the listing owner — only their agent's applications.
+  const ownerInquiries = useMemo(
+    () => inquiries.filter((q) => q.agentId === OWNER_AGENT_ID),
+    [inquiries],
+  );
 
   function handlePublished(data) {
     setShowListing(false);
@@ -916,6 +952,15 @@ export default function FiscalAgentDirectory() {
             Edit your listing
           </button>
         </section>
+      )}
+
+      {/* Listing owner inbox — receives structured sponsorship applications */}
+      {viewAs === 'charity' && (
+        <FiscalAgentInbox
+          inquiries={ownerInquiries}
+          onUpdateStatus={handleUpdateStatus}
+          onOnboard={handleOnboard}
+        />
       )}
 
       {/* Toolbar: search + sort */}
@@ -1017,7 +1062,7 @@ export default function FiscalAgentDirectory() {
                 saved={saved.has(a.id)}
                 onToggleSave={toggleSave}
                 onOpen={setProfileAgent}
-                onContact={setContactAgent}
+                onContact={setApplyAgent}
               />
             ))}
           </section>
@@ -1142,12 +1187,16 @@ export default function FiscalAgentDirectory() {
           onClose={() => setProfileAgent(null)}
           onContact={(a) => {
             setProfileAgent(null);
-            setContactAgent(a);
+            setApplyAgent(a);
           }}
         />
       )}
-      {contactAgent && (
-        <ContactModal agent={contactAgent} onClose={() => setContactAgent(null)} onSent={handleSent} />
+      {applyAgent && (
+        <SponsorshipApplicationModal
+          agent={applyAgent}
+          onClose={() => setApplyAgent(null)}
+          onSubmit={handleApplicationSubmit}
+        />
       )}
       {showListing && (
         <ListingFormModal onClose={() => setShowListing(false)} onPublished={handlePublished} />

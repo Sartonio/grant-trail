@@ -1,0 +1,119 @@
+/* ========================================
+   Sponsorship Application Modal — MOCKUP styles
+   Reuses the directory's `.fad-*` look (modal, fields, stepper, buttons).
+   Application-specific additions are prefixed `sapp-`.
+   ======================================== */
+
+/* Two fields side-by-side; collapses to one column on small screens. */
+.sapp-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.9rem;
+}
+
+.sapp-row .fad-field select,
+.sapp-review select {
+  font-family: var(--font-body);
+  font-size: 0.92rem;
+  color: var(--color-gray-800);
+  border: 1px solid var(--color-gray-300);
+  border-radius: var(--radius-md);
+  padding: 0.6rem 0.75rem;
+  width: 100%;
+  box-sizing: border-box;
+  background: #fff;
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+/* Make any select inside the application form match the inputs. */
+.fad-form select {
+  font-family: var(--font-body);
+  font-size: 0.92rem;
+  color: var(--color-gray-800);
+  border: 1px solid var(--color-gray-300);
+  border-radius: var(--radius-md);
+  padding: 0.6rem 0.75rem;
+  width: 100%;
+  box-sizing: border-box;
+  background: #fff;
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+.fad-form select:focus {
+  outline: none;
+  border-color: var(--color-primary-light);
+  box-shadow: 0 0 0 3px rgba(10, 84, 40, 0.12);
+}
+
+.sapp-error {
+  font-size: 0.78rem;
+  color: var(--color-error);
+  margin-top: 0.1rem;
+}
+
+/* ---- Review step ---- */
+.sapp-review-head {
+  margin: 1.1rem 0 0.5rem;
+  font-family: var(--font-subheading);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-gray-500);
+}
+.sapp-review-head:first-of-type { margin-top: 0.4rem; }
+
+.sapp-review-list {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0;
+  padding: 0.9rem 1rem;
+  background: var(--color-gray-50);
+  border: 1px solid var(--color-gray-200);
+  border-radius: var(--radius-lg);
+}
+.sapp-review-list > div {
+  display: grid;
+  grid-template-columns: 130px 1fr;
+  gap: 0.75rem;
+  align-items: baseline;
+}
+.sapp-review-list dt {
+  font-size: 0.78rem;
+  color: var(--color-gray-500);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.sapp-review-list dd {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--color-gray-800);
+  line-height: 1.5;
+}
+
+.sapp-review-message {
+  margin: 0;
+  padding: 0.9rem 1rem;
+  background: var(--color-gray-50);
+  border: 1px solid var(--color-gray-200);
+  border-radius: var(--radius-lg);
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: var(--color-gray-700);
+  white-space: pre-wrap;
+}
+
+.sapp-foot-note {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 1rem 0 0;
+  font-size: 0.8rem;
+  color: var(--color-gray-500);
+}
+.sapp-foot-note svg { color: var(--color-success); flex-shrink: 0; }
+
+@media (max-width: 640px) {
+  .sapp-row { grid-template-columns: 1fr; }
+  .sapp-review-list > div { grid-template-columns: 1fr; gap: 0.15rem; }
+}
