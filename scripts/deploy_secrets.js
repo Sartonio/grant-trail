@@ -5,25 +5,18 @@ const path = require('path');
 // ─────────────────────────────────────────────────────────────────────────────
 // Sync production config → the GitHub `production` environment.
 //
-// Source of truth: `.deploy/prod.env` (git-ignored) by default, or the process
-// environment with `--from-env`. You mint the three account-level tokens by hand
-// (Supabase / Stripe / Vercel) and pick the project ref + app URL; this script
-// auto-fetches everything else it safely can, then pushes each key into the
-// GitHub environment as a Secret or Variable. The "Deploy to Production"
-// workflow is the ONLY consumer.
+// Source of truth: `.deploy/prod.env` (git-ignored). You mint the three
+// account-level tokens by hand (Supabase / Stripe / Vercel) and pick the
+// project ref + app URL; this script auto-fetches everything else it safely
+// can, then pushes each key into the GitHub environment as a Secret or
+// Variable. The "Deploy to Production" workflow is the ONLY consumer.
 //
 //   npm run deploy:secrets              fetch + push, then delete the local file
 //   npm run deploy:secrets -- --keep    keep .deploy/prod.env on disk afterward
 //   npm run deploy:secrets -- --dry-run show what would happen, change nothing
 //   npm run deploy:secrets -- --recreate-webhook  delete + recreate the Stripe endpoint
-//
-// --from-env reads the known keys straight from the process environment instead
-// of a file (nothing is written or shredded). It pairs with any secret-injection
-// tool — e.g. Bitwarden Secrets Manager:
-//   bws run --project-id <id> -- node scripts/deploy_secrets.js --from-env
 // ─────────────────────────────────────────────────────────────────────────────
 
-const ENV_NAME = 'production';
 const REPO_ROOT = path.join(__dirname, '..');
 const DEPLOY_DIR = path.join(REPO_ROOT, '.deploy');
 const ENV_FILE = path.join(DEPLOY_DIR, 'prod.env');
@@ -71,7 +64,11 @@ const args = process.argv.slice(2);
 const dryRun = args.includes('--dry-run');
 const keep = args.includes('--keep');
 const recreateWebhook = args.includes('--recreate-webhook');
-const fromEnv = args.includes('--from-env');
+
+// Target GitHub environment. Defaults to `production`; override with
+// `--env <name>` to push to a throwaway env for testing without touching prod.
+const envIdx = args.indexOf('--env');
+const ENV_NAME = envIdx !== -1 && args[envIdx + 1] ? args[envIdx + 1] : 'production';
 
 const run = (cmd, cmdArgs, opts = {}) => spawnSync(cmd, cmdArgs, { encoding: 'utf8', ...opts });
 
@@ -96,18 +93,6 @@ function parseEnvFile(file) {
     map[key] = val;
   }
   return map;
-}
-
-// Pull the known keys out of the process environment (for `--from-env`, fed by
-// a secret-injection tool like `bws run`). Same { KEY: value } shape as the file.
-function loadFromEnv() {
-  const vars = {};
-  for (const key of [...SECRETS, ...VARIABLES]) {
-    const val = process.env[key];
-    if (val != null && String(val).trim()) vars[key] = String(val).trim();
-  }
-  console.log(`🌍 Loaded ${Object.keys(vars).length} keys from the environment.\n`);
-  return vars;
 }
 
 // Update KEY= lines in place so the template's comments are preserved.
@@ -252,30 +237,88 @@ function resolve(vars) {
   return fetched;
 }
 
+// ── Preflight ────────────────────────────────────────────────────────────────
+// Hard-fail up front if a CLI the run will actually use is missing or not
+// authenticated, instead of letting resolve()'s soft warnings leave gaps.
+//   gh       — always (it performs every push)
+//   supabase — only when VITE_SUPABASE_KEY is blank (it'll be fetched)
+//   stripe   — only when STRIPE_WEBHOOK_SECRET is blank (the endpoint is created)
+// Credentials are validated with a cheap read-only call using the env-file
+// token/key, so "signed in" means the token actually works — not just present.
+function toolInstalled(cmd, versionArgs) {
+  const res = run(cmd, versionArgs, { stdio: 'ignore' });
+  return res.status === 0;
+}
+
+function preflight(vars) {
+  const problems = [];
+
+  // gh — always required.
+  if (!toolInstalled('gh', ['--version'])) {
+    problems.push('• GitHub CLI (`gh`) is not installed — https://cli.github.com');
+  } else if (run('gh', ['auth', 'status'], { stdio: 'ignore' }).status !== 0) {
+    problems.push('• GitHub CLI is not logged in — run `gh auth login`.');
+  }
+
+  // supabase — only needed to fetch the publishable key.
+  if (!vars.VITE_SUPABASE_KEY?.trim()) {
+    if (!toolInstalled('npx', ['--prefix', 'frontend', 'supabase', '--version'])) {
+      problems.push('• Supabase CLI is unavailable — run `npm install --prefix frontend`.');
+    } else if (vars.SUPABASE_ACCESS_TOKEN?.trim()) {
+      const res = run('npx', ['--prefix', 'frontend', 'supabase', 'projects', 'list', '--output', 'json'],
+        { env: { ...process.env, SUPABASE_ACCESS_TOKEN: vars.SUPABASE_ACCESS_TOKEN }, stdio: 'ignore' });
+      if (res.status !== 0) {
+        problems.push('• SUPABASE_ACCESS_TOKEN is invalid/expired — mint one at https://supabase.com/dashboard/account/tokens');
+      }
+    }
+  }
+
+  // stripe — only needed to create the webhook endpoint.
+  if (!vars.STRIPE_WEBHOOK_SECRET?.trim()) {
+    if (!toolInstalled('stripe', ['version'])) {
+      problems.push('• Stripe CLI is not installed — https://docs.stripe.com/stripe-cli#install');
+    } else if (vars.STRIPE_SECRET_KEY?.trim()) {
+      const res = run('stripe', ['prices', 'list', '--limit', '1', '--api-key', vars.STRIPE_SECRET_KEY],
+        { stdio: 'ignore' });
+      if (res.status !== 0) {
+        problems.push('• STRIPE_SECRET_KEY is invalid — check https://dashboard.stripe.com/apikeys');
+      }
+    }
+  }
+
+  if (problems.length) {
+    console.error('❌ Preflight failed:\n' + problems.join('\n') + '\n');
+    return false;
+  }
+  console.log('✅ Preflight OK — required CLIs installed and authenticated.\n');
+  return true;
+}
+
 function main() {
   console.log('====================================================');
   console.log('🔐 Sync production config → GitHub `production` env');
   console.log('====================================================\n');
 
-  let vars;
-  if (fromEnv) {
-    vars = loadFromEnv();
-  } else {
-    // Scaffold the file from the committed template on first run.
-    if (!fs.existsSync(ENV_FILE)) {
-      fs.mkdirSync(DEPLOY_DIR, { recursive: true });
-      fs.copyFileSync(EXAMPLE_FILE, ENV_FILE);
-      console.log(`📝 Created ${path.relative(process.cwd(), ENV_FILE)} from the template.`);
-      console.log('   Fill in the 3 tokens + project ref + app URL + price ids, then run this again.\n');
-      return;
-    }
-    vars = parseEnvFile(ENV_FILE);
+  // Scaffold the file from the committed template on first run.
+  if (!fs.existsSync(ENV_FILE)) {
+    fs.mkdirSync(DEPLOY_DIR, { recursive: true });
+    fs.copyFileSync(EXAMPLE_FILE, ENV_FILE);
+    console.log(`📝 Created ${path.relative(process.cwd(), ENV_FILE)} from the template.`);
+    console.log('   Fill in the 3 tokens + project ref + app URL + price ids, then run this again.\n');
+    return;
+  }
+  const vars = parseEnvFile(ENV_FILE);
+
+  // Fail fast if a CLI we're about to use is missing or not authenticated.
+  if (!preflight(vars)) {
+    process.exitCode = 1;
+    return;
   }
 
-  // Auto-fetch everything we safely can. With a local file, persist it back so
-  // the derived values stick; with --from-env there is no file to write to.
+  // Auto-fetch everything we safely can, then persist it back to the file so
+  // the derived values stick.
   const fetched = resolve(vars);
-  if (!fromEnv && !dryRun && Object.keys(fetched).length) writeBack(ENV_FILE, fetched);
+  if (!dryRun && Object.keys(fetched).length) writeBack(ENV_FILE, fetched);
 
   // Warn on unknown keys (typos), then validate required values are present.
   const known = new Set([...SECRETS, ...VARIABLES]);
@@ -284,7 +327,7 @@ function main() {
   }
   const missing = [...known].filter((k) => !OPTIONAL.has(k) && !vars[k]?.trim());
   if (missing.length) {
-    const src = fromEnv ? 'the environment' : path.relative(process.cwd(), ENV_FILE);
+    const src = path.relative(process.cwd(), ENV_FILE);
     console.error(`\n❌ Still missing values in ${src}: ${missing.join(', ')}`);
     process.exitCode = 1;
     return;
@@ -301,16 +344,9 @@ function main() {
     return;
   }
 
-  // Preflight: gh must be authenticated and pointed at a repo.
+  // Ensure the target environment exists (gh auth already verified in preflight).
   if (!dryRun) {
-    const auth = run('gh', ['auth', 'status'], { stdio: 'ignore' });
-    if (auth.status !== 0) {
-      console.error('❌ GitHub CLI is not logged in. Run `gh auth login`, then re-run.');
-      process.exitCode = 1;
-      return;
-    }
-
-    // Ensure the environment exists. Check first and only create when missing —
+    // Check first and only create when missing —
     // a blind PUT would reset protection rules (required reviewers) on an existing env.
     const exists = run('gh', ['api', `repos/{owner}/{repo}/environments/${ENV_NAME}`], { stdio: 'ignore' });
     if (exists.status !== 0) {
@@ -359,9 +395,7 @@ function main() {
   run('gh', ['secret', 'list', '--env', ENV_NAME], { stdio: 'inherit' });
   run('gh', ['variable', 'list', '--env', ENV_NAME], { stdio: 'inherit' });
 
-  if (fromEnv) {
-    console.log('\n🔒 Read from the environment — no local secrets file was written or shredded.');
-  } else if (keep) {
+  if (keep) {
     console.log('\n💡 Kept .deploy/prod.env (--keep). It holds live secrets — store it safely.');
   } else {
     fs.rmSync(ENV_FILE, { force: true });
