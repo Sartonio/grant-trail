@@ -31,6 +31,7 @@ import AdminSettings from './components/AdminSettings';
 import CompleteProfile from './components/CompleteProfile';
 import LandingPage from './components/LandingPage';
 import SubscriptionPage from './components/SubscriptionPage';
+import FiscalAgentDirectory from './components/FiscalAgentDirectory';
 import { fetchMembershipStatus, fetchSessionContext, syncMembershipFromStripe } from './lib/billing';
 import { Guard, GRANTEE_BILLING_REDIRECT } from './lib/guards';
 import { ROLES, needsSubscription } from './lib/policy';
@@ -380,6 +381,11 @@ function App() {
           <Route
             path="/reset-password"
             element={<ResetPassword />}
+          />
+          {/* MOCKUP — Fiscal Agent directory (frontend-only, for design feedback) */}
+          <Route
+            path="/fiscal-agents"
+            element={<FiscalAgentDirectory />}
           />
           <Route
             path="/complete-profile"
