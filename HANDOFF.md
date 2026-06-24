@@ -15,8 +15,7 @@ Working note on the deploy/staging→prod work. Delete once the open items below
 
 GitHub Environments: `ci`, `staging` exist with **placeholder** values. `Production` was **deleted** (clean slate — prod was never live). `Preview` is Vercel's, unrelated.
 
-- Old production variable values backed up at `.deploy/production-env-backup-2026-06-24.txt` (git-ignored).
-- Production secret values are unrecoverable — re-mint on rebuild (this also closes the pending token rotation).
+- Old production secrets and variables are gone (starting from scratch) — re-mint tokens and refill `deploy/production.env.example` on rebuild (this also closes the pending token rotation).
 - Only one real Supabase project (`grant-trail` / `ufjuuwliqajymqaakyrq`) and one Vercel `grant-trail` project exist — both are the live app; there is no separate staging/dev target.
 
 ## Open / blocked
