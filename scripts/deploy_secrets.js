@@ -28,6 +28,11 @@ const path = require('path');
 //   ... -- --recreate-webhook  delete + recreate the Stripe endpoint (prod/staging)
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Silence the Supabase CLI's PostHog telemetry. Without this it can hang on
+// shutdown and exit non-zero in restricted-network environments, making a valid
+// SUPABASE_ACCESS_TOKEN look invalid during preflight. Inherited by all children.
+process.env.DO_NOT_TRACK = '1';
+
 const REPO_ROOT = path.join(__dirname, '..');
 const DEPLOY_DIR = path.join(REPO_ROOT, '.deploy');
 const VERCEL_PROJECT_JSON = path.join(REPO_ROOT, '.vercel', 'project.json');
