@@ -1,6 +1,6 @@
-# Deploy Architecture — Option A
+# Deploy Architecture
 
-This document describes the "Option A" deploy architecture for grant-trail.
+This document describes the deploy architecture for grant-trail.
 
 ## Single source of truth: GitHub Environments
 
