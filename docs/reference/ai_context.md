@@ -74,6 +74,7 @@ Never insert the Auth UUID into a column that expects the integer user ID. The t
 - **Invites are not directly readable/writable by clients** — `anon` has no `invites` table access. Resolve and consume invites via the SECURITY DEFINER RPCs `get_invite_by_token` / `consume_invite` (wrapped in `frontend/src/lib/invites.js`), never a direct `supabase.from('invites')` query.
 - **Storage is tenant-scoped by path** — `grant-documents` and `receipts` policies require the object path's 2nd folder segment to be the caller's tenant (`storage_object_tenant_id(name) = current_tenant_id()`). Uploads MUST follow the path convention `attachments/<tenant_id>/<grant_id>/...` and `receipts/<tenant_id>/<grant_id>/<expense_id>/...` or the write is denied.
 - **Privilege columns are frozen on self-update** — a trigger blocks a user changing their own `role` / `tenant_id` / `is_active`; grant `tenant_id` is derived server-side. Do not attempt to set these from the client.
+- **Role Matrix** — The definitive source of truth for all role permissions and RLS policies is [`docs/reference/role_matrix.md`](file:///home/ryan/Documents/grant-trail/docs/reference/role_matrix.md). Always consult this matrix when verifying or modifying access rules.
 
 ---
 
@@ -121,3 +122,25 @@ Do not leave configuration changes undocumented. Every new environment variable 
 1. **Template Updates**: Add the key with placeholder values to `frontend/.env.example` or `supabase/.env.example`.
 2. **Setup Script Sync**: If the key is required for default local setup, verify if `npm run setup` needs to generate it or copy it.
 3. **Reference Documentation**: Document the purpose, options, and source of the variable in [`docs/reference/environment_variables.md`](file:///home/ryan/Documents/grant-trail/docs/reference/environment_variables.md).
+
+---
+
+## 9. Authorization & Route Guards
+
+Frontend route access and subscription logic is centrally managed via a two-axis Guard system:
+- **`frontend/src/lib/policy.js`**: Contains the core logic for checking roles (`hasRequiredRole`) and billing (`canMutate`).
+- **`frontend/src/lib/guards.js`**: Exports the `<Guard>` React component used to wrap all protected routes in `App.js`. This component evaluates the policy and handles distinct redirects (e.g. wrong-role → `/login`, unpaid → billing nudge).
+- **Mutations**: Admin mutation endpoints are gated behind active subscriptions using `billingMode="readOnly"` on the route and the `useWriteGuard` hook within components. Reads remain open for lapsed admins.
+
+---
+
+## 10. Testing Structure
+
+When running or writing tests, adhere to the following directory structure:
+
+| Test Type | Location | Purpose & Details |
+| :--- | :--- | :--- |
+| **Unit Tests** | `frontend/src/**/*.test.js` | Vitest specs for pure functions, React components, and policy logic (e.g., `guards.test.js`, `policy.test.js`). |
+| **E2E Tests** | `frontend/tests/e2e/*.spec.js` | Playwright specs testing full UI flows (`admin-flows`, `grantee-flows`, `authz-negative`). Run against a local seeded DB. |
+| **Edge Function Tests** | `supabase/functions/tests/*.test.sh` | Bash scripts invoking Edge Functions. The FAST tier runs locally. The Stripe-enabled tier (`run-all.sh`) manages a live Stripe forwarder loop. |
+| **Adversarial/Security** | `supabase/tests/*.test.sh` | Bash scripts proving RLS boundaries and cross-tenant isolation (e.g. `rls-adversarial.test.sh`). |
