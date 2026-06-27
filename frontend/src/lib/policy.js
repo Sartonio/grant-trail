@@ -84,7 +84,7 @@ export function isReadOnlyAdmin(session) {
 // --- Charity Directory entitlements -----------------------------------------
 //
 // Two SKUs gate the Fiscal Agent / Charity Directory:
-//   - directory_access (NEW)  -> seeker may VIEW full listings + contact charities.
+//   - basic                   -> seeker may VIEW full listings + contact charities.
 //   - premium ("Fiscal Agents Plan") -> charity may OWN/publish a listing + triage
 //     inquiries. This reuses the existing org-admin premium plan rather than a
 //     separate fiscal_agent SKU.
@@ -92,16 +92,16 @@ export function isReadOnlyAdmin(session) {
 // These are UX gates; RLS on the backend is the real security boundary.
 
 // Seeker gate: can this session view the full directory (vs. the teaser)?
-// True for the directory_access SKU OR super_admin OR exempt. (Premium/listing
-// owners still see their OWN listing via RLS; browsing the directory is the
-// separate directory_access product.)
+// True for the basic SKU OR super_admin OR exempt. (Premium/listing
+// owners still see their OWN listing via RLS; browsing the directory is part of
+// the basic product.)
 export function canViewDirectory(session) {
   if (getRole(session) === ROLES.SUPER_ADMIN) return true;
   const membership = session?.membership;
   if (!membership) return false;
   return (
     !!membership.isExempt ||
-    !!membership.hasDirectoryAccess
+    !!membership.hasBasicAccess
   );
 }
 

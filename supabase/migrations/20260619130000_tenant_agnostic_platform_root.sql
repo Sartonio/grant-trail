@@ -111,6 +111,14 @@ CREATE OR REPLACE FUNCTION "public"."is_membership_exempt"("p_user_id" integer) 
           AND public.is_platform_root_tenant(t.slug, t.name)
         )
         OR ts.require_subscription = false
+        OR EXISTS (
+          SELECT 1
+          FROM users tenant_users
+          JOIN user_memberships um ON um.user_id = tenant_users.id
+          WHERE tenant_users.tenant_id = u.tenant_id
+            AND um.is_active = true
+            AND um.membership_tier = 'premium'
+        )
       )
   );
 $$;

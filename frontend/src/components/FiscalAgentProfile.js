@@ -95,7 +95,7 @@ export default function FiscalAgentProfile({ session }) {
     setCheckoutBusy(true);
     try {
       const { url } = await startCheckoutSession({
-        membershipTier: MEMBERSHIP_TIERS.DIRECTORY_ACCESS,
+        membershipTier: MEMBERSHIP_TIERS.BASIC,
         returnPath: '/fiscal-agents/checkout/return',
       });
       window.location.assign(url);
@@ -265,7 +265,7 @@ export default function FiscalAgentProfile({ session }) {
             <section className="fap-section">
               <div className="fap-locked-note">
                 <FaShieldAlt /> About, fee structure, eligibility, services, and contact details are
-                part of a Directory Access subscription.
+                part of a Basic subscription.
               </div>
             </section>
           )}
@@ -357,7 +357,7 @@ export default function FiscalAgentProfile({ session }) {
                 <h3>Subscribe to contact</h3>
                 <p>
                   Get this fiscal agent’s contact details, fees, and eligibility — plus the full
-                  directory — with a Directory Access subscription.
+                  directory — with a Basic subscription.
                 </p>
                 <button
                   type="button"

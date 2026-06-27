@@ -50,7 +50,7 @@ import './FiscalAgentDirectory.css';
       visitors never receive contact/fee data client-side.
     - When the seeker can view the directory, additionally fetch full rows from
       `fiscal_agent_listings` (RLS returns them only to entitled callers).
-    - "Subscribe for access" -> Directory Access checkout.
+    - "Subscribe for access" -> Basic checkout.
     - "List your charity" -> the pay-first Fiscal Agent intake (/fiscal-agents/list).
 */
 
@@ -199,7 +199,7 @@ function ProfileModal({ agent, locked, saved, onToggleSave, onClose, onContact }
                 <h2>Subscribe to contact</h2>
                 <p>
                   Contact details, fees, and eligibility for this fiscal agent are part of a
-                  Directory Access subscription.
+                  Basic subscription.
                 </p>
                 <Link to="/fiscal-agents" className="fad-btn fad-btn-primary fad-btn-block">
                   See plans <FaArrowRight />
@@ -361,7 +361,7 @@ export default function FiscalAgentDirectory({ session }) {
     setCheckoutBusy(true);
     try {
       const { url } = await startCheckoutSession({
-        membershipTier: MEMBERSHIP_TIERS.DIRECTORY_ACCESS,
+        membershipTier: MEMBERSHIP_TIERS.BASIC,
         returnPath: '/fiscal-agents/checkout/return',
       });
       window.location.assign(url);
@@ -536,7 +536,7 @@ export default function FiscalAgentDirectory({ session }) {
               </span>
               <h2>Subscribe to view the full directory</h2>
               <p>
-                Access to the Fiscal Agent directory is included with a Directory Access
+                Access to the Fiscal Agent directory is included with a Basic
                 subscription. See contact details, fees, and track records for every verified
                 fiscal agent.
               </p>

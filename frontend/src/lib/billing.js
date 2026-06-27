@@ -8,8 +8,6 @@ export { hasRequiredSubscription };
 export const MEMBERSHIP_TIERS = {
   BASIC: 'basic',
   ORG_ADMIN: 'premium',
-  // Seeker Directory Access — a real (new) membership tier.
-  DIRECTORY_ACCESS: 'directory_access',
   // Charity listing ownership is NOT its own tier — it folds into ORG_ADMIN
   // ('premium', the "Fiscal Agents Plan"). FISCAL_AGENT is only a client-side
   // selector for the pay-first onboarding checkout, which charges the premium
@@ -30,10 +28,6 @@ const BASIC_CHECKOUT_FUNCTION_CANDIDATES = [
 
 const ORG_ADMIN_CHECKOUT_FUNCTION_CANDIDATES = [
   'create-checkout-session',
-];
-
-const DIRECTORY_ACCESS_CHECKOUT_FUNCTION_CANDIDATES = [
-  'create-directory-access-checkout-session',
 ];
 
 const FISCAL_AGENT_CHECKOUT_FUNCTION_CANDIDATES = [
@@ -232,18 +226,6 @@ export async function startCheckoutSession({ membershipTier, returnPath = '/subs
     }), { requireAuth: false });
   }
 
-  // Seeker Directory Access: standard authenticated subscription checkout; the
-  // price comes from STRIPE_PRICE_DIRECTORY server-side.
-  if (membershipTier === MEMBERSHIP_TIERS.DIRECTORY_ACCESS) {
-    return invokeFirstAvailable(DIRECTORY_ACCESS_CHECKOUT_FUNCTION_CANDIDATES, () => ({
-      membershipTier,
-      membership_tier: membershipTier,
-      tier: membershipTier,
-      returnPath,
-      return_path: returnPath,
-    }));
-  }
-
   const productIds = await getMembershipProductIds();
   const isOrgAdminPlan = membershipTier === MEMBERSHIP_TIERS.ORG_ADMIN;
   const stripeProductId = isOrgAdminPlan ? productIds.premium : productIds.basic;
@@ -291,15 +273,7 @@ export async function fetchSessionContext() {
     name: tenant?.name,
   };
 
-  // Surface the Charity Directory entitlements (contract §get_session_context).
-  // Defensive defaults keep older RPC payloads (without these keys) from
-  // crashing the directory paywall — they simply resolve to "no access".
-  const membership = data.membership
-    ? {
-        ...data.membership,
-        hasDirectoryAccess: !!data.membership.hasDirectoryAccess,
-      }
-    : null;
+  const membership = data.membership || null;
 
   return {
     userRecord: data.user,
@@ -341,22 +315,10 @@ export async function fetchMembershipStatus() {
 
   const activeSubscription = (subscriptionsRes.data || [])[0] || null;
 
-  // Directory entitlements are resolved in get_session_context (the single
-  // source the RPCs feed). Derive the two new booleans from there rather than
-  // adding parallel RPCs; if that call fails, default to "no access".
-  let hasDirectoryAccess = false;
-  try {
-    const { data: ctx } = await supabase.rpc('get_session_context');
-    hasDirectoryAccess = !!ctx?.membership?.hasDirectoryAccess;
-  } catch (_error) {
-    // Leave false — the paywall stays closed on uncertainty.
-  }
-
   return {
     isExempt: !!exemptRes.data,
     hasBasicAccess: !!basicRes.data,
     hasPremiumAccess: !!premiumRes.data,
-    hasDirectoryAccess,
     membership: membershipRes.data || null,
     activeSubscription,
   };

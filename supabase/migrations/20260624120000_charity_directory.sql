@@ -6,7 +6,7 @@
 --
 -- Charity Directory entitlements, layered on the existing membership system
 -- (user_memberships / subscriptions), NOT a parallel gating mechanism:
---   * directory_access — seeker: view full directory + send inquiries (NEW SKU).
+--   * basic — seeker: view full directory + send inquiries.
 --   * premium ("Fiscal Agents Plan") — charity: publish/maintain a listing +
 --     triage inquiries. Reuses the existing org-admin premium plan rather than a
 --     separate fiscal_agent SKU (see docs/explanation/charity_directory_contract.md).
@@ -157,48 +157,13 @@ CREATE OR REPLACE TRIGGER "trg_sponsorship_inquiries_tenant_id"
 
 
 -- ----------------------------------------------------------------------------
--- 3. Entitlement helper functions (mirror has_basic_membership() style)
+-- 3. Entitlement helper functions
 -- ----------------------------------------------------------------------------
--- directory_access (the seeker entitlement) passes ONLY on an active
--- directory_access membership (or exempt). Listing OWNERSHIP is NOT a separate
--- tier: a charity operates as a fiscal agent under the existing PREMIUM plan
--- ("Fiscal Agents Plan", STRIPE_PRICE_PRO), so listing publish/triage gates on the
--- pre-existing has_premium_membership() rather than a redundant fiscal_agent SKU.
-
-CREATE OR REPLACE FUNCTION "public"."has_directory_access"("p_user_id" integer) RETURNS boolean
-    LANGUAGE "sql" STABLE SECURITY DEFINER
-    SET "search_path" TO 'public'
-    AS $$
-  SELECT
-    CASE
-      WHEN is_membership_exempt(p_user_id) THEN true
-      ELSE EXISTS (
-        SELECT 1
-        FROM user_memberships
-        WHERE user_id = p_user_id
-          AND is_active = true
-          AND membership_tier = 'directory_access'
-      )
-    END;
-$$;
-
-ALTER FUNCTION "public"."has_directory_access"("p_user_id" integer) OWNER TO "postgres";
-
-CREATE OR REPLACE FUNCTION "public"."has_directory_access"() RETURNS boolean
-    LANGUAGE "sql" STABLE SECURITY DEFINER
-    SET "search_path" TO 'public'
-    AS $$
-  SELECT has_directory_access(u.id)
-  FROM users u
-  WHERE u.user_id = auth.uid()
-  LIMIT 1;
-$$;
-
-ALTER FUNCTION "public"."has_directory_access"() OWNER TO "postgres";
-
--- NOTE: there is intentionally NO has_fiscal_agent_access() helper. Listing
--- ownership folds into the existing premium plan, so the listing/inquiry write
--- policies below use the pre-existing public.has_premium_membership().
+-- Seeker access uses the pre-existing public.has_basic_membership().
+-- Listing OWNERSHIP is NOT a separate tier: a charity operates as a fiscal agent
+-- under the existing PREMIUM plan ("Fiscal Agents Plan", STRIPE_PRICE_PRO), so
+-- listing publish/triage gates on the pre-existing has_premium_membership()
+-- rather than a redundant fiscal_agent SKU.
 
 
 -- ----------------------------------------------------------------------------
@@ -249,13 +214,13 @@ CREATE POLICY "Service role can manage inquiries" ON "public"."sponsorship_inqui
   WITH CHECK (("auth"."role"() = 'service_role'::"text"));
 
 -- --- fiscal_agent_listings: SELECT (full row) ---
--- Owner of the listing, OR any directory_access subscriber, OR super_admin.
-CREATE POLICY "View full listings with directory access" ON "public"."fiscal_agent_listings"
+-- Owner of the listing, OR any basic subscriber, OR super_admin.
+CREATE POLICY "View full listings with basic access" ON "public"."fiscal_agent_listings"
   FOR SELECT USING (
     ("owner_user_id" IN ( SELECT "users"."id"
        FROM "public"."users"
       WHERE ("users"."user_id" = "auth"."uid"())))
-    OR "public"."has_directory_access"()
+    OR "public"."has_basic_membership"()
     OR "public"."is_super_admin"()
   );
 
@@ -337,12 +302,12 @@ CREATE OR REPLACE TRIGGER "trg_enforce_listing_moderation_guard"
     FOR EACH ROW EXECUTE FUNCTION "public"."enforce_listing_moderation_guard"();
 
 -- --- sponsorship_inquiries: INSERT (seeker sends an inquiry) ---
--- Requires directory_access, and the target listing must be live (published +
+-- Requires basic membership, and the target listing must be live (published +
 -- verified). created_by, when supplied, must map to the caller (no spoofing a
 -- different seeker). tenant_id is denormalised by trigger, never trusted here.
 CREATE POLICY "Seekers can send inquiries" ON "public"."sponsorship_inquiries"
   FOR INSERT WITH CHECK (
-    "public"."has_directory_access"()
+    "public"."has_basic_membership"()
     AND ("listing_id" IN ( SELECT "l"."id"
        FROM "public"."fiscal_agent_listings" "l"
       WHERE ("l"."status" = 'published' AND "l"."verification" = 'verified')))
@@ -402,187 +367,6 @@ GRANT ALL ON TABLE "public"."sponsorship_inquiries" TO "service_role";
 GRANT ALL ON SEQUENCE "public"."sponsorship_inquiries_id_seq" TO "authenticated";
 GRANT ALL ON SEQUENCE "public"."sponsorship_inquiries_id_seq" TO "service_role";
 
-GRANT ALL ON FUNCTION "public"."has_directory_access"() TO "anon";
-GRANT ALL ON FUNCTION "public"."has_directory_access"() TO "authenticated";
-GRANT ALL ON FUNCTION "public"."has_directory_access"() TO "service_role";
-GRANT ALL ON FUNCTION "public"."has_directory_access"("p_user_id" integer) TO "anon";
-GRANT ALL ON FUNCTION "public"."has_directory_access"("p_user_id" integer) TO "authenticated";
-GRANT ALL ON FUNCTION "public"."has_directory_access"("p_user_id" integer) TO "service_role";
 GRANT ALL ON FUNCTION "public"."set_inquiry_tenant_id"() TO "anon";
 GRANT ALL ON FUNCTION "public"."set_inquiry_tenant_id"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."set_inquiry_tenant_id"() TO "service_role";
-
-
--- ----------------------------------------------------------------------------
--- 7. Extend membership tier CHECK constraints for the two new tiers
--- ----------------------------------------------------------------------------
-
-ALTER TABLE "public"."subscriptions"
-  DROP CONSTRAINT IF EXISTS "subscriptions_membership_tier_check";
-ALTER TABLE "public"."subscriptions"
-  ADD CONSTRAINT "subscriptions_membership_tier_check"
-  CHECK ((("membership_tier")::"text" = ANY ((ARRAY['basic'::character varying, 'premium'::character varying, 'directory_access'::character varying])::"text"[])));
-
-ALTER TABLE "public"."user_memberships"
-  DROP CONSTRAINT IF EXISTS "user_memberships_membership_tier_check";
-ALTER TABLE "public"."user_memberships"
-  ADD CONSTRAINT "user_memberships_membership_tier_check"
-  CHECK ((("membership_tier")::"text" = ANY ((ARRAY['basic'::character varying, 'premium'::character varying, 'directory_access'::character varying])::"text"[])));
-
-
--- ----------------------------------------------------------------------------
--- 8. Gate the product-match trigger to basic/premium only
--- ----------------------------------------------------------------------------
--- platform_settings only stores basic/premium product IDs. The new tiers have no
--- configured product ID, so the product-match check must skip them (otherwise it
--- would raise "Platform membership product IDs are not configured" for every
--- directory_access subscription).
-
-CREATE OR REPLACE FUNCTION "public"."enforce_subscription_tier_product_match"() RETURNS "trigger"
-    LANGUAGE "plpgsql" SECURITY DEFINER
-    AS $$
-DECLARE
-  basic_product_id TEXT;
-  premium_product_id TEXT;
-BEGIN
-  -- Only basic/premium are product-matched; the directory_access
-  -- tiers are validated by the membership CHECK constraint and the checkout
-  -- function's env-configured price, not by platform_settings product IDs.
-  IF NEW.membership_tier NOT IN ('basic', 'premium') THEN
-    RETURN NEW;
-  END IF;
-
-  SELECT basic_membership_product_id, premium_membership_product_id
-  INTO basic_product_id, premium_product_id
-  FROM platform_settings
-  WHERE id = 1;
-
-  IF basic_product_id IS NULL OR premium_product_id IS NULL THEN
-    RAISE EXCEPTION 'Platform membership product IDs are not configured';
-  END IF;
-
-  IF NEW.membership_tier = 'basic' AND NEW.stripe_product_id <> basic_product_id THEN
-    RAISE EXCEPTION 'Basic subscription must use product ID %', basic_product_id;
-  END IF;
-
-  IF NEW.membership_tier = 'premium' AND NEW.stripe_product_id <> premium_product_id THEN
-    RAISE EXCEPTION 'Premium subscription must use product ID %', premium_product_id;
-  END IF;
-
-  RETURN NEW;
-END;
-$$;
-
--- NOTE: enforce_membership_eligibility is unchanged — it gates by the target
--- user's ROLE/tenant (rejects super_admin and TFAC admins) and is tier-agnostic,
--- so it already accepts the new tiers without modification.
-
-
--- ----------------------------------------------------------------------------
--- 8b. Guard: the new PAID directory_access tier may only be granted by checkout/staff
--- ----------------------------------------------------------------------------
--- Closes a paywall bypass (security review finding #2): the pre-existing policy
--- "Admins can manage memberships in their tenant" lets any tenant admin INSERT/UPDATE
--- user_memberships rows for users in their tenant (incl. themselves) with NO tier
--- restriction in its WITH CHECK. Because has_directory_access() reads entitlement
--- straight from an active user_memberships row, an admin could self-grant
--- `directory_access` (is_active = true) and obtain the seeker paywall for free,
--- never touching Stripe.
---
--- Entitlement to the paid directory tier must trace to a real checkout: the Stripe
--- webhook writes these rows as the service_role, and a super_admin may deliberately
--- comp one. Any other writer attempting an ACTIVE directory_access membership is
--- rejected. Scope is deliberately limited to directory_access so the pre-existing
--- basic/premium grant behavior is left untouched. (Listing ownership now folds into
--- premium, whose self-grant surface is pre-existing and out of scope for this fix.)
---
--- (auth.role() reflects the request's JWT role: 'service_role' for the webhook,
--- 'authenticated' for a real user, NULL for a trusted superuser/psql context — so
--- direct postgres seeding/migrations are unaffected.)
-CREATE OR REPLACE FUNCTION "public"."enforce_directory_tier_grant_source"() RETURNS "trigger"
-    LANGUAGE "plpgsql" SECURITY DEFINER
-    SET "search_path" TO 'public'
-    AS $$
-BEGIN
-  IF NEW.is_active = true
-     AND NEW.membership_tier = 'directory_access'
-     AND NOT (public.is_super_admin() OR auth.role() = 'service_role') THEN
-    RAISE EXCEPTION 'Directory entitlement % can only be granted via checkout or by a super_admin', NEW.membership_tier
-      USING ERRCODE = 'insufficient_privilege';
-  END IF;
-  RETURN NEW;
-END;
-$$;
-
-ALTER FUNCTION "public"."enforce_directory_tier_grant_source"() OWNER TO "postgres";
-
-CREATE OR REPLACE TRIGGER "trg_enforce_directory_tier_grant_source"
-    BEFORE INSERT OR UPDATE ON "public"."user_memberships"
-    FOR EACH ROW EXECUTE FUNCTION "public"."enforce_directory_tier_grant_source"();
-
-
--- ----------------------------------------------------------------------------
--- 9. Extend get_session_context membership object
--- ----------------------------------------------------------------------------
--- Adds hasDirectoryAccess / hasFiscalAgentAccess; all existing keys retained.
-
-CREATE OR REPLACE FUNCTION "public"."get_session_context"() RETURNS "jsonb"
-    LANGUAGE "plpgsql" STABLE SECURITY DEFINER
-    SET "search_path" TO 'public'
-    AS $$
-DECLARE
-  v_user        public.users%ROWTYPE;
-  v_tenant      jsonb;
-  v_settings    jsonb;
-  v_membership  jsonb;
-  v_subscription jsonb;
-BEGIN
-  SELECT * INTO v_user
-  FROM public.users
-  WHERE user_id = auth.uid()
-  LIMIT 1;
-
-  -- Authenticated, but no profile row yet → client shows profile completion.
-  IF NOT FOUND THEN
-    RETURN jsonb_build_object('user', NULL);
-  END IF;
-
-  SELECT to_jsonb(t) INTO v_tenant
-  FROM public.tenants t
-  WHERE t.id = v_user.tenant_id;
-
-  SELECT to_jsonb(ts) INTO v_settings
-  FROM public.tenant_settings ts
-  WHERE ts.tenant_id = v_user.tenant_id;
-
-  -- Most recently updated active membership / live subscription (mirrors the
-  -- prior client-side queries, but scoped server-side to this user).
-  SELECT to_jsonb(m) INTO v_membership
-  FROM public.user_memberships m
-  WHERE m.user_id = v_user.id
-    AND m.is_active = true
-  ORDER BY m.updated_at DESC
-  LIMIT 1;
-
-  SELECT to_jsonb(s) INTO v_subscription
-  FROM public.subscriptions s
-  WHERE s.user_id = v_user.id
-    AND s.status IN ('active', 'trialing', 'past_due')
-  ORDER BY s.updated_at DESC
-  LIMIT 1;
-
-  RETURN jsonb_build_object(
-    'user', to_jsonb(v_user),
-    'tenant', v_tenant,
-    'tenantSettings', v_settings,
-    'membership', jsonb_build_object(
-      'isExempt',             COALESCE(public.is_membership_exempt(v_user.id), false),
-      'hasBasicAccess',       COALESCE(public.has_basic_membership(v_user.id), false),
-      'hasPremiumAccess',     COALESCE(public.has_premium_membership(v_user.id), false),
-      'hasDirectoryAccess',   COALESCE(public.has_directory_access(v_user.id), false),
-      'membership',           v_membership,
-      'activeSubscription',   v_subscription
-    )
-  );
-END;
-$$;
