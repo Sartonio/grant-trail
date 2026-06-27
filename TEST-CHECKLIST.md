@@ -37,4 +37,5 @@
 ## Cross-cutting
 
 - [ ] 🟢 **Webhook idempotency** — replaying the same Stripe event is deduped via `billing_webhook_events` (no double email, no double membership write).
+- [ ] 🟢 Link Fiscal agent page to buttons from the existing platform. Use professional web design principles
 - [ ] 🟠 **Human smoke test** — one full real test-mode purchase end-to-end: checkout → receipt email → paywall lifts.
