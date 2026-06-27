@@ -5,6 +5,8 @@ import {
   canMutate,
   isReadOnlyAdmin,
   getRole,
+  canViewDirectory,
+  canOwnListing,
   ROLES,
 } from './policy';
 
@@ -80,5 +82,54 @@ describe('policy.getRole', () => {
   it('reads the role off the session, null when absent', () => {
     expect(getRole(admin())).toBe(ROLES.ADMIN);
     expect(getRole(loggedOut)).toBe(null);
+  });
+});
+
+// --- Charity Directory entitlements -----------------------------------------
+// Mirrors the data-layer gate proven in supabase/tests/charity-directory-rls.test.sh:
+// directory_access (the seeker SKU) OR super_admin OR exempt may VIEW the directory;
+// premium ("Fiscal Agents Plan") OR super_admin OR exempt may OWN a listing —
+// listing ownership folds into premium rather than a separate fiscal_agent SKU.
+
+// A seeker/charity session with arbitrary entitlement booleans.
+function seeker({ dir = false, premium = false, exempt = false } = {}) {
+  return {
+    userRecord: { role: ROLES.GRANTEE },
+    membership: { hasDirectoryAccess: dir, hasPremiumAccess: premium, isExempt: exempt },
+  };
+}
+
+describe('policy.canViewDirectory', () => {
+  it('super_admin always sees the directory (even with null membership)', () => {
+    expect(canViewDirectory(superAdmin())).toBe(true);
+  });
+  it('directory_access OR exempt unlocks the directory', () => {
+    expect(canViewDirectory(seeker({ dir: true }))).toBe(true);
+    expect(canViewDirectory(seeker({ exempt: true }))).toBe(true);
+  });
+  it('premium ALONE does NOT unlock browsing (that is the separate directory_access SKU)', () => {
+    expect(canViewDirectory(seeker({ premium: true }))).toBe(false);
+  });
+  it('a plain authed user with no entitlement sees only the teaser', () => {
+    expect(canViewDirectory(seeker())).toBe(false);
+  });
+  it('logged-out / membershipless sessions cannot view', () => {
+    expect(canViewDirectory(loggedOut)).toBe(false);
+    expect(canViewDirectory({ userRecord: { role: ROLES.GRANTEE }, membership: null })).toBe(false);
+  });
+});
+
+describe('policy.canOwnListing', () => {
+  it('super_admin OR premium OR exempt may own a listing', () => {
+    expect(canOwnListing(superAdmin())).toBe(true);
+    expect(canOwnListing(seeker({ premium: true }))).toBe(true);
+    expect(canOwnListing(seeker({ exempt: true }))).toBe(true);
+  });
+  it('directory_access ALONE does NOT confer ownership (strict, non-cross-granting)', () => {
+    expect(canOwnListing(seeker({ dir: true }))).toBe(false);
+  });
+  it('no entitlement / logged-out cannot own', () => {
+    expect(canOwnListing(seeker())).toBe(false);
+    expect(canOwnListing(loggedOut)).toBe(false);
   });
 });

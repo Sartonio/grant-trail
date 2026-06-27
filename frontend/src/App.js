@@ -33,9 +33,22 @@ import LandingPage from './components/LandingPage';
 import SubscriptionPage from './components/SubscriptionPage';
 import FiscalAgentDirectory from './components/FiscalAgentDirectory';
 import FiscalAgentProfile from './components/FiscalAgentProfile';
+import FiscalAgentListIntake from './components/FiscalAgentListIntake';
+import FiscalAgentCheckoutReturn from './components/FiscalAgentCheckoutReturn';
+import FiscalAgentOwnerDashboard from './components/FiscalAgentOwnerDashboard';
+import FiscalAgentListingEditor from './components/FiscalAgentListingEditor';
 import { fetchMembershipStatus, fetchSessionContext, syncMembershipFromStripe } from './lib/billing';
 import { Guard, GRANTEE_BILLING_REDIRECT } from './lib/guards';
 import { ROLES, needsSubscription } from './lib/policy';
+
+// Charity onboarding (S9) is token-auth, not session-auth. The pay-first webhook
+// emails a one-time signup link carrying an invite token; we reuse the existing
+// invite-based CompleteProfile flow by mapping ?token= -> ?invite=.
+function FiscalAgentOnboardRedirect() {
+  const params = new URLSearchParams(window.location.search);
+  const token = params.get('token') || params.get('invite');
+  return <Navigate to={token ? `/complete-profile?invite=${encodeURIComponent(token)}` : '/login'} replace />;
+}
 
 function App() {
   const [session,         setSession]         = useState(null);
@@ -383,15 +396,49 @@ function App() {
             path="/reset-password"
             element={<ResetPassword />}
           />
-          {/* MOCKUP — Fiscal Agent directory (frontend-only, for design feedback) */}
+          {/*
+            Fiscal Agent / Charity Directory.
+            Public surfaces (S1/S2 directory, S3/S4 profile, S5 intake, S7/S8
+            return, S9 onboard) stay public — the seeker paywall is an
+            in-component check (canViewDirectory), NOT a route redirect, so the
+            marketing page is reachable while anonymous. Owner surfaces
+            (S10–S12) are admin-only with read-only billing degrade (#40).
+          */}
           <Route
             path="/fiscal-agents"
-            element={<FiscalAgentDirectory />}
+            element={<FiscalAgentDirectory session={session} />}
           />
-          {/* MOCKUP — shareable public Fiscal Agent profile page (frontend-only) */}
+          <Route
+            path="/fiscal-agents/list"
+            element={<FiscalAgentListIntake />}
+          />
+          <Route
+            path="/fiscal-agents/checkout/return"
+            element={<FiscalAgentCheckoutReturn />}
+          />
+          <Route
+            path="/fiscal-agents/onboard"
+            element={<FiscalAgentOnboardRedirect />}
+          />
+          <Route path="/fiscal-agents/me" element={
+            <Guard session={session} requireRole={ROLES.ADMIN} roleRedirect="/" billingMode="readOnly">
+              <FiscalAgentOwnerDashboard session={session} tab="overview" />
+            </Guard>
+          } />
+          <Route path="/fiscal-agents/me/inbox" element={
+            <Guard session={session} requireRole={ROLES.ADMIN} roleRedirect="/" billingMode="readOnly">
+              <FiscalAgentOwnerDashboard session={session} tab="inbox" />
+            </Guard>
+          } />
+          <Route path="/fiscal-agents/listing/edit" element={
+            <Guard session={session} requireRole={ROLES.ADMIN} roleRedirect="/" billingMode="readOnly">
+              <FiscalAgentListingEditor session={session} />
+            </Guard>
+          } />
+          {/* Shareable public Fiscal Agent profile page (teaser/full split). */}
           <Route
             path="/fiscal-agents/:id"
-            element={<FiscalAgentProfile />}
+            element={<FiscalAgentProfile session={session} />}
           />
           <Route
             path="/complete-profile"

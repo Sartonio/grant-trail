@@ -37,10 +37,14 @@ jobs:
             STRIPE_WEBHOOK_SECRET="${{ secrets.STRIPE_WEBHOOK_SECRET }}" \
             STRIPE_PRICE_BASIC="${{ vars.STRIPE_PRICE_BASIC }}" \
             STRIPE_PRICE_PRO="${{ vars.STRIPE_PRICE_PRO }}" \
+            STRIPE_PRICE_DIRECTORY="${{ vars.STRIPE_PRICE_DIRECTORY }}" \
             STRIPE_BILLING_PORTAL_CONFIGURATION_ID="${{ vars.STRIPE_BILLING_PORTAL_CONFIGURATION_ID }}" \
             APP_URL="${{ vars.APP_URL }}" \
-            RESEND_API_KEY="${{ secrets.RESEND_API_KEY }}" \
-            RESEND_FROM_EMAIL="${{ vars.RESEND_FROM_EMAIL }}" \
+            SMTP_HOST="${{ secrets.SMTP_HOST }}" \
+            SMTP_PORT="${{ vars.SMTP_PORT }}" \
+            SMTP_USER="${{ secrets.SMTP_USER }}" \
+            SMTP_PASS="${{ secrets.SMTP_PASS }}" \
+            SMTP_FROM="${{ vars.SMTP_FROM }}" \
             --project-ref "${{ vars.SUPABASE_PROJECT_REF }}"
 
       - name: Link Supabase project

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
   FaMapMarkerAlt,
@@ -13,44 +13,134 @@ import {
   FaRegClock,
   FaRegBookmark,
   FaBookmark,
-  FaLayerGroup,
+  FaLock,
   FaShieldAlt,
   FaMoneyBillWave,
-  FaMapSigns,
+  FaArrowRight,
 } from 'react-icons/fa';
-import { getAgentById } from './fiscalAgents.data';
+import * as Sentry from '@sentry/react';
+import { supabase } from '../supabaseClient';
+import { canViewDirectory } from '../lib/policy';
+import { startCheckoutSession, MEMBERSHIP_TIERS } from '../lib/billing';
+import { mapTeaserListing, mapFullListing } from './fiscalAgents.map';
+import SponsorshipApplicationModal from './SponsorshipApplicationModal';
 import './FiscalAgentProfile.css';
 
 /*
-  MOCKUP — Fiscal Agent public profile PAGE
-  -----------------------------------------
-  Frontend-only, shareable standalone page for route /fiscal-agents/:id.
-  No backend wiring; the CTA buttons are no-ops that show an inline
-  confirmation so the flow feels real.
-
-  Reuses the directory's `fad-` design language for shared elements
-  (avatar, badges, checklist, tags, contact lines) and adds page-layout
-  styles under the `fap-` prefix.
+  Fiscal Agent public profile PAGE — S3 (teaser) / S4 (full), UX §2.3.
+  --------------------------------------------------------------------
+  Shareable standalone route /fiscal-agents/:id. The teaser/full split is driven
+  by canViewDirectory(session): locked visitors see name, location, verified
+  badge, focus, and blurb (from the public view only — contact/fee data is never
+  fetched), with a "Subscribe to contact" CTA. Subscribed seekers fetch the full
+  row and get working contact lines + the application modal.
 */
 
 function Stars({ rating }) {
+  const value = typeof rating === 'number' ? rating : 0;
   return (
-    <span className="fad-rating" aria-label={`${rating} out of 5`}>
-      <FaStar /> {rating.toFixed(1)}
+    <span className="fad-rating" aria-label={`${value} out of 5`}>
+      <FaStar /> {value.toFixed(1)}
     </span>
   );
 }
 
-export default function FiscalAgentProfile() {
+export default function FiscalAgentProfile({ session }) {
   const { id } = useParams();
-  const agent = getAgentById(id);
+  const subscribed = canViewDirectory(session);
 
-  // Local-only mock state: a "Save" toggle and an inline confirmation banner
-  // shown after Apply/Save. No network calls.
+  const [agent, setAgent] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [saved, setSaved] = useState(false);
   const [notice, setNotice] = useState(null);
+  const [applyOpen, setApplyOpen] = useState(false);
+  const [checkoutBusy, setCheckoutBusy] = useState(false);
 
-  // Friendly not-found state for unknown / mistyped ids.
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      setLoading(true);
+      try {
+        if (subscribed) {
+          const { data, error } = await supabase
+            .from('fiscal_agent_listings')
+            .select('*')
+            .eq('id', Number(id))
+            .maybeSingle();
+          if (error) throw error;
+          if (!cancelled) setAgent(data ? mapFullListing(data) : null);
+        } else {
+          const { data, error } = await supabase
+            .from('fiscal_agent_listings_public')
+            .select('*')
+            .eq('id', Number(id))
+            .maybeSingle();
+          if (error) throw error;
+          if (!cancelled) setAgent(data ? mapTeaserListing(data) : null);
+        }
+      } catch (err) {
+        Sentry.captureException(err);
+        if (!cancelled) setAgent(null);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [id, subscribed]);
+
+  async function handleSubscribe() {
+    setCheckoutBusy(true);
+    try {
+      const { url } = await startCheckoutSession({
+        membershipTier: MEMBERSHIP_TIERS.DIRECTORY_ACCESS,
+        returnPath: '/fiscal-agents/checkout/return',
+      });
+      window.location.assign(url);
+    } catch (err) {
+      Sentry.captureException(err);
+      setCheckoutBusy(false);
+      setNotice({ kind: 'apply', msg: 'Billing is temporarily unavailable — please try again later.' });
+    }
+  }
+
+  async function handleApplicationSubmit(application) {
+    try {
+      const { error } = await supabase.from('sponsorship_inquiries').insert({
+        listing_id: Number(agent.id),
+        project: application.project,
+        contact: application.contact,
+        message: application.message,
+      });
+      if (error) throw error;
+      setApplyOpen(false);
+      setNotice({ kind: 'apply', msg: `Application sent to ${agent.name}.` });
+    } catch (err) {
+      Sentry.captureException(err);
+      setApplyOpen(false);
+      setNotice({ kind: 'apply', msg: 'Could not send your application. Please try again.' });
+    }
+  }
+
+  function handleSave() {
+    setSaved((prev) => !prev);
+    setNotice({
+      kind: 'save',
+      msg: saved ? 'Removed from saved.' : `Saved ${agent.name} to your shortlist.`,
+    });
+  }
+
+  if (loading) {
+    return (
+      <div className="fap-page">
+        <p>Loading…</p>
+      </div>
+    );
+  }
+
+  // Friendly not-found state (also covers a listing pulled for lapse/verification).
   if (!agent) {
     return (
       <div className="fap-page">
@@ -68,32 +158,12 @@ export default function FiscalAgentProfile() {
     );
   }
 
-  function handleApply() {
-    // TODO: this will open the <SponsorshipApplicationModal /> from a parallel
-    // PR. For now it's a no-op that surfaces an inline confirmation.
-    setNotice({
-      kind: 'apply',
-      msg: `Sponsorship application for ${agent.name} would open here.`,
-    });
-  }
-
-  function handleSave() {
-    setSaved((prev) => !prev);
-    setNotice({
-      kind: 'save',
-      msg: saved ? 'Removed from saved.' : `Saved ${agent.name} to your shortlist.`,
-    });
-  }
-
-  const { eligibility, feeStructure } = agent;
-
   return (
     <div className="fap-page">
       <div className="fap-topbar">
         <Link to="/fiscal-agents" className="fap-back">
           <FaArrowLeft /> Back to all fiscal agents
         </Link>
-        <span className="fap-mock-pill">MOCKUP</span>
       </div>
 
       {/* Header */}
@@ -111,7 +181,7 @@ export default function FiscalAgentProfile() {
             )}
           </h1>
           <p className="fad-location">
-            <FaMapMarkerAlt /> {agent.location} · Est. {agent.founded}
+            <FaMapMarkerAlt /> {agent.location}
           </p>
           <div className="fad-profile-badges">
             <Stars rating={agent.rating} />
@@ -130,109 +200,80 @@ export default function FiscalAgentProfile() {
       <div className="fap-layout">
         <main className="fap-main">
           <section className="fap-section">
-            <h2>About</h2>
-            <p className="fap-prose">{agent.about}</p>
+            <h2>Overview</h2>
+            <p className="fap-prose">{agent.blurb}</p>
           </section>
 
-          {/* Decision fields — surfaced prominently for sponsorship seekers */}
-          <section className="fap-section">
-            <h2>How sponsorship works here</h2>
-            <div className="fap-decision-grid">
-              <div className="fap-decision-card">
-                <span className="fap-decision-icon">
-                  <FaLayerGroup />
-                </span>
-                <h3>Sponsorship model</h3>
-                <p className="fap-decision-value">{agent.model}</p>
-                <p className="fap-decision-note">
-                  {agent.model.startsWith('Model A')
-                    ? 'Your project operates under the sponsor’s 501(c)(3); they handle administration, payroll, and compliance directly.'
-                    : 'Your project stays a separate legal entity and receives regranted funds against an approved budget.'}
-                </p>
-              </div>
+          {subscribed ? (
+            <>
+              {agent.about && (
+                <section className="fap-section">
+                  <h2>About</h2>
+                  <p className="fap-prose">{agent.about}</p>
+                </section>
+              )}
 
-              <div className="fap-decision-card">
-                <span className="fap-decision-icon">
-                  <FaMoneyBillWave />
-                </span>
-                <h3>Fee structure</h3>
-                <dl className="fap-fee">
-                  <div>
-                    <dt>Admin fee</dt>
-                    <dd>{feeStructure.adminPct}%</dd>
+              <section className="fap-section">
+                <h2>How sponsorship works here</h2>
+                <div className="fap-decision-grid">
+                  <div className="fap-decision-card">
+                    <span className="fap-decision-icon">
+                      <FaMoneyBillWave />
+                    </span>
+                    <h3>Fee structure</h3>
+                    <dl className="fap-fee">
+                      <div>
+                        <dt>Admin fee</dt>
+                        <dd>{agent.feeNum ? `${agent.feeNum}%` : '—'}</dd>
+                      </div>
+                      <div>
+                        <dt>Typical response</dt>
+                        <dd>{agent.responseTime || '—'}</dd>
+                      </div>
+                    </dl>
                   </div>
-                  <div>
-                    <dt>Setup fee</dt>
-                    <dd>{feeStructure.setupFee}</dd>
-                  </div>
-                  <div>
-                    <dt>Annual minimum</dt>
-                    <dd>{feeStructure.minimumAnnual}</dd>
-                  </div>
-                </dl>
-              </div>
-            </div>
-          </section>
+                </div>
+              </section>
 
-          <section className="fap-section">
-            <h2>Eligibility</h2>
-            <div className="fap-elig-grid">
-              <div className="fap-elig-block">
-                <h3>
-                  <FaMapSigns /> Geographies served
-                </h3>
-                <ul className="fad-tags">
-                  {eligibility.geographies.map((g) => (
-                    <li key={g}>{g}</li>
-                  ))}
-                </ul>
-              </div>
-              <div className="fap-elig-block">
-                <h3>
-                  <FaSeedling /> Project types
-                </h3>
-                <ul className="fad-tags">
-                  {eligibility.projectTypes.map((t) => (
-                    <li key={t}>{t}</li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-            <p className="fap-elig-501c3">
-              <FaShieldAlt />{' '}
-              {eligibility.requires501c3
-                ? 'Requires your project to have its own 501(c)(3) status.'
-                : 'No 501(c)(3) of your own required — sponsorship covers your tax-exempt status.'}
-            </p>
-            {eligibility.notes && <p className="fap-prose fap-elig-notes">{eligibility.notes}</p>}
-          </section>
+              {agent.services && agent.services.length > 0 && (
+                <section className="fap-section">
+                  <h2>Services</h2>
+                  <ul className="fad-checklist">
+                    {agent.services.map((s) => (
+                      <li key={s}>
+                        <FaCheckCircle /> {s}
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              )}
 
-          <section className="fap-section">
-            <h2>Services</h2>
-            <ul className="fad-checklist">
-              {agent.services.map((s) => (
-                <li key={s}>
-                  <FaCheckCircle /> {s}
-                </li>
-              ))}
-            </ul>
-          </section>
-
-          <section className="fap-section">
-            <h2>Recently sponsored projects</h2>
-            <ul className="fad-projects">
-              {agent.projects.map((p) => (
-                <li key={p}>
-                  <FaSeedling /> {p}
-                </li>
-              ))}
-            </ul>
-          </section>
+              {agent.projects && agent.projects.length > 0 && (
+                <section className="fap-section">
+                  <h2>Recently sponsored projects</h2>
+                  <ul className="fad-projects">
+                    {agent.projects.map((p) => (
+                      <li key={p}>
+                        <FaSeedling /> {p}
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              )}
+            </>
+          ) : (
+            <section className="fap-section">
+              <div className="fap-locked-note">
+                <FaShieldAlt /> About, fee structure, eligibility, services, and contact details are
+                part of a Directory Access subscription.
+              </div>
+            </section>
+          )}
 
           <section className="fap-section">
             <h2>Focus areas</h2>
             <ul className="fad-tags">
-              {agent.focus.map((f) => (
+              {(agent.focus || []).map((f) => (
                 <li key={f}>{f}</li>
               ))}
             </ul>
@@ -248,62 +289,100 @@ export default function FiscalAgentProfile() {
               </div>
             )}
 
-            <dl className="fad-sidestats">
-              <div>
-                <dt>Model</dt>
-                <dd>{agent.model.startsWith('Model A') ? 'Model A' : 'Model C'}</dd>
-              </div>
-              <div>
-                <dt>Projects sponsored</dt>
-                <dd>{agent.sponsored}</dd>
-              </div>
-              <div>
-                <dt>Assets managed</dt>
-                <dd>{agent.assetsManaged}</dd>
-              </div>
-              <div>
-                <dt>Admin fee</dt>
-                <dd>{agent.feeNum}%</dd>
-              </div>
-              <div>
-                <dt>Typical response</dt>
-                <dd>{agent.responseTime}</dd>
-              </div>
-            </dl>
+            {subscribed ? (
+              <>
+                <dl className="fad-sidestats">
+                  <div>
+                    <dt>Projects sponsored</dt>
+                    <dd>{agent.sponsored}</dd>
+                  </div>
+                  <div>
+                    <dt>Assets managed</dt>
+                    <dd>{agent.assetsManaged}</dd>
+                  </div>
+                  <div>
+                    <dt>Admin fee</dt>
+                    <dd>{agent.feeNum ? `${agent.feeNum}%` : '—'}</dd>
+                  </div>
+                  <div>
+                    <dt>Typical response</dt>
+                    <dd>{agent.responseTime || '—'}</dd>
+                  </div>
+                </dl>
 
-            <div className="fad-contactlines">
-              <a href={`https://${agent.website}`} onClick={(e) => e.preventDefault()}>
-                <FaGlobe /> {agent.website}
-              </a>
-              <a href={`mailto:${agent.email}`} onClick={(e) => e.preventDefault()}>
-                <FaEnvelope /> {agent.email}
-              </a>
-              <span>
-                <FaPhone /> {agent.phone}
-              </span>
-              <span>
-                <FaRegClock /> {agent.responseTime}
-              </span>
-            </div>
+                <div className="fad-contactlines">
+                  {agent.website && (
+                    <a href={`https://${agent.website}`} onClick={(e) => e.preventDefault()}>
+                      <FaGlobe /> {agent.website}
+                    </a>
+                  )}
+                  {agent.email && (
+                    <a href={`mailto:${agent.email}`} onClick={(e) => e.preventDefault()}>
+                      <FaEnvelope /> {agent.email}
+                    </a>
+                  )}
+                  {agent.phone && (
+                    <span>
+                      <FaPhone /> {agent.phone}
+                    </span>
+                  )}
+                  {agent.responseTime && (
+                    <span>
+                      <FaRegClock /> {agent.responseTime}
+                    </span>
+                  )}
+                </div>
 
-            <button
-              type="button"
-              className="fad-btn fad-btn-primary fad-btn-block"
-              onClick={handleApply}
-            >
-              <FaHandshake /> Apply for fiscal sponsorship
-            </button>
-            <button
-              type="button"
-              className="fad-btn fad-btn-ghost fad-btn-block"
-              aria-pressed={saved}
-              onClick={handleSave}
-            >
-              {saved ? <FaBookmark /> : <FaRegBookmark />} {saved ? 'Saved' : 'Save'}
-            </button>
+                <button
+                  type="button"
+                  className="fad-btn fad-btn-primary fad-btn-block"
+                  onClick={() => setApplyOpen(true)}
+                >
+                  <FaHandshake /> Apply for sponsorship
+                </button>
+                <button
+                  type="button"
+                  className="fad-btn fad-btn-ghost fad-btn-block"
+                  aria-pressed={saved}
+                  onClick={handleSave}
+                >
+                  {saved ? <FaBookmark /> : <FaRegBookmark />} {saved ? 'Saved' : 'Save'}
+                </button>
+              </>
+            ) : (
+              <div className="fap-paywall">
+                <span className="fap-paywall-icon">
+                  <FaLock />
+                </span>
+                <h3>Subscribe to contact</h3>
+                <p>
+                  Get this fiscal agent’s contact details, fees, and eligibility — plus the full
+                  directory — with a Directory Access subscription.
+                </p>
+                <button
+                  type="button"
+                  className="fad-btn fad-btn-primary fad-btn-block"
+                  onClick={handleSubscribe}
+                  disabled={checkoutBusy}
+                >
+                  {checkoutBusy ? 'Opening checkout…' : 'Subscribe to contact'} <FaArrowRight />
+                </button>
+                <p className="fap-paywall-fine">
+                  <Link to="/subscription">See all plans</Link>
+                </p>
+              </div>
+            )}
           </div>
         </aside>
       </div>
+
+      {applyOpen && subscribed && (
+        <SponsorshipApplicationModal
+          agent={agent}
+          onClose={() => setApplyOpen(false)}
+          onSubmit={handleApplicationSubmit}
+        />
+      )}
     </div>
   );
 }

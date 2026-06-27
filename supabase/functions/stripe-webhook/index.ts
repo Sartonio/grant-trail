@@ -1,4 +1,4 @@
-import { adminSupabase, corsHeaders, stripe, upsertSubscriptionFromStripe } from '../_shared/stripe.ts';
+import { adminSupabase, corsHeaders, provisionFiscalAgentFromCheckout, stripe, upsertSubscriptionFromStripe } from '../_shared/stripe.ts';
 import { assertPostRequest, ValidationError } from '../_shared/validation.ts';
 import { sendPaymentConfirmationEmail } from '../_shared/email.ts';
 
@@ -36,6 +36,28 @@ Deno.serve(async (request) => {
       case 'checkout.session.completed': {
         const session = event.data.object;
         if (session.mode === 'subscription' && session.subscription) {
+          // Pay-first charity flow: provision the tenant + admin user +
+          // billing_customers link + draft listing + invite BEFORE syncing the
+          // subscription (which requires the billing_customers link to exist).
+          // The invite token is the hard requirement; the rest is wrapped so a
+          // provisioning hiccup never blocks the subscription sync.
+          if (String(session.metadata?.provision_flow ?? '').toLowerCase() === 'fiscal_agent_onboarding') {
+            try {
+              const { token } = await provisionFiscalAgentFromCheckout(session);
+              console.log('Fiscal agent provisioned; invite token issued:', Boolean(token));
+            } catch (provisionError) {
+              console.error('Fiscal agent provisioning failed:', provisionError);
+              await adminSupabase.from('system_logs').insert({
+                event_name: 'fiscal_agent_provisioning_failure',
+                error_message: provisionError instanceof Error ? provisionError.message : String(provisionError),
+                error_stack: provisionError instanceof Error ? provisionError.stack : undefined,
+                severity: 'critical',
+                metadata: { stripe_event_id: event.id },
+              }).catch(() => {});
+              throw provisionError; // re-raise so Stripe retries provisioning.
+            }
+          }
+
           const subscription = await stripe.subscriptions.retrieve(String(session.subscription));
           await upsertSubscriptionFromStripe(subscription);
 
@@ -65,7 +87,12 @@ Deno.serve(async (request) => {
               let tier = String(meta.membership_tier ?? meta.feature_key ?? '').toLowerCase();
               if (tier === 'basic_membership') tier = 'basic';
               if (['admin_membership', 'premium_membership', 'excel_export'].includes(tier)) tier = 'premium';
-              const planName = tier === 'premium' ? 'Fiscal Agents Plan' : 'Basic Plan';
+              const PLAN_NAMES: Record<string, string> = {
+                premium: 'Fiscal Agents Plan',
+                directory_access: 'Directory Access Plan',
+                basic: 'Basic Plan',
+              };
+              const planName = PLAN_NAMES[tier] ?? 'Basic Plan';
 
               const periodEndTs = subscription.items.data[0]?.current_period_end;
               const periodEnd = periodEndTs ? new Date(periodEndTs * 1000) : null;

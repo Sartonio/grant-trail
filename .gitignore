@@ -9,3 +9,6 @@ bin/
 .claude/
 .vercel
 .env*
+# Incidental local-tooling artifacts (repo app deps live under frontend/)
+/node_modules/
+/deno.lock

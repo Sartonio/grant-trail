@@ -18,7 +18,7 @@ Always run commands from the repository root:
 
 ### Deployment model
 
-Production is deployed from **this** repo by the gated **Deploy to Production** workflow ([`.github/workflows/deploy-prod.yml`](../../.github/workflows/deploy-prod.yml)) — a manual `workflow_dispatch` with environment approval. It applies migrations (`supabase db push`), deploys the Edge Functions, and builds + deploys the Vercel frontend. All prod config has one source of truth: `.deploy/prod.env`, synced to the GitHub `production` environment with `npm run deploy:secrets`; see the [Production Setup Checklist](../how_to/prod_setup.md). `main` is not auto-deployed (`vercel.json` disables it). Removed functions are **not** pruned automatically; use `npm run functions:prune`.
+Production is deployed from **this** repo by the gated **Deploy to Production** workflow ([`.github/workflows/deploy-prod.yml`](../../.github/workflows/deploy-prod.yml)) — a manual `workflow_dispatch` with environment approval. It applies migrations (`supabase db push`), deploys the Edge Functions, and builds + deploys the Vercel frontend. All prod config has one source of truth: `.deploy/production.env`, synced to the GitHub `production` environment with `npm run deploy:secrets`; see the [Production Setup Checklist](../how_to/prod_setup.md). `main` is not auto-deployed (`vercel.json` disables it). Removed functions are **not** pruned automatically; use `npm run functions:prune`.
 
 ### CI pipeline — [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml)
 

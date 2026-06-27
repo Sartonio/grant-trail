@@ -20,9 +20,10 @@
 - [ ] 🟢 **Receipt contents correct** — plan name, amount, currency, payment date, next-renewal date, and subscription id all match the Stripe session/subscription.
 - [ ] 🟢 **Recipient + first name resolve** — email goes to `customer_details.email`; first name is looked up via `billing_customers → users.firstname` (falls back to "there").
 - [ ] 🟢 **Failure isolation** — with email forced to fail, the webhook still returns 200, the subscription is still written, and a `payment_confirmation_email_failure` row lands in `system_logs` (Stripe does not retry).
-- [ ] 🟢 **Disabled-without-key** — with `RESEND_API_KEY` unset, checkout succeeds and the send is skipped (warning logged, no error).
-- [ ] 🟠 **`RESEND_FROM_EMAIL` is a verified Resend domain** — current value is a Gmail address; Resend requires a verified domain as the `From` or sends will be rejected. Verify a domain or use the `GrantTrail <noreply@granttrail.ca>` default.
-- [ ] 🟠 **Prod secrets present** — `RESEND_API_KEY` (secret) + `RESEND_FROM_EMAIL` (variable) set in the GitHub `production` environment and forwarded by `deploy-prod.yml` to Supabase. *(set; pending PR #54 merge for the workflow wiring.)*
+- [ ] 🟢 **Disabled-without-creds** — with `SMTP_HOST`/`SMTP_USER`/`SMTP_PASS` unset, checkout succeeds and the send is skipped (warning logged, no error).
+- [ ] 🟠 **`SMTP_FROM` matches the authenticated mailbox** — most SMTP relays (incl. cPanel/secureserver) reject a `From` that isn't the logged-in account. Leave blank to default to `GrantTrail <SMTP_USER>`, or set it to an address the mailbox is allowed to send as.
+- [ ] 🟠 **TLS/port match** — `SMTP_PORT=465` uses implicit TLS; `587` negotiates STARTTLS. Confirm the port and the relay agree, or the connection will hang/fail.
+- [ ] 🟠 **Prod secrets present** — `SMTP_HOST`/`SMTP_USER`/`SMTP_PASS` (secrets) + `SMTP_PORT`/`SMTP_FROM` (variables) set in the GitHub `production` environment and forwarded by `deploy.yml` to Supabase.
 
 ## Paywall
 

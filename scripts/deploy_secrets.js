@@ -17,6 +17,12 @@ const path = require('path');
 // values, and refuses if the Basic/Pro prices collide. For `ci` it only handles
 // the three Stripe *_TEST secrets — no auto-fetch, no preflight CLIs beyond gh.
 //
+// Incremental by design: you only need to fill the keys you want to add/replace.
+// Any required key left blank locally is checked against the target GitHub
+// environment — if it's already stored there, we keep it (no re-fetch, no
+// re-push, and no preflight CLI demanded for it). We only error on keys missing
+// from BOTH the local file and the environment.
+//
 // The matching GitHub workflow is the ONLY consumer of these values.
 //
 //   npm run deploy:secrets                  → production
@@ -49,7 +55,7 @@ const WEBHOOK_EVENTS = [
 // schema (same key names, different values); `ci` is secrets-only.
 const STAGES = {
   ci: {
-    secrets: ['STRIPE_SECRET_KEY_TEST', 'STRIPE_PRICE_BASIC_TEST', 'STRIPE_PRICE_PRO_TEST'],
+    secrets: ['STRIPE_SECRET_KEY_TEST', 'STRIPE_PRICE_BASIC_TEST', 'STRIPE_PRICE_PRO_TEST', 'STRIPE_PRICE_DIRECTORY_TEST'],
     variables: [],
     optional: [],
     autoFetch: false,
@@ -62,24 +68,30 @@ const STAGES = {
       'VERCEL_TOKEN',
       'VERCEL_ORG_ID',
       'VERCEL_PROJECT_ID',
-      'RESEND_API_KEY',
+      'SMTP_HOST',
+      'SMTP_USER',
+      'SMTP_PASS',
     ],
     variables: [
       'SUPABASE_PROJECT_REF',
       'STRIPE_PRICE_BASIC',
       'STRIPE_PRICE_PRO',
+      'STRIPE_PRICE_DIRECTORY',
       'STRIPE_BILLING_PORTAL_CONFIGURATION_ID',
       'APP_URL',
       'VITE_SUPABASE_URL',
       'VITE_SUPABASE_KEY',
       'VITE_SENTRY_DSN',
-      'RESEND_FROM_EMAIL',
+      'SMTP_PORT',
+      'SMTP_FROM',
     ],
     optional: [
       'STRIPE_BILLING_PORTAL_CONFIGURATION_ID',
       'VITE_SENTRY_DSN',
-      'RESEND_API_KEY',
-      'RESEND_FROM_EMAIL',
+      // SMTP_HOST/USER/PASS are required — email is a real product surface now.
+      // Only the two with sane defaults stay optional (port 465, FROM = SMTP_USER).
+      'SMTP_PORT',
+      'SMTP_FROM',
     ],
     autoFetch: true,
   },
@@ -111,6 +123,27 @@ const ENV_FILE = path.join(DEPLOY_DIR, `${STAGE}.env`);
 const EXAMPLE_FILE = path.join(REPO_ROOT, 'deploy', `${STAGE}.env.example`);
 
 const run = (cmd, cmdArgs, opts = {}) => spawnSync(cmd, cmdArgs, { encoding: 'utf8', ...opts });
+
+// What the target GitHub environment already holds. Populated by preflight once
+// `gh` is verified, so the rest of the run can keep values the user didn't
+// re-supply locally. Empty until then (and when the environment doesn't exist).
+let remoteSecrets = new Set();
+let remoteVariables = new Set();
+// True when KEY is already stored in the environment (checked against the right
+// kind). Reads the live Sets, so it reflects whatever preflight loaded.
+const remoteHas = (key) => (SECRETS.has(key) ? remoteSecrets : remoteVariables).has(key);
+
+// List the names (not values) of an environment's secrets or variables. Returns
+// an empty Set when the environment doesn't exist yet or the call fails.
+function listRemote(kind, envName) {
+  const res = run('gh', [kind, 'list', '--env', envName, '--json', 'name']);
+  if (res.status !== 0) return new Set();
+  try {
+    return new Set((JSON.parse(res.stdout) || []).map((e) => e.name));
+  } catch (_) {
+    return new Set();
+  }
+}
 
 // Minimal .env parser: KEY=VALUE per line; skips blanks/comments; strips a
 // trailing " # comment" on unquoted values and surrounding quotes on quoted ones.
@@ -173,6 +206,7 @@ function fetchVercelIds(vars, fetched) {
 
 function fetchSupabaseKey(vars, fetched) {
   if (vars.VITE_SUPABASE_KEY) return;
+  if (remoteHas('VITE_SUPABASE_KEY')) return; // already in the environment — keep it
   if (!vars.SUPABASE_PROJECT_REF || !vars.SUPABASE_ACCESS_TOKEN) return;
   const res = run('npx', ['--prefix', 'frontend', 'supabase', 'projects', 'api-keys',
     '--project-ref', vars.SUPABASE_PROJECT_REF, '--output', 'json'],
@@ -194,6 +228,7 @@ function fetchSupabaseKey(vars, fetched) {
 
 function fetchStripeWebhookSecret(vars, fetched) {
   if (vars.STRIPE_WEBHOOK_SECRET) return;
+  if (remoteHas('STRIPE_WEBHOOK_SECRET')) return; // already stored — don't create a duplicate endpoint
   if (!vars.SUPABASE_PROJECT_REF || !vars.STRIPE_SECRET_KEY) return;
   const url = `https://${vars.SUPABASE_PROJECT_REF}.supabase.co/functions/v1/stripe-webhook`;
   const apiKey = vars.STRIPE_SECRET_KEY;
@@ -293,17 +328,27 @@ function toolInstalled(cmd, versionArgs) {
 function preflight(vars) {
   const problems = [];
 
-  // gh — always required.
+  // gh — always required, and a prerequisite for reading the environment below.
   if (!toolInstalled('gh', ['--version'])) {
     problems.push('• GitHub CLI (`gh`) is not installed — https://cli.github.com');
   } else if (run('gh', ['auth', 'status'], { stdio: 'ignore' }).status !== 0) {
     problems.push('• GitHub CLI is not logged in — run `gh auth login`.');
   }
+  if (problems.length) {
+    console.error('❌ Preflight failed:\n' + problems.join('\n') + '\n');
+    return false;
+  }
 
-  // The Supabase / Stripe CLIs are only used by the auto-fetch path.
+  // gh works — load what the environment already holds so we can skip auto-fetch
+  // and credential checks for anything the user didn't re-supply locally.
+  remoteSecrets = listRemote('secret', ENV_NAME);
+  remoteVariables = listRemote('variable', ENV_NAME);
+
+  // The Supabase / Stripe CLIs are only used by the auto-fetch path — and only
+  // when the value is absent both locally and in the environment.
   if (STAGE_DEF.autoFetch) {
     // supabase — only needed to fetch the publishable key.
-    if (!vars.VITE_SUPABASE_KEY?.trim()) {
+    if (!vars.VITE_SUPABASE_KEY?.trim() && !remoteHas('VITE_SUPABASE_KEY')) {
       if (!toolInstalled('npx', ['--prefix', 'frontend', 'supabase', '--version'])) {
         problems.push('• Supabase CLI is unavailable — run `npm install --prefix frontend`.');
       } else if (vars.SUPABASE_ACCESS_TOKEN?.trim()) {
@@ -316,7 +361,7 @@ function preflight(vars) {
     }
 
     // stripe — only needed to create the webhook endpoint.
-    if (!vars.STRIPE_WEBHOOK_SECRET?.trim()) {
+    if (!vars.STRIPE_WEBHOOK_SECRET?.trim() && !remoteHas('STRIPE_WEBHOOK_SECRET')) {
       if (!toolInstalled('stripe', ['version'])) {
         problems.push('• Stripe CLI is not installed — https://docs.stripe.com/stripe-cli#install');
       } else if (vars.STRIPE_SECRET_KEY?.trim()) {
@@ -375,12 +420,22 @@ function main() {
   for (const key of Object.keys(vars)) {
     if (!known.has(key)) console.warn(`⚠️  Ignoring unrecognized key: ${key}`);
   }
-  const missing = [...known].filter((k) => !OPTIONAL.has(k) && !vars[k]?.trim());
+  // A required key is satisfied if it's supplied locally OR already stored in the
+  // environment. Only error on keys missing from both.
+  const missing = [...known].filter((k) => !OPTIONAL.has(k) && !vars[k]?.trim() && !remoteHas(k));
   if (missing.length) {
     const src = path.relative(process.cwd(), ENV_FILE);
-    console.error(`\n❌ Still missing values in ${src}: ${missing.join(', ')}`);
+    console.error(
+      `\n❌ Missing required values — not in ${src} and not already set in the \`${ENV_NAME}\` GitHub environment: ${missing.join(', ')}`
+    );
     process.exitCode = 1;
     return;
+  }
+
+  // Anything blank locally but already in the environment is kept as-is.
+  const reused = [...known].filter((k) => !vars[k]?.trim() && remoteHas(k));
+  if (reused.length) {
+    console.log(`ℹ️  Keeping ${reused.length} value(s) already in \`${ENV_NAME}\` (not supplied locally): ${reused.join(', ')}\n`);
   }
 
   // Money-critical: Basic and Pro must be distinct prices. A shared id means one

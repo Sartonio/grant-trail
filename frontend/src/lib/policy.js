@@ -80,3 +80,38 @@ export function canMutate(session) {
 export function isReadOnlyAdmin(session) {
   return getRole(session) === ROLES.ADMIN && !hasRequiredSubscription(session);
 }
+
+// --- Charity Directory entitlements -----------------------------------------
+//
+// Two SKUs gate the Fiscal Agent / Charity Directory:
+//   - directory_access (NEW)  -> seeker may VIEW full listings + contact charities.
+//   - premium ("Fiscal Agents Plan") -> charity may OWN/publish a listing + triage
+//     inquiries. This reuses the existing org-admin premium plan rather than a
+//     separate fiscal_agent SKU.
+// super_admin and exempt tenants pass both, mirroring `hasRequiredSubscription`.
+// These are UX gates; RLS on the backend is the real security boundary.
+
+// Seeker gate: can this session view the full directory (vs. the teaser)?
+// True for the directory_access SKU OR super_admin OR exempt. (Premium/listing
+// owners still see their OWN listing via RLS; browsing the directory is the
+// separate directory_access product.)
+export function canViewDirectory(session) {
+  if (getRole(session) === ROLES.SUPER_ADMIN) return true;
+  const membership = session?.membership;
+  if (!membership) return false;
+  return (
+    !!membership.isExempt ||
+    !!membership.hasDirectoryAccess
+  );
+}
+
+// Owner gate: can this session own/publish a listing? Folds into the premium
+// ("Fiscal Agents Plan") entitlement: true for premium OR super_admin OR exempt.
+// Mutation rights on top of this still defer to the read-only-admin lapse policy
+// via `canMutate` / `useWriteGuard`.
+export function canOwnListing(session) {
+  if (getRole(session) === ROLES.SUPER_ADMIN) return true;
+  const membership = session?.membership;
+  if (!membership) return false;
+  return !!membership.isExempt || !!membership.hasPremiumAccess;
+}

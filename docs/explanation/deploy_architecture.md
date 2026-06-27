@@ -83,21 +83,11 @@ These must be performed by a human in the respective dashboards:
    re-enabled and that no other branch is configured to auto-deploy. The
    workflows are the only intended deploy path.
 
-## Key-name migration: `SUPABASE_PROD_PROJECT_REF` → `SUPABASE_PROJECT_REF`
+## Supabase project ref
 
 The canonical Supabase project-ref variable is **`SUPABASE_PROJECT_REF`** in
 every environment (`staging` and `production` use the same key name with
-different values). The live `production` environment historically used
-`SUPABASE_PROD_PROJECT_REF`.
-
-- A placeholder `SUPABASE_PROJECT_REF` has been added to `production` so the
-  key exists. The old `SUPABASE_PROD_PROJECT_REF` is left in place untouched.
-- **ACTION REQUIRED:** Before the next production deploy, sync the **real**
-  Supabase project ref into `production.SUPABASE_PROJECT_REF` (currently a
-  placeholder). The real value is the one held in `SUPABASE_PROD_PROJECT_REF`.
-  Once `SUPABASE_PROJECT_REF` carries the real value and the workflows have
-  switched to reading it, the old `SUPABASE_PROD_PROJECT_REF` variable can be
-  removed.
+different values), set from `.deploy/<stage>.env` via `npm run deploy:secrets`.
 
 ## Placeholder values
 

@@ -1,14 +1,14 @@
 # Production Setup Checklist
 
 Production config has **one source of truth**: a git-ignored file at
-`.deploy/prod.env`. You fill it in once, run **one command**, and every value
+`.deploy/production.env`. You fill it in once, run **one command**, and every value
 lands in the GitHub `production` environment. The *Deploy to Production*
 workflow is the only thing that reads it — on each run it sets the Supabase
 secrets and injects the Vite build vars, then deploys. **You never add variables
 by hand in the GitHub, Vercel, or Supabase dashboards.**
 
 ```
-.deploy/prod.env  ──(npm run deploy:secrets)──▶  GitHub `production` env
+.deploy/production.env  ──(npm run deploy:secrets)──▶  GitHub `production` env
                                                         │
                                           (Deploy to Production workflow)
                                                         ├──▶ Supabase secrets
@@ -42,8 +42,8 @@ script can't create for you.
 npm run deploy:secrets
 ```
 
-On the first run there's nothing to push yet — it scaffolds `.deploy/prod.env`
-from the committed template ([`deploy/prod.env.example`](../../deploy/prod.env.example))
+On the first run there's nothing to push yet — it scaffolds `.deploy/production.env`
+from the committed template ([`deploy/production.env.example`](../../deploy/production.env.example))
 and exits. Open that file; every key has a comment saying exactly where its value
 comes from.
 
@@ -51,23 +51,33 @@ comes from.
 
 ## 3. Fill in the values
 
-You only fill in **six** things by hand — three account tokens plus three ids
-you choose/know. Everything else is auto-fetched on the next run (leave it blank).
+Fill the **MANDATORY** block by hand; everything in the **AUTOFILLED** block is
+fetched on the next run (leave it blank). The **OPTIONAL** block can stay blank.
 
 First run `npx vercel link` once so the script can read your Vercel IDs.
 
-**Fill these in `.deploy/prod.env`:**
+**MANDATORY — fill these in `.deploy/production.env`:**
 
 | Key | Where it comes from |
 |-----|---------------------|
 | `SUPABASE_ACCESS_TOKEN` | Supabase → [Account → Access Tokens](https://supabase.com/dashboard/account/tokens) |
+| `SUPABASE_PROJECT_REF` | Your project ref from Step 1 |
 | `STRIPE_SECRET_KEY` | Stripe → [Developers → API keys](https://dashboard.stripe.com/apikeys) (`sk_live_…`) |
-| `VERCEL_TOKEN` | [vercel.com/account/tokens](https://vercel.com/account/tokens) |
-| `SUPABASE_PROD_PROJECT_REF` | Your project ref from Step 1 |
 | `STRIPE_PRICE_BASIC` / `STRIPE_PRICE_PRO` | `stripe prices list --limit 100` — **you** pick which id is which tier (the script won't guess; wrong mapping = wrong charge) |
+| `VERCEL_TOKEN` | [vercel.com/account/tokens](https://vercel.com/account/tokens) |
+| `SMTP_HOST` / `SMTP_USER` / `SMTP_PASS` | Your hosting cPanel → **Email Accounts** → the mailbox's outgoing-SMTP details (host + full email address + password) |
 | `APP_URL` | Your live URL (defaults to `https://grant-trail.vercel.app`) |
 
-**Leave these blank — auto-filled on run:**
+**OPTIONAL — fill only if needed:**
+
+| Key | When |
+|-----|------|
+| `SMTP_PORT` | Defaults to `465` (implicit TLS); set `587` for STARTTLS |
+| `SMTP_FROM` | Defaults to `GrantTrail <SMTP_USER>`; set only if the relay allows a different `From` |
+| `STRIPE_BILLING_PORTAL_CONFIGURATION_ID` | Blank uses the Stripe default |
+| `VITE_SENTRY_DSN` | Blank disables Sentry |
+
+**AUTOFILLED — leave these blank, filled on run:**
 
 | Key | How |
 |-----|-----|
@@ -75,8 +85,6 @@ First run `npx vercel link` once so the script can read your Vercel IDs.
 | `VITE_SUPABASE_KEY` | Fetched via the Supabase CLI (your access token) |
 | `VERCEL_ORG_ID` / `VERCEL_PROJECT_ID` | Read from `.vercel/project.json` (after `vercel link`) |
 | `STRIPE_WEBHOOK_SECRET` | The prod webhook endpoint is **created** via the Stripe CLI and its secret captured |
-| `STRIPE_BILLING_PORTAL_CONFIGURATION_ID` | Optional — blank uses the Stripe default |
-| `VITE_SENTRY_DSN` | Optional — blank disables Sentry |
 
 ---
 
@@ -94,7 +102,7 @@ This time the file has the six values, so the script:
 3. Validates every required value is present (optional keys may be blank).
 4. Pushes each key as a **secret** (sensitive) or **variable** (public) — values
    go over stdin, never your shell history.
-5. Prints the resulting environment contents, then **deletes `.deploy/prod.env`**
+5. Prints the resulting environment contents, then **deletes `.deploy/production.env`**
    so no live secrets sit on disk.
 
 Preview without changing anything (no webhook is created) with
@@ -154,7 +162,7 @@ WHERE id = 1;
 
 ## Re-deploying later
 
-1. Changed **config** (rotated a key, new price id)? Edit `.deploy/prod.env` →
+1. Changed **config** (rotated a key, new price id)? Edit `.deploy/production.env` →
    `npm run deploy:secrets`.
 2. Then (or for a plain code/schema deploy): Actions → `Deploy to Production` →
    **Run workflow** → approve. No dashboard steps.

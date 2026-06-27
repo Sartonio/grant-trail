@@ -480,6 +480,82 @@ INSERT INTO user_memberships (user_id, subscription_id, membership_tier, is_acti
 
 
 -- ==========================================
+-- SECTION 8: FISCAL AGENT DIRECTORY
+-- ==========================================
+-- Charity directory listings + sponsorship inquiries. Owners reference existing
+-- tenant admins. RLS is not in force for these seed inserts (run as postgres),
+-- so owners need not hold a fiscal_agent membership for the data to load; the
+-- entitlement gate is exercised through the app session, not the seed.
+
+-- One published+verified (appears in the public teaser view), one draft (owner
+-- only), one published-but-unverified (hidden from the public view until staff
+-- verify). owner_user_id / tenant_id reuse the bright-horizons + tfac orgs.
+INSERT INTO fiscal_agent_listings
+  (tenant_id, owner_user_id, name, location, region, ein, focus, blurb, about, services, projects,
+   website, email, phone, response_time, accepting, fee_admin_pct, rating, reviews, sponsored,
+   assets_managed, verified, status, verification)
+VALUES
+  (
+    (SELECT id FROM tenants WHERE slug = 'bright-horizons'),
+    (SELECT id FROM users WHERE email = 'amara.okafor@example.com'),
+    'Cedar Roots Foundation', 'Portland, OR', 'West', '81-1234567',
+    ARRAY['Environment', 'Community', 'Food Security'],
+    'Full-service fiscal sponsorship for grassroots environmental and food-justice projects.',
+    'Cedar Roots Foundation has provided comprehensive fiscal sponsorship since 2014, specializing in grassroots environmental and food-justice work across the Pacific Northwest.',
+    ARRAY['Grants administration', 'Monthly reporting', 'Dedicated liaison', 'Compliance & audit support'],
+    ARRAY['Willamette River Cleanup Coalition', 'Eastside Community Fridges', 'Cascade Seed Library'],
+    'cedarroots.org', 'partnerships@cedarroots.org', '(503) 555-0142', '~1 business day',
+    true, 7.00, 4.90, 34, 12, '$4.2M', true, 'published', 'verified'
+  ),
+  (
+    (SELECT id FROM tenants WHERE slug = 'bright-horizons'),
+    (SELECT id FROM users WHERE email = 'amara.okafor@example.com'),
+    'Bright Avenue Collective (draft)', 'Austin, TX', 'South', NULL,
+    ARRAY['Arts & Culture', 'Youth'],
+    'Draft listing — onboarding in progress.',
+    NULL,
+    ARRAY[]::text[],
+    ARRAY[]::text[],
+    NULL, 'hello@brightavenue.org', NULL, NULL,
+    true, NULL, 0, 0, 0, NULL, false, 'draft', 'pending'
+  ),
+  (
+    (SELECT id FROM tenants WHERE slug = 'tfac'),
+    (SELECT id FROM users WHERE email = 'eric.hobbs@example.com'),
+    'Northwind Community Fund', 'Toronto, ON', 'Central', '83-7654321',
+    ARRAY['Education', 'Housing'],
+    'Pending 501(c)(3) verification — not yet shown in the public directory.',
+    'Newly onboarded fiscal sponsor awaiting platform verification of charitable status.',
+    ARRAY['Grants administration', 'Quarterly reporting'],
+    ARRAY[]::text[],
+    'northwindfund.org', 'intake@northwindfund.org', '(416) 555-0199', '~3 business days',
+    true, 9.00, 0, 0, 0, NULL, false, 'published', 'pending'
+  );
+
+-- Two sample inquiries against the published+verified listing (Cedar Roots).
+-- tenant_id is left NULL so the BEFORE INSERT trigger denormalises it from the
+-- listing. project/contact match the SponsorshipApplicationModal payload shape.
+INSERT INTO sponsorship_inquiries (listing_id, created_by, status, project, contact, message)
+VALUES
+  (
+    (SELECT id FROM fiscal_agent_listings WHERE name = 'Cedar Roots Foundation'),
+    (SELECT id FROM users WHERE email = 'maria.smith@example.com'),
+    'new',
+    '{"name":"Willamette Tree Canopy","mission":"Expand urban tree cover in low-income neighborhoods","focus":"Environment","projectType":"Environmental","estAnnualBudget":"$85,000","fundingSources":"City grant + individual donors","timeline":"12 months","startDate":"2026-09-01"}'::jsonb,
+    '{"name":"Maria Smith","email":"maria.smith@example.com","organization":"Helping Hands","phone":"212-555-0101"}'::jsonb,
+    'We would love Cedar Roots to act as our fiscal sponsor for the 2026 planting season.'
+  ),
+  (
+    (SELECT id FROM fiscal_agent_listings WHERE name = 'Cedar Roots Foundation'),
+    (SELECT id FROM users WHERE email = 'jacob.soto@example.com'),
+    'reviewing',
+    '{"name":"Community Fridge Network","mission":"Reduce food insecurity via neighborhood fridges","focus":"Food Security","projectType":"Food justice","estAnnualBudget":"$40,000","fundingSources":"Foundation grants","timeline":"Ongoing","startDate":"2026-07-15"}'::jsonb,
+    '{"name":"Jacob Soto","email":"jacob.soto@example.com","organization":"Bright Future Org","phone":"305-555-0102"}'::jsonb,
+    'Seeking comprehensive sponsorship including grants administration and reporting.'
+  );
+
+
+-- ==========================================
 -- VERIFICATION
 -- ==========================================
 

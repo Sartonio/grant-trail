@@ -8,6 +8,13 @@ export { hasRequiredSubscription };
 export const MEMBERSHIP_TIERS = {
   BASIC: 'basic',
   ORG_ADMIN: 'premium',
+  // Seeker Directory Access — a real (new) membership tier.
+  DIRECTORY_ACCESS: 'directory_access',
+  // Charity listing ownership is NOT its own tier — it folds into ORG_ADMIN
+  // ('premium', the "Fiscal Agents Plan"). FISCAL_AGENT is only a client-side
+  // selector for the pay-first onboarding checkout, which charges the premium
+  // price server-side (STRIPE_PRICE_PRO) and provisions the tenant + draft listing.
+  FISCAL_AGENT: 'fiscal_agent',
 };
 
 export const FEATURE_KEYS = {
@@ -23,6 +30,14 @@ const BASIC_CHECKOUT_FUNCTION_CANDIDATES = [
 
 const ORG_ADMIN_CHECKOUT_FUNCTION_CANDIDATES = [
   'create-checkout-session',
+];
+
+const DIRECTORY_ACCESS_CHECKOUT_FUNCTION_CANDIDATES = [
+  'create-directory-access-checkout-session',
+];
+
+const FISCAL_AGENT_CHECKOUT_FUNCTION_CANDIDATES = [
+  'create-fiscal-agent-checkout-session',
 ];
 
 const PORTAL_FUNCTION_CANDIDATES = [
@@ -94,6 +109,17 @@ async function getRequiredAccessToken() {
   return accessToken;
 }
 
+// Best-effort token for pay-first flows: returns the current session's token if
+// one exists, or an empty string when the caller is anonymous (no throw).
+async function getOptionalAccessToken() {
+  try {
+    const { data: sessionData } = await supabase.auth.getSession();
+    return sessionData?.session?.access_token || '';
+  } catch (_error) {
+    return '';
+  }
+}
+
 async function getMembershipProductIds() {
   if (cachedProductIds) return cachedProductIds;
 
@@ -119,13 +145,13 @@ async function getMembershipProductIds() {
   return cachedProductIds;
 }
 
-async function invokeFirstAvailable(functionNames, payloadFactory) {
+async function invokeFirstAvailable(functionNames, payloadFactory, { requireAuth = true } = {}) {
   let lastError = null;
 
   for (const fnName of functionNames) {
     const payload = payloadFactory(fnName);
     try {
-      const data = await invokeViaHttp(fnName, payload);
+      const data = await invokeViaHttp(fnName, payload, { requireAuth });
       if (data?.url) {
         return data;
       }
@@ -149,19 +175,23 @@ function withFetchDiagnostics(error) {
   return error instanceof Error ? error : new Error(message);
 }
 
-async function invokeViaHttp(functionName, payload) {
+async function invokeViaHttp(functionName, payload, { requireAuth = true } = {}) {
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
     throw new Error('Supabase configuration is missing for direct Edge Function fallback.');
   }
 
-  const accessToken = await getRequiredAccessToken();
+  // Pay-first flows (charity Fiscal Agent checkout) run before any account
+  // exists, so they fall back to the anon key when no session is available.
+  const accessToken = requireAuth
+    ? await getRequiredAccessToken()
+    : await getOptionalAccessToken();
 
   const response = await fetch(`${SUPABASE_URL}/functions/v1/${functionName}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       apikey: SUPABASE_ANON_KEY,
-      Authorization: `Bearer ${accessToken}`,
+      Authorization: `Bearer ${accessToken || SUPABASE_ANON_KEY}`,
     },
     body: JSON.stringify(payload),
   });
@@ -185,7 +215,35 @@ function safeJsonParse(text) {
   }
 }
 
-export async function startCheckoutSession({ membershipTier, returnPath = '/subscription' }) {
+export async function startCheckoutSession({ membershipTier, returnPath = '/subscription', intake = null }) {
+  // Charity pay-FIRST onboarding: no existing session is required, the price is
+  // the premium "Fiscal Agents Plan" (STRIPE_PRICE_PRO) resolved server-side, and
+  // intake fields ride along as checkout metadata so the webhook can provision the
+  // tenant + draft listing under a premium subscription.
+  if (membershipTier === MEMBERSHIP_TIERS.FISCAL_AGENT) {
+    return invokeFirstAvailable(FISCAL_AGENT_CHECKOUT_FUNCTION_CANDIDATES, () => ({
+      membershipTier,
+      membership_tier: membershipTier,
+      tier: membershipTier,
+      returnPath,
+      return_path: returnPath,
+      intake,
+      ...(intake || {}),
+    }), { requireAuth: false });
+  }
+
+  // Seeker Directory Access: standard authenticated subscription checkout; the
+  // price comes from STRIPE_PRICE_DIRECTORY server-side.
+  if (membershipTier === MEMBERSHIP_TIERS.DIRECTORY_ACCESS) {
+    return invokeFirstAvailable(DIRECTORY_ACCESS_CHECKOUT_FUNCTION_CANDIDATES, () => ({
+      membershipTier,
+      membership_tier: membershipTier,
+      tier: membershipTier,
+      returnPath,
+      return_path: returnPath,
+    }));
+  }
+
   const productIds = await getMembershipProductIds();
   const isOrgAdminPlan = membershipTier === MEMBERSHIP_TIERS.ORG_ADMIN;
   const stripeProductId = isOrgAdminPlan ? productIds.premium : productIds.basic;
@@ -233,11 +291,21 @@ export async function fetchSessionContext() {
     name: tenant?.name,
   };
 
+  // Surface the Charity Directory entitlements (contract §get_session_context).
+  // Defensive defaults keep older RPC payloads (without these keys) from
+  // crashing the directory paywall — they simply resolve to "no access".
+  const membership = data.membership
+    ? {
+        ...data.membership,
+        hasDirectoryAccess: !!data.membership.hasDirectoryAccess,
+      }
+    : null;
+
   return {
     userRecord: data.user,
     tenant,
     tenantConfig,
-    membership: data.membership || null,
+    membership,
   };
 }
 
@@ -273,10 +341,22 @@ export async function fetchMembershipStatus() {
 
   const activeSubscription = (subscriptionsRes.data || [])[0] || null;
 
+  // Directory entitlements are resolved in get_session_context (the single
+  // source the RPCs feed). Derive the two new booleans from there rather than
+  // adding parallel RPCs; if that call fails, default to "no access".
+  let hasDirectoryAccess = false;
+  try {
+    const { data: ctx } = await supabase.rpc('get_session_context');
+    hasDirectoryAccess = !!ctx?.membership?.hasDirectoryAccess;
+  } catch (_error) {
+    // Leave false — the paywall stays closed on uncertainty.
+  }
+
   return {
     isExempt: !!exemptRes.data,
     hasBasicAccess: !!basicRes.data,
     hasPremiumAccess: !!premiumRes.data,
+    hasDirectoryAccess,
     membership: membershipRes.data || null,
     activeSubscription,
   };

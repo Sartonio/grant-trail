@@ -1,5 +1,15 @@
-const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') ?? '';
-const FROM_EMAIL = Deno.env.get('RESEND_FROM_EMAIL') ?? 'GrantTrail <noreply@granttrail.ca>';
+import { SMTPClient } from 'https://deno.land/x/denomailer@1.6.0/mod.ts';
+
+// SMTP transport config — all env-driven, nothing hardcoded. Host/user/pass are
+// required to send; without them we no-op (same opt-in behaviour the Resend
+// integration had). Port defaults to 465 (implicit TLS). FROM defaults to the
+// authenticated mailbox, since most cPanel/SMTP relays only allow sending as the
+// account you logged in with.
+const SMTP_HOST = Deno.env.get('SMTP_HOST') ?? '';
+const SMTP_PORT = Number(Deno.env.get('SMTP_PORT') ?? '465');
+const SMTP_USER = Deno.env.get('SMTP_USER') ?? '';
+const SMTP_PASS = Deno.env.get('SMTP_PASS') ?? '';
+const FROM_EMAIL = Deno.env.get('SMTP_FROM') || (SMTP_USER ? `GrantTrail <${SMTP_USER}>` : '');
 
 interface SendEmailOptions {
   to: string;
@@ -8,28 +18,31 @@ interface SendEmailOptions {
 }
 
 export async function sendEmail(options: SendEmailOptions): Promise<void> {
-  if (!RESEND_API_KEY) {
-    console.warn('RESEND_API_KEY not set — skipping email send.');
+  if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS) {
+    console.warn('SMTP_HOST/SMTP_USER/SMTP_PASS not all set — skipping email send.');
     return;
   }
 
-  const response = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${RESEND_API_KEY}`,
-      'Content-Type': 'application/json',
+  const client = new SMTPClient({
+    connection: {
+      hostname: SMTP_HOST,
+      port: SMTP_PORT,
+      // Port 465 uses implicit TLS; 587 negotiates STARTTLS from a plain socket.
+      tls: SMTP_PORT === 465,
+      auth: { username: SMTP_USER, password: SMTP_PASS },
     },
-    body: JSON.stringify({
+  });
+
+  try {
+    await client.send({
       from: FROM_EMAIL,
       to: options.to,
       subject: options.subject,
+      content: 'auto',
       html: options.html,
-    }),
-  });
-
-  if (!response.ok) {
-    const body = await response.text();
-    throw new Error(`Resend API error ${response.status}: ${body}`);
+    });
+  } finally {
+    await client.close();
   }
 }
 
