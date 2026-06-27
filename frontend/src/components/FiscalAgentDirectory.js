@@ -605,13 +605,12 @@ export default function FiscalAgentDirectory({ session }) {
               you. Subscribe to publish your profile.
             </p>
           </div>
-          <button
-            type="button"
+          <Link
+            to="/fiscal-agents/list"
             className="fad-btn fad-btn-gold fad-btn-lg"
-            onClick={() => navigate('/fiscal-agents/list')}
           >
             <FaBuilding /> List your charity
-          </button>
+          </Link>
         </div>
       </section>
 

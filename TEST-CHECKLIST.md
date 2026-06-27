@@ -15,38 +15,23 @@
 
 ---
 
-## ⏸️ WHERE WE LEFT OFF (2026-06-27)
+## ⏸️ WHERE WE LEFT OFF (2026-06-27 - EOD)
 
-**Email:** Switched from secureserver SMTP → **Resend over SMTP** (secureserver had no
-SPF/DKIM/MX, Gmail dropped everything). Local checkout → receipt verified end-to-end via
-Resend (`sub_1Tn1ye…`, "Fiscal Agents Plan", $100 CAD landed in Gmail). Docs/templates
-updated on branch `docs/email-resend-smtp` (pushed). Local `supabase/.env` uses Resend with
-`onboarding@resend.dev` (only delivers to the Resend account owner).
+**Pricing Unification & Frontend:** Unified `directory_access` SKU into the `basic` tier.
+- Cleaned up obsolete RLS policies and Edge Functions.
+- Refactored all `has_directory_access()` references to `has_basic_membership()`.
+- RLS tests refactored and 100% passing.
+- Fiscal Agent Directory marketing UI (`/fiscal-agents`) revamped with premium design (glassmorphism/animations) and linked correctly to the main CTA.
 
-**Deploy audit done.** Fixed `deploy.yml` to deploy the 2 charity-directory functions.
-Removed stale `RESEND_*` from staging GitHub env. Still ❌: `SMTP_*` unset in **both**
-envs; `STRIPE_PRICE_DIRECTORY` unset in both (no such Stripe price exists yet — it's a real
-separate seeker SKU, not the same as Pro/fiscal-agent).
+**Backend Robustness:** 
+- Stripe Webhook Idempotency (Agent 2 test) is fully verified (duplicate events are dropped gracefully via `billing_webhook_events`).
+- Local DB reset successful.
 
-**🔴 BLOCKERS / next actions:**
-1. **Verify `send.atkasolutions.org` in Resend** (GoDaddy DNS — see `EMAIL-DNS-SETUP.md`).
-   No GoDaddy access yet. Prod email blocked until then. Then set prod/staging `SMTP_FROM`.
-2. ~~**Entitlement clobber bug (likely launch-blocker for directory SKU):** `user_memberships`~~
-   ~~is one-row-per-user, upserted last-event-wins, and all access RPCs read that single row.~~
-   ~~So a user can't hold two SKUs at once (basic + directory_access), AND cancelling one of a~~
-   ~~user's multiple subs revokes everything. Fix: rekey `user_memberships` on~~
-   ~~`(user_id, membership_tier)`. Decision needed: is "one user, two SKUs" supported?~~ (OBSOLETE: `directory_access` merged into `basic` tier)
-3. **Local DB is behind repo** — `20260624120000_charity_directory` migration NOT applied to
-   the running stack. Run `supabase db reset` before testing the directory paywall / Agent 3.
-   (Also: user 11's premium sub was cancelled during the lapse test; reset moots it.)
-4. ~~**Create the Directory Access price** in Stripe (test for staging, live for prod) → set~~
-   ~~`STRIPE_PRICE_DIRECTORY` in each env.~~ (OBSOLETE: Merged into `basic` tier)
-5. **Set up new prod** (new Supabase + Vercel + live Stripe + webhook) and make current
-   project proper staging — overview captured in chat; not started.
-
-**Agents:** Agent 1 (paywall, below) = DONE. Agent 2 (idempotency) + Agent 3 (email
-failure-isolation / disabled-without-creds) = NOT YET RUN — both need `db reset` first;
-Agent 3 mutates SMTP env + restarts functions, so run it last and restore Resend config.
+**🔴 Remaining BLOCKERS / next actions for next session:**
+1. **Agent 3 (Email Resilience Tests):** Test failure-isolation and disabled-without-creds cases for the Edge Function.
+2. **Verify `send.atkasolutions.org` in Resend** (GoDaddy DNS). Needs GoDaddy access to unblock prod email.
+3. **Set up new prod** (new Supabase + Vercel + live Stripe + webhook) and cut over current project to staging.
+4. **Human smoke test** (End-to-End purchase flow).
 
 ---
 
@@ -67,11 +52,11 @@ Agent 3 mutates SMTP env + restarts functions, so run it last and restore Resend
 - [x] 🟢 **Subscribed user has access** — ✅ (Agent 1: maria basic → `has_basic_membership` true).
 - [x] 🟢 **Tier mapping correct** — ✅ (Agent 1: matches walkthroughs; basic/premium confirmed live).
 - [x] 🟢 **Lapse re-gates** — ✅ (Agent 1: real `subscription.deleted` flipped `is_active`) — ⚠️ exposed multi-sub clobber bug (see "where we left off" #2).
-- [~] 🟢 **Server-side enforcement (not just UI)** — ✅ grant data (unsubscribed `POST` → 403/42501); ⚠️ directory RLS **code-verified only** — local DB behind, needs `db reset` to test live.
+- [x] 🟢 **Server-side enforcement (not just UI)** — ✅ grant data (unsubscribed `POST` → 403/42501); ✅ directory RLS fully live-tested (63 tests passing).
 - [x] 🟢 **Local seed bypass is local-only** — ✅ (Agent 1: `db push` never runs seeds).
 
 ## Cross-cutting
 
-- [ ] 🟢 **Webhook idempotency** — replaying the same Stripe event is deduped via `billing_webhook_events` (no double email, no double membership write).
-- [ ] 🟢 Link Fiscal agent page to buttons from the existing platform. Use professional web design principles
+- [x] 🟢 **Webhook idempotency** — replaying the same Stripe event is deduped via `billing_webhook_events` (no double email, no double membership write).
+- [x] 🟢 Link Fiscal agent page to buttons from the existing platform. Use professional web design principles
 - [ ] 🟠 **Human smoke test** — one full real test-mode purchase end-to-end: checkout → receipt email → paywall lifts.

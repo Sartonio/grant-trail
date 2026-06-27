@@ -271,7 +271,7 @@ function LandingPage({ session }) {
               <li>Scalable system for growth</li>
               <li>Subscription for high-impact fiscal agents</li>
             </ul>
-            <Link to={isAuthenticated ? '/subscription' : '/signup'} className="landing-plan-cta">
+            <Link to={isAuthenticated ? '/subscription' : '/fiscal-agents'} className="landing-plan-cta">
               {isAuthenticated ? 'Manage Fiscal Agent Access' : 'Start Managing Smarter'}
             </Link>
           </article>

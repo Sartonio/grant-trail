@@ -20,5 +20,8 @@
     "deploy:secrets:ci": "node scripts/deploy_secrets.js --env ci",
     "functions:prune": "node scripts/prune_functions.js",
     "admin:promote": "node scripts/promote_admin.js"
+  },
+  "dependencies": {
+    "pg": "^8.22.0"
   }
 }
