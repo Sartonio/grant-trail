@@ -43,19 +43,20 @@ supabase/functions/stripe-webhook/index.ts
   ├─ verifies stripe-signature header against STRIPE_WEBHOOK_SECRET
   ├─ on checkout.session.completed:
   │     ├─ upsertSubscriptionFromStripe() → writes to subscriptions + user_memberships tables
-  │     └─ sendPaymentConfirmationEmail() → calls Resend API → email delivered to customer
+  │     └─ sendPaymentConfirmationEmail() → sends via SMTP (Resend) → email delivered to customer
   └─ records event in billing_webhook_events (idempotency guard)
 ```
 
-**Key invariant:** email failures are isolated in their own `try/catch`. If Resend is down or the key is wrong, Stripe still receives a `200` and never retries. The failure is logged to `system_logs` with `event_name = 'payment_confirmation_email_failure'`.
+**Key invariant:** email failures are isolated in their own `try/catch`. If the SMTP server is down or the credentials are wrong, Stripe still receives a `200` and never retries. The failure is logged to `system_logs` with `event_name = 'payment_confirmation_email_failure'`.
 
-**Three environment variables power this:**
+**The environment variables that power this:**
 
 | Variable | What it does |
 |---|---|
 | `STRIPE_SECRET_KEY` | Authenticates all Stripe API calls from Edge Functions |
 | `STRIPE_WEBHOOK_SECRET` | Verifies incoming webhook events are genuinely from Stripe |
-| `RESEND_API_KEY` | Authenticates outgoing email calls to [Resend](https://resend.com) |
+| `SMTP_HOST` / `SMTP_USER` / `SMTP_PASS` | Authenticate outgoing email over SMTP (we use [Resend](https://resend.com): `smtp.resend.com` / `resend` / your `re_...` API key) |
+| `SMTP_PORT` / `SMTP_FROM` | Transport port (`465`/`587`) and sender address (defaults to `GrantTrail <SMTP_USER>`) |
 
 ---
 
@@ -70,7 +71,7 @@ You need all four of these before the payment stack will work locally:
 | Stripe CLI | `stripe --version` | Install: `winget install Stripe.StripeCLI` (Windows) or `brew install stripe/stripe-cli/stripe` (Mac) |
 | A Stripe test account | Log in at [dashboard.stripe.com](https://dashboard.stripe.com) | Use **test mode** (toggle in the dashboard sidebar) |
 
-> **You do not need a Resend account to develop locally.** Leave `RESEND_API_KEY` blank and the email step is silently skipped — a warning is logged but nothing breaks. Add it only when you want to verify that real emails are being sent.
+> **You do not need email credentials to develop locally.** Leave `SMTP_HOST`/`SMTP_USER`/`SMTP_PASS` blank and the email step is silently skipped — a warning is logged but nothing breaks. Add them only when you want to verify that real emails are being sent.
 
 ---
 
@@ -92,9 +93,12 @@ STRIPE_WEBHOOK_SECRET="whsec_..."
 # Frontend URL — leave as-is for local development
 APP_URL="http://localhost:3000"
 
-# Resend — optional locally; leave blank to skip email sending
-RESEND_API_KEY="re_..."
-RESEND_FROM_EMAIL="onboarding@resend.dev"
+# Email (Resend over SMTP) — optional locally; leave HOST/USER/PASS blank to skip sending
+SMTP_HOST="smtp.resend.com"
+SMTP_USER="resend"
+SMTP_PASS="re_..."           # your Resend API key
+SMTP_PORT="465"
+SMTP_FROM="onboarding@resend.dev"
 ```
 
 ### Where to find each value
@@ -108,8 +112,8 @@ Go to [Stripe Dashboard → Product Catalog](https://dashboard.stripe.com/produc
 **`STRIPE_WEBHOOK_SECRET`**
 This is generated dynamically by `stripe listen` — see Section 4. Leave it blank until you have run that command.
 
-**`RESEND_API_KEY`**
-Go to [Resend Dashboard → API Keys](https://resend.com/api-keys) and create a key. For local testing you can use Resend's shared `onboarding@resend.dev` sender address (no domain verification needed). For production you must verify your own domain.
+**`SMTP_HOST` / `SMTP_USER` / `SMTP_PASS`**
+We send via [Resend](https://resend.com) over SMTP. `SMTP_HOST` is `smtp.resend.com`, `SMTP_USER` is the literal word `resend`, and `SMTP_PASS` is an API key you create at [Resend Dashboard → API Keys](https://resend.com/api-keys). For local testing you can set `SMTP_FROM="onboarding@resend.dev"` (no domain verification needed) — but that shared sender **only delivers to the email address your Resend account is registered under**. For production you must verify your own domain (see `EMAIL-DNS-SETUP.md`).
 
 ---
 
@@ -214,7 +218,7 @@ This exercises the entire webhook path — subscription upsert and email — in 
 
 ## 6. Verifying the Email Was Sent
 
-### If you have a Resend API key set
+### If you have SMTP credentials set (Resend)
 
 Log in to your [Resend Dashboard](https://resend.com) and go to **Emails**. The sent email should appear within a few seconds of the webhook firing. Click it to preview the HTML receipt.
 
@@ -231,15 +235,15 @@ And that the webhook event was recorded (idempotency guard):
 
 ```bash
 docker exec supabase_db_grant-trail psql -U postgres -d postgres \
-  -c "SELECT stripe_event_id, event_type, created_at FROM billing_webhook_events ORDER BY id DESC LIMIT 5;"
+  -c "SELECT stripe_event_id, event_type FROM billing_webhook_events ORDER BY id DESC LIMIT 5;"
 ```
 
-### If the email is skipped (no API key)
+### If the email is skipped (no SMTP credentials)
 
 Check Terminal 2 for this log line:
 
 ```
-RESEND_API_KEY not set — skipping email send.
+SMTP_HOST/SMTP_USER/SMTP_PASS not all set — skipping email send.
 ```
 
 That means the email module loaded correctly but intentionally skipped the send. Everything else (subscription write, webhook record) still works.
@@ -317,19 +321,20 @@ The local `stripe listen` forwarder only works on your machine. In production, S
 5. Click **Add endpoint**, then **Reveal** the Signing secret (`whsec_...`)
 6. Use this as `STRIPE_WEBHOOK_SECRET` in production — it is different from your local one
 
-#### 3. Resend: verify your domain and update the sender address
+#### 3. Resend: verify your sending domain and update `SMTP_FROM`
 
-For production emails to deliver reliably, you must send from a domain you own.
+For production emails to deliver reliably, you must send from a domain you own. Full
+step-by-step (incl. the GoDaddy DNS specifics) is in [`EMAIL-DNS-SETUP.md`](../../EMAIL-DNS-SETUP.md).
 
-1. Go to [Resend Dashboard → Domains](https://resend.com/domains) and add your domain (e.g. `granttrail.ca`)
-2. Add the DNS records Resend gives you (SPF, DKIM, DMARC) to your domain registrar
-3. Wait for verification (usually a few minutes)
-4. Update `RESEND_FROM_EMAIL` to use your verified domain:
+1. Go to [Resend Dashboard → Domains](https://resend.com/domains) and add your sending domain (e.g. `send.atkasolutions.org`)
+2. Add the DNS records Resend gives you (MX, SPF, DKIM, DMARC) to your domain registrar
+3. Wait for verification (usually a few minutes), then click **Verify**
+4. Update `SMTP_FROM` to use your verified domain:
    ```
-   RESEND_FROM_EMAIL="GrantTrail <noreply@granttrail.ca>"
+   SMTP_FROM="GrantTrail <receipts@send.atkasolutions.org>"
    ```
 
-Using Resend's shared `onboarding@resend.dev` sender (as in local development) will not work for production — it is rate-limited and not whitelabelled.
+Resend's shared `onboarding@resend.dev` sender (fine for local development) will **not** work for production — it only delivers to the Resend account owner's address.
 
 #### 4. `APP_URL`: set to your live Vercel URL
 
@@ -350,8 +355,11 @@ npx supabase secrets set --project-ref <your-project-ref> \
   STRIPE_PRICE_PRO="price_..." \
   STRIPE_WEBHOOK_SECRET="whsec_..." \
   APP_URL="https://your-app.vercel.app" \
-  RESEND_API_KEY="re_..." \
-  RESEND_FROM_EMAIL="GrantTrail <noreply@granttrail.ca>"
+  SMTP_HOST="smtp.resend.com" \
+  SMTP_USER="resend" \
+  SMTP_PASS="re_..." \
+  SMTP_PORT="465" \
+  SMTP_FROM="GrantTrail <receipts@send.atkasolutions.org>"
 ```
 
 Or use the automated script from the repo root:
