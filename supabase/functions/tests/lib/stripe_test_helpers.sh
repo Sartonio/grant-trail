@@ -15,7 +15,7 @@
 #
 # Required env (sourced from supabase/functions/.env by the runner):
 #   STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET,
-#   STRIPE_PRICE_BASIC, STRIPE_PRICE_PRO, APP_URL
+#   STRIPE_PRICE_BASIC, STRIPE_PRICE_FISCAL_AGENT, APP_URL
 
 set -uo pipefail
 

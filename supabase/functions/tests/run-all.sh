@@ -17,7 +17,7 @@
 #                                npx --prefix frontend supabase db reset
 #   2. supabase/functions/.env present with TEST-mode Stripe secrets:
 #        STRIPE_SECRET_KEY, STRIPE_PRICE_BASIC,
-#        STRIPE_PRICE_PRO, APP_URL, STRIPE_WEBHOOK_SECRET
+#        STRIPE_PRICE_FISCAL_AGENT, APP_URL, STRIPE_WEBHOOK_SECRET
 #      (STRIPE_WEBHOOK_SECRET must match the `stripe listen` signing secret;
 #       get it with: stripe listen --api-key <key> --print-secret)
 #   3. Functions served:

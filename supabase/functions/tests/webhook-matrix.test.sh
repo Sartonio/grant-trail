@@ -92,7 +92,7 @@ fi
 info "[updated] upgrade basic -> premium (fiscal-agent)"
 ITEM=$(sapi subscriptions retrieve "$SUB" | python3 -c "import sys,json;print(json.load(sys.stdin)['items']['data'][0]['id'])")
 sapi subscriptions update "$SUB" \
-  -d "items[0][id]=$ITEM" -d "items[0][price]=$STRIPE_PRICE_PRO" \
+  -d "items[0][id]=$ITEM" -d "items[0][price]=$STRIPE_PRICE_FISCAL_AGENT" \
   -d "metadata[membership_tier]=premium" -d "proration_behavior=none" >/dev/null
 wait_for_sql "SELECT membership_tier FROM subscriptions WHERE stripe_subscription_id='$SUB';" "premium" "[updated] subscriptions.tier premium"
 wait_for_sql "SELECT membership_tier FROM user_memberships WHERE user_id=$DBUID;" "premium" "[updated] membership tier premium"
@@ -168,7 +168,7 @@ assert_eq "$(dbq "SELECT has_basic_membership($DBUID)::text;")" "false" "[lapse]
 info "[reactivate] new subscription after lapse restores access"
 RECUS=$(new_stripe_customer "lanef-reactivate@example.com")
 map_customer "$DBUID" "$RECUS"
-RESUB=$(create_subscription "$RECUS" "$STRIPE_PRICE_PRO" "premium")
+RESUB=$(create_subscription "$RECUS" "$STRIPE_PRICE_FISCAL_AGENT" "premium")
 wait_for_sql "SELECT status FROM subscriptions WHERE stripe_subscription_id='$RESUB';" "active" "[reactivate] new subscription active"
 wait_for_sql "SELECT is_active::text FROM user_memberships WHERE user_id=$DBUID;" "true" "[reactivate] membership active again"
 wait_for_sql "SELECT membership_tier FROM user_memberships WHERE user_id=$DBUID;" "premium" "[reactivate] membership tier premium"

@@ -165,7 +165,7 @@ test.describe('Cross-role visibility', () => {
     // Log everyone in to their role/access-appropriate landing.
     await login(ctx.adminPage, ctx.adminEmail, '**/admin');
     await login(ctx.granteeAPage, ctx.granteeAEmail, (url) => url.pathname === '/');
-    await login(ctx.granteeBPage, ctx.granteeBEmail, '**/home'); // gated (no subscription)
+    await login(ctx.granteeBPage, ctx.granteeBEmail, (url) => url.pathname === '/'); // auto-exempt: admin's premium in same tenant grants basic access
     await login(ctx.superPage, ctx.superEmail, '**/super/tenants');
     await login(ctx.granteeCPage, ctx.granteeCEmail, '**/home'); // gated (no subscription)
   });

@@ -64,7 +64,7 @@ wait_for_sql "SELECT is_active::text FROM user_memberships WHERE user_id=$DBUID;
 info "sync reflects upgrade basic -> premium"
 ITEM=$(sapi subscriptions retrieve "$SUB" | python3 -c "import sys,json;print(json.load(sys.stdin)['items']['data'][0]['id'])")
 sapi subscriptions update "$SUB" \
-  -d "items[0][id]=$ITEM" -d "items[0][price]=$STRIPE_PRICE_PRO" \
+  -d "items[0][id]=$ITEM" -d "items[0][price]=$STRIPE_PRICE_FISCAL_AGENT" \
   -d "metadata[membership_tier]=premium" -d "proration_behavior=none" >/dev/null
 call_sync "$TOKEN" >/dev/null
 wait_for_sql "SELECT membership_tier FROM user_memberships WHERE user_id=$DBUID;" "premium" "sync upgrade -> membership premium"
