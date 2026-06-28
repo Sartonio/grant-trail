@@ -110,6 +110,8 @@ function Modal({ onClose, children, labelledBy }) {
 export default function SponsorshipApplicationModal({ agent, onClose, onSubmit }) {
   const [step, setStep] = useState(0);
   const [sending, setSending] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState('');
   const [project, setProject] = useState({
     name: '',
     mission: '',
@@ -145,13 +147,12 @@ export default function SponsorshipApplicationModal({ agent, onClose, onSubmit }
     if (step < STEPS.length - 1) setStep(step + 1);
   }
 
-  function submit() {
-    if (!allValid) return;
+  async function submit() {
+    if (!allValid || sending) return;
     setSending(true);
-    // Simulate a network round-trip, matching the old ContactModal.
-    setTimeout(() => {
-      setSending(false);
-      onSubmit({
+    setError('');
+    try {
+      await onSubmit({
         project: {
           name: project.name,
           mission: project.mission,
@@ -170,7 +171,39 @@ export default function SponsorshipApplicationModal({ agent, onClose, onSubmit }
         },
         message,
       });
-    }, 700);
+      setSubmitted(true);
+    } catch (_err) {
+      setError('Could not send your application. Please try again.');
+    } finally {
+      setSending(false);
+    }
+  }
+
+  // Clear in-app confirmation: once the inquiry is saved, replace the form with a
+  // success panel so the seeker has unambiguous feedback that it went through.
+  if (submitted) {
+    return (
+      <Modal onClose={onClose} labelledBy="sapp-title">
+        <div className="sapp-success">
+          <div className="sapp-success-icon" aria-hidden="true">
+            <FaCheckCircle />
+          </div>
+          <h2 id="sapp-title" className="fad-modal-title">
+            Application sent to {agent.name}
+          </h2>
+          <p className="fad-modal-sub">
+            Your application is now in {agent.name}'s inbox, and we've emailed them a
+            notification.{agent.responseTime ? ` They typically respond ${agent.responseTime}.` : ''}{' '}
+            Keep an eye on the inbox you provided for their reply.
+          </p>
+          <div className="fad-form-foot sapp-success-foot">
+            <button type="button" className="fad-btn fad-btn-primary" onClick={onClose}>
+              <FaCheck /> Done
+            </button>
+          </div>
+        </div>
+      </Modal>
+    );
   }
 
   return (
@@ -411,6 +444,12 @@ export default function SponsorshipApplicationModal({ agent, onClose, onSubmit }
             </>
           )}
         </div>
+      )}
+
+      {error && step === STEPS.length - 1 && (
+        <p className="sapp-error sapp-submit-error" role="alert">
+          {error}
+        </p>
       )}
 
       <div className="fad-form-foot">

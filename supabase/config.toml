@@ -417,6 +417,14 @@ verify_jwt = false
 enabled = true
 verify_jwt = true
 
+# Notifies a charity by email when a seeker submits a sponsorship inquiry. Called
+# by the authenticated seeker right after the inquiry row is written, so the user
+# JWT is verified; the handler resolves the charity's (RLS-hidden) contact email
+# with the service role and sends via Resend.
+[functions.notify-inquiry]
+enabled = true
+verify_jwt = true
+
 [functions.stripe-webhook]
 enabled = true
 verify_jwt = false

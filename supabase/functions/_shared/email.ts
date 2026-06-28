@@ -46,6 +46,126 @@ export async function sendEmail(options: SendEmailOptions): Promise<void> {
   }
 }
 
+// Escape user-supplied free text before interpolating it into the email HTML.
+// Inquiry fields (seeker name, project name, message) are fully attacker-controlled
+// so they must never be trusted as markup.
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+interface InquiryNotificationOptions {
+  to: string;
+  listingName: string;
+  seekerName: string;
+  projectName: string;
+  inboxUrl: string;
+  message?: string;
+}
+
+// Notifies a charity (fiscal agent) that a seeker has submitted a sponsorship
+// inquiry. Plain, action-oriented: who applied, for what project, and a button
+// to the owner inbox where they can read and triage the full application.
+export async function sendInquiryNotificationEmail(opts: InquiryNotificationOptions): Promise<void> {
+  const seekerName = escapeHtml(opts.seekerName);
+  const projectName = escapeHtml(opts.projectName);
+  const listingName = escapeHtml(opts.listingName);
+  const inboxUrl = encodeURI(opts.inboxUrl);
+  const message = (opts.message ?? '').trim();
+
+  const messageBlock = message
+    ? `
+              <table width="100%" cellpadding="0" cellspacing="0" role="presentation"
+                style="background-color:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;margin:0 0 32px;">
+                <tr>
+                  <td style="padding:20px 24px;">
+                    <p style="margin:0 0 8px;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:#6b7280;">Their message</p>
+                    <p style="margin:0;font-size:14px;color:#444444;line-height:1.6;white-space:pre-wrap;">${escapeHtml(message)}</p>
+                  </td>
+                </tr>
+              </table>`
+    : '';
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>New sponsorship inquiry — GrantTrail</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f3f4f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background-color:#f3f4f6;padding:40px 16px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" role="presentation" style="background-color:#ffffff;border-radius:8px;overflow:hidden;max-width:600px;width:100%;">
+
+          <!-- Header -->
+          <tr>
+            <td style="background-color:#1a6b3c;padding:32px 40px;text-align:center;">
+              <p style="margin:0;font-size:26px;font-weight:700;color:#ffffff;letter-spacing:-0.5px;">GrantTrail</p>
+              <p style="margin:8px 0 0;font-size:14px;color:rgba(255,255,255,0.75);">New Sponsorship Inquiry</p>
+            </td>
+          </tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="padding:40px;">
+
+              <p style="margin:0 0 20px;font-size:16px;color:#111111;">Hi ${listingName},</p>
+              <p style="margin:0 0 32px;font-size:16px;color:#444444;line-height:1.6;">
+                <strong>${seekerName}</strong> has submitted a sponsorship inquiry for the project
+                <strong>${projectName}</strong>. The full application is waiting in your GrantTrail inbox.
+              </p>
+
+              ${messageBlock}
+
+              <!-- CTA -->
+              <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin:0 0 32px;">
+                <tr>
+                  <td align="center">
+                    <a href="${inboxUrl}"
+                      style="display:inline-block;background-color:#1a6b3c;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;padding:14px 32px;border-radius:6px;">
+                      Open your inbox
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="margin:0;font-size:14px;color:#6b7280;line-height:1.6;">
+                Can't use the button? Open this link:<br>
+                <a href="${inboxUrl}" style="color:#1a6b3c;text-decoration:none;word-break:break-all;">${inboxUrl}</a>
+              </p>
+
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background-color:#f9fafb;padding:24px 40px;border-top:1px solid #e5e7eb;text-align:center;">
+              <p style="margin:0;font-size:12px;color:#9ca3af;">
+                You're receiving this because your organization is listed in the GrantTrail Fiscal Agent Directory.
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+  await sendEmail({
+    to: opts.to,
+    subject: `New sponsorship inquiry from ${opts.seekerName} — ${opts.projectName}`,
+    html,
+  });
+}
+
 interface PaymentConfirmationOptions {
   to: string;
   firstName: string;
