@@ -42,11 +42,8 @@ Read by the Supabase CLI when serving Edge Functions locally (`supabase function
 | `STRIPE_WEBHOOK_SECRET` | ✅ | Signing secret used to verify that webhook events genuinely came from Stripe | [Stripe Dashboard → Developers → Webhooks](https://dashboard.stripe.com/webhooks) → your endpoint → Signing secret (`whsec_...`) |
 | `STRIPE_BILLING_PORTAL_CONFIGURATION_ID` | ❌ Optional | ID of a custom Stripe Billing Portal configuration. If omitted, Stripe uses the default portal configuration. | [Stripe Dashboard → Billing → Customer Portal](https://dashboard.stripe.com/settings/billing/portal) → Configuration ID (`bpc_...`) |
 | `APP_URL` | ✅ | The frontend URL, used for Stripe redirect URLs after checkout/portal | Local: `http://localhost:3000`. Production: your Vercel URL |
-| `SMTP_HOST` | ❌ Optional (disables email) | SMTP server host used to send payment confirmation emails after a successful Stripe checkout. Leave blank locally to skip email sending. We send via [Resend](https://resend.com) over SMTP: `smtp.resend.com`. | Resend → SMTP settings |
-| `SMTP_USER` | ❌ Optional (required to send) | SMTP username. For Resend this is the literal word `resend`. | Resend → SMTP settings |
-| `SMTP_PASS` | ❌ Optional (required to send) | SMTP password. For Resend this is your API key (`re_...`). | [Resend Dashboard → API Keys](https://resend.com/api-keys) |
-| `SMTP_PORT` | ❌ Optional (default `465`) | `465` = implicit TLS, `587` = STARTTLS. | — |
-| `SMTP_FROM` | ❌ Optional | The `From` address for outgoing emails. Defaults to `GrantTrail <SMTP_USER>`. **Production must use a Resend-verified domain** (e.g. `GrantTrail <receipts@send.atkasolutions.org>`); `onboarding@resend.dev` only delivers to the Resend account owner. See `EMAIL-DNS-SETUP.md`. | Resend Dashboard → Domains |
+| `RESEND_API_KEY` | ❌ Optional (disables email) | API key for the [Resend](https://resend.com) HTTP API, used to send payment-confirmation emails after a successful Stripe checkout. Leave blank (with `EMAIL_FROM`) to skip email sending. | [Resend Dashboard → API Keys](https://resend.com/api-keys) (`re_...`) |
+| `EMAIL_FROM` | ❌ Optional (required to send) | The `From` address for outgoing emails. Must be on a Resend-**verified** domain (e.g. `GrantTrail <receipts@send.atkasolutions.org>`); `onboarding@resend.dev` only delivers to the Resend account owner. See `EMAIL-DNS-SETUP.md`. | Resend Dashboard → Domains |
 
 > **Note:** `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` are automatically injected by the Supabase runtime into every Edge Function. You do not need to set these manually.
 
@@ -82,12 +79,13 @@ npx supabase secrets set --project-ref <your-project-ref> \
 Optionally also set:
 ```bash
   STRIPE_BILLING_PORTAL_CONFIGURATION_ID="bpc_..." \
-  SMTP_HOST="smtp.resend.com" \
-  SMTP_USER="resend" \
-  SMTP_PASS="re_..." \
-  SMTP_PORT="465" \
-  SMTP_FROM="GrantTrail <receipts@send.atkasolutions.org>"
+  RESEND_API_KEY="re_..." \
+  EMAIL_FROM="GrantTrail <receipts@send.atkasolutions.org>"
 ```
+
+> In practice you don't run this by hand — `npm run deploy:secrets` pushes these
+> to the GitHub `production` environment and the deploy workflow sets them. See
+> [`docs/how_to/prod_setup.md`](../how_to/prod_setup.md).
 
 You can also view and manage these in the Supabase Dashboard under **Project Settings → Edge Functions → Secrets**.
 
@@ -132,8 +130,5 @@ The `build-and-test` job in [`.github/workflows/ci.yml`](../../.github/workflows
 | `STRIPE_WEBHOOK_SECRET` | `supabase/.env` | — | ✅ |
 | `STRIPE_BILLING_PORTAL_CONFIGURATION_ID` | `supabase/.env` optional | — | ✅ optional |
 | `APP_URL` | `supabase/.env` | — | ✅ |
-| `SMTP_HOST` | `supabase/.env` optional | — | ✅ optional |
-| `SMTP_USER` | `supabase/.env` optional | — | ✅ optional |
-| `SMTP_PASS` | `supabase/.env` optional | — | ✅ optional |
-| `SMTP_PORT` | `supabase/.env` optional | — | ✅ optional |
-| `SMTP_FROM` | `supabase/.env` optional | — | ✅ optional |
+| `RESEND_API_KEY` | `supabase/.env` optional | — | ✅ optional |
+| `EMAIL_FROM` | `supabase/.env` optional | — | ✅ optional |
