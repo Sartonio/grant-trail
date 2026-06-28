@@ -40,11 +40,8 @@ jobs:
             STRIPE_PRICE_DIRECTORY="${{ vars.STRIPE_PRICE_DIRECTORY }}" \
             STRIPE_BILLING_PORTAL_CONFIGURATION_ID="${{ vars.STRIPE_BILLING_PORTAL_CONFIGURATION_ID }}" \
             APP_URL="${{ vars.APP_URL }}" \
-            SMTP_HOST="${{ secrets.SMTP_HOST }}" \
-            SMTP_PORT="${{ vars.SMTP_PORT }}" \
-            SMTP_USER="${{ secrets.SMTP_USER }}" \
-            SMTP_PASS="${{ secrets.SMTP_PASS }}" \
-            SMTP_FROM="${{ vars.SMTP_FROM }}" \
+            RESEND_API_KEY="${{ secrets.RESEND_API_KEY }}" \
+            EMAIL_FROM="${{ vars.EMAIL_FROM }}" \
             --project-ref "${{ vars.SUPABASE_PROJECT_REF }}"
 
       - name: Link Supabase project

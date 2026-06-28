@@ -47,13 +47,17 @@ Deno.serve(async (request) => {
               console.log('Fiscal agent provisioned; invite token issued:', Boolean(token));
             } catch (provisionError) {
               console.error('Fiscal agent provisioning failed:', provisionError);
-              await adminSupabase.from('system_logs').insert({
-                event_name: 'fiscal_agent_provisioning_failure',
-                error_message: provisionError instanceof Error ? provisionError.message : String(provisionError),
-                error_stack: provisionError instanceof Error ? provisionError.stack : undefined,
-                severity: 'critical',
-                metadata: { stripe_event_id: event.id },
-              }).catch(() => {});
+              // supabase-js query builders are thenables, not Promises — no .catch().
+              // Wrap the log write so a logging failure can never mask the original.
+              try {
+                await adminSupabase.from('system_logs').insert({
+                  event_name: 'fiscal_agent_provisioning_failure',
+                  error_message: provisionError instanceof Error ? provisionError.message : String(provisionError),
+                  error_stack: provisionError instanceof Error ? provisionError.stack : undefined,
+                  severity: 'critical',
+                  metadata: { stripe_event_id: event.id },
+                });
+              } catch (_logError) { /* swallow */ }
               throw provisionError; // re-raise so Stripe retries provisioning.
             }
           }
@@ -110,12 +114,18 @@ Deno.serve(async (request) => {
             }
           } catch (emailError) {
             console.error('Payment confirmation email failed:', emailError);
-            await adminSupabase.from('system_logs').insert({
-              event_name: 'payment_confirmation_email_failure',
-              error_message: emailError instanceof Error ? emailError.message : String(emailError),
-              severity: 'error',
-              metadata: { stripe_event_id: event.id },
-            }).catch(() => {});
+            // supabase-js query builders are thenables, not Promises — no .catch().
+            // Wrap the log write so a logging failure can never re-throw out of
+            // this isolated block (which would 4xx/5xx the webhook and trigger a
+            // Stripe retry for what is only a non-fatal email failure).
+            try {
+              await adminSupabase.from('system_logs').insert({
+                event_name: 'payment_confirmation_email_failure',
+                error_message: emailError instanceof Error ? emailError.message : String(emailError),
+                severity: 'error',
+                metadata: { stripe_event_id: event.id },
+              });
+            } catch (_logError) { /* swallow */ }
           }
         }
         break;

@@ -68,9 +68,7 @@ const STAGES = {
       'VERCEL_TOKEN',
       'VERCEL_ORG_ID',
       'VERCEL_PROJECT_ID',
-      'SMTP_HOST',
-      'SMTP_USER',
-      'SMTP_PASS',
+      'RESEND_API_KEY',
     ],
     variables: [
       'SUPABASE_PROJECT_REF',
@@ -82,16 +80,14 @@ const STAGES = {
       'VITE_SUPABASE_URL',
       'VITE_SUPABASE_KEY',
       'VITE_SENTRY_DSN',
-      'SMTP_PORT',
-      'SMTP_FROM',
+      'EMAIL_FROM',
     ],
     optional: [
       'STRIPE_BILLING_PORTAL_CONFIGURATION_ID',
       'VITE_SENTRY_DSN',
-      // SMTP_HOST/USER/PASS are required — email is a real product surface now.
-      // Only the two with sane defaults stay optional (port 465, FROM = SMTP_USER).
-      'SMTP_PORT',
-      'SMTP_FROM',
+      // RESEND_API_KEY + EMAIL_FROM are required — email is a real product
+      // surface. Both must be set for the payment-confirmation receipt to send;
+      // EMAIL_FROM must be on a Resend-verified domain.
     ],
     autoFetch: true,
   },

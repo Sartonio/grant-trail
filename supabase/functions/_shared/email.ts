@@ -1,15 +1,18 @@
-import { SMTPClient } from 'https://deno.land/x/denomailer@1.6.0/mod.ts';
-
-// SMTP transport config — all env-driven, nothing hardcoded. Host/user/pass are
-// required to send; without them we no-op (same opt-in behaviour the Resend
-// integration had). Port defaults to 465 (implicit TLS). FROM defaults to the
-// authenticated mailbox, since most cPanel/SMTP relays only allow sending as the
-// account you logged in with.
-const SMTP_HOST = Deno.env.get('SMTP_HOST') ?? '';
-const SMTP_PORT = Number(Deno.env.get('SMTP_PORT') ?? '465');
-const SMTP_USER = Deno.env.get('SMTP_USER') ?? '';
-const SMTP_PASS = Deno.env.get('SMTP_PASS') ?? '';
-const FROM_EMAIL = Deno.env.get('SMTP_FROM') || (SMTP_USER ? `GrantTrail <${SMTP_USER}>` : '');
+// Resend HTTP API transport — all env-driven, nothing hardcoded. We send over
+// HTTPS (fetch) rather than raw SMTP: a fetch failure (network or non-2xx) is a
+// normal awaitable rejection the caller can catch, so a down mail provider can
+// never crash the edge worker. (denomailer's SMTP socket failures escape the
+// Deno event loop and kill the worker — fatal for the webhook's failure
+// isolation; see git history.)
+//
+// RESEND_API_KEY + EMAIL_FROM are required to send; without them we no-op (the
+// same opt-in behaviour as before). EMAIL_FROM must be an address on a domain
+// verified in Resend. RESEND_API_URL is overridable only for tests; it defaults
+// to the real endpoint.
+const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') ?? '';
+// Prefer EMAIL_FROM; fall back to the legacy SMTP_FROM var for migration.
+const FROM_EMAIL = Deno.env.get('EMAIL_FROM') || Deno.env.get('SMTP_FROM') || '';
+const RESEND_API_URL = Deno.env.get('RESEND_API_URL') || 'https://api.resend.com/emails';
 
 interface SendEmailOptions {
   to: string;
@@ -18,31 +21,28 @@ interface SendEmailOptions {
 }
 
 export async function sendEmail(options: SendEmailOptions): Promise<void> {
-  if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS) {
-    console.warn('SMTP_HOST/SMTP_USER/SMTP_PASS not all set — skipping email send.');
+  if (!RESEND_API_KEY || !FROM_EMAIL) {
+    console.warn('RESEND_API_KEY/EMAIL_FROM not all set — skipping email send.');
     return;
   }
 
-  const client = new SMTPClient({
-    connection: {
-      hostname: SMTP_HOST,
-      port: SMTP_PORT,
-      // Port 465 uses implicit TLS; 587 negotiates STARTTLS from a plain socket.
-      tls: SMTP_PORT === 465,
-      auth: { username: SMTP_USER, password: SMTP_PASS },
+  const response = await fetch(RESEND_API_URL, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${RESEND_API_KEY}`,
+      'Content-Type': 'application/json',
     },
+    body: JSON.stringify({
+      from: FROM_EMAIL,
+      to: [options.to],
+      subject: options.subject,
+      html: options.html,
+    }),
   });
 
-  try {
-    await client.send({
-      from: FROM_EMAIL,
-      to: options.to,
-      subject: options.subject,
-      content: 'auto',
-      html: options.html,
-    });
-  } finally {
-    await client.close();
+  if (!response.ok) {
+    const body = await response.text().catch(() => '');
+    throw new Error(`Resend API error ${response.status}: ${body.slice(0, 500)}`);
   }
 }
 

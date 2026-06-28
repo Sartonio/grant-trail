@@ -90,6 +90,13 @@ stop_forwarder
 # (c) portal + sync -- forwarder OFF so sync is the sole DB writer
 run portal-and-sync.test.sh
 
+# email resilience -- runs LAST because it OWNS the `functions serve` lifecycle
+# (it re-serves twice with different email (Resend) env, killing the shared serve). No
+# forwarder needed (it POSTs hand-signed events directly). Skipped if absent.
+if [ -f "${HERE}/email-resilience.test.sh" ]; then
+  run email-resilience.test.sh
+fi
+
 echo
 echo "========================================================"
 if [ "$TOTAL_FAIL" -eq 0 ]; then

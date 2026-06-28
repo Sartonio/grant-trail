@@ -49,12 +49,12 @@ the main website on the apex domain is untouched.
 
 ## After verification — app change (handled by dev)
 
-One line, no code change beyond config:
+The app sends via the Resend HTTP API (not SMTP). Two config values, no code change:
 
 ```
-SMTP_FROM=GrantTrail <receipts@send.atkasolutions.org>
+RESEND_API_KEY=<resend api key>                          # secret
+EMAIL_FROM=GrantTrail <receipts@send.atkasolutions.org>  # variable
 ```
 
-`SMTP_HOST=smtp.resend.com`, `SMTP_USER=resend`, and `SMTP_PASS=<resend api key>`
-stay the same. This value must be set in the prod secrets (see deploy config), not
-just locally.
+Both must be set in the prod secrets/variables (see `docs/PROD-EMAIL-RUNBOOK.md` §1),
+not just locally. `EMAIL_FROM` must be on the domain verified above.

@@ -12,7 +12,8 @@ Shell-based integration tests for the Supabase Edge Functions. They run against 
 | `authz-identity.test.sh` | Identity is taken from the JWT, never the request body: caller A cannot bind a checkout/customer to caller B's id/email; unauthenticated/invalid-JWT rejected | yes |
 | `webhook-matrix.test.sh` | Live webhook loop: created/updated/past_due/deleted -> DB end-state; idempotency; lapse->reactivate; waiver x live sub (WS5 a, d) | yes + `stripe listen` |
 | `portal-and-sync.test.sh` | Billing portal URL; `sync-my-subscription` upgrade/downgrade/cancel/no-sub reconciliation (WS5 c) | yes |
-| `run-all.sh` | Orchestrates the four Stripe suites and owns the `stripe listen` forwarder lifecycle | yes |
+| `email-resilience.test.sh` | Payment-confirmation email is isolated: disabled-without-creds (send skipped, warning logged) and failure-isolation (unreachable Resend endpoint → webhook still 200, sub still synced, one `payment_confirmation_email_failure` row) | yes (no forwarder; self-serves) |
+| `run-all.sh` | Orchestrates the five Stripe suites and owns the `stripe listen` forwarder lifecycle | yes |
 
 `lib/stripe_test_helpers.sh` holds shared helpers (test-user/fixtures via the
 GoTrue admin API, Stripe customer/subscription scaffolding, DB polling assertions).
@@ -94,6 +95,10 @@ Members:
 - `run-all.sh` -- orchestrator (forwarder + test clocks)
 - `webhook-matrix.test.sh`
 - `portal-and-sync.test.sh`
+- `email-resilience.test.sh` -- runs last under `run-all.sh`; needs the Stripe
+  key (real sub create + webhook retrieve) but NO forwarder or test clocks. It
+  owns the `functions serve` lifecycle itself, re-serving with different email (Resend) env
+  per case, so it is invoked after the forwarder-based suites.
 
 This job requires TEST-mode Stripe secrets in the GitHub repo's CI secrets;
 `STRIPE_WEBHOOK_SECRET` is derived at runtime via `stripe listen --print-secret`.
