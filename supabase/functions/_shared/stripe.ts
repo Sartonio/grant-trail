@@ -169,6 +169,63 @@ export async function ensurePlatformMembershipProductIds() {
   }
 }
 
+// Stripe subscription statuses that count as a PREMIUM lapse for the directory
+// (TASK A5). A lapse auto-unlists the owner's published listing.
+const LAPSE_STATUSES = ['past_due', 'canceled', 'unpaid'];
+// Statuses that count as a healthy, paid subscription and re-publish a listing
+// that was auto-unlisted by a prior lapse.
+const ACTIVE_STATUSES = ['active', 'trialing'];
+
+/**
+ * Auto-unlist / re-publish a charity's directory listing as their premium
+ * ("Fiscal Agents Plan") subscription lapses or reactivates (TASK A5).
+ *
+ *   - lapse  (past_due/canceled/unpaid): demote a 'published' listing to
+ *     'unlisted' so it falls out of the public teaser view. Drafts and
+ *     super_admin-'hidden' listings are left untouched.
+ *   - active (active/trialing): restore an 'unlisted' listing to 'published'.
+ *     Only 'unlisted' (the auto-lapse state) is restored, never a manual draft
+ *     or hidden listing.
+ *
+ * Runs as the service role (RLS + moderation-guard exempt) so the flip needs no
+ * owner entitlement. Idempotent: re-delivered events match zero rows once the
+ * status already reflects the subscription state. Never deletes data — only the
+ * status toggles between 'published' and 'unlisted'.
+ *
+ * Scoped to the premium tier: only premium owns a listing (canOwnListing =
+ * premium), so basic/directory_access subscription churn never touches listings.
+ */
+async function syncListingPublicationFromSubscription(
+  userId: number,
+  membershipTier: string,
+  status: string,
+) {
+  if (membershipTier !== 'premium') return;
+
+  let fromStatus: string | null = null;
+  let toStatus: string | null = null;
+  if (LAPSE_STATUSES.includes(status)) {
+    fromStatus = 'published';
+    toStatus = 'unlisted';
+  } else if (ACTIVE_STATUSES.includes(status)) {
+    fromStatus = 'unlisted';
+    toStatus = 'published';
+  } else {
+    // incomplete / paused / etc.: leave the listing as-is.
+    return;
+  }
+
+  const { error } = await adminSupabase
+    .from('fiscal_agent_listings')
+    .update({ status: toStatus })
+    .eq('owner_user_id', userId)
+    .eq('status', fromStatus);
+
+  if (error) {
+    throw new Error(`Unable to sync listing publication (${fromStatus}->${toStatus}): ${error.message}`);
+  }
+}
+
 export async function upsertSubscriptionFromStripe(subscription: Stripe.Subscription) {
   await ensurePlatformMembershipProductIds();
 
@@ -271,6 +328,11 @@ export async function upsertSubscriptionFromStripe(subscription: Stripe.Subscrip
   if (membershipError) {
     throw new Error(`Unable to sync user membership: ${membershipError.message}`);
   }
+
+  // Auto-unlist on premium lapse / re-publish on reactivation (TASK A5). Keyed
+  // off the Stripe status directly (note: past_due keeps membership.is_active
+  // true for the read-only grace window above, but still unlists the listing).
+  await syncListingPublicationFromSubscription(billingCustomer.user_id, membershipTier, subscription.status);
 }
 
 function slugify(value: string): string {

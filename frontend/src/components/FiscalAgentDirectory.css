@@ -412,6 +412,7 @@
   text-align: left;
 }
 .fad-linklike:hover { color: var(--color-primary); text-decoration: underline; }
+.fad-link { color: var(--color-primary); font-weight: 600; text-decoration: underline; }
 .fad-verified { color: var(--color-info); display: inline-flex; font-size: 0.85rem; }
 .fad-location {
   margin: 0.2rem 0 0;

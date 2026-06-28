@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { FaPen, FaInbox, FaIdCard } from 'react-icons/fa';
 import * as Sentry from '@sentry/react';
 import { supabase } from '../supabaseClient';
-import { canOwnListing, isReadOnlyAdmin } from '../lib/policy';
+import { canOwnListing, isReadOnlyAdmin, BILLING_NUDGE_PATH } from '../lib/policy';
 import { useWriteGuard } from '../lib/useWriteGuard';
 import { mapFullListing, mapInquiry } from './fiscalAgents.map';
 import { OwnerListingPanel, listingCompleteness, Toast } from './fiscalAgentsShared';
@@ -163,7 +163,12 @@ export default function FiscalAgentOwnerDashboard({ session, readOnly: readOnlyP
         <div>
           <strong>{listing.name}</strong>
           {readOnly ? (
-            <> — your Fiscal Agent subscription is inactive. Renew to publish and triage inquiries.</>
+            <>
+              {' '}is {listing.status === 'published' ? 'live' : 'unlisted'} — your Fiscal Agent
+              subscription is inactive, so your listing is unlisted from the directory and this
+              dashboard is read-only.{' '}
+              <Link to={BILLING_NUDGE_PATH} className="fad-link">Resubscribe to edit</Link>.
+            </>
           ) : (
             <> is {listing.status === 'published' ? 'live' : 'in draft'}. Keep your profile complete to rank higher.</>
           )}
@@ -173,7 +178,7 @@ export default function FiscalAgentOwnerDashboard({ session, readOnly: readOnlyP
           className="fad-btn fad-btn-primary"
           onClick={() => navigate('/fiscal-agents/listing/edit')}
         >
-          <FaPen /> Edit your listing
+          <FaPen /> {readOnly ? 'View your listing' : 'Edit your listing'}
         </button>
       </section>
 
@@ -212,6 +217,7 @@ export default function FiscalAgentOwnerDashboard({ session, readOnly: readOnlyP
           inquiries={inquiries}
           onUpdateStatus={handleUpdateStatus}
           onOnboard={handleOnboard}
+          readOnly={readOnly}
         />
       )}
 

@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   FaInbox,
   FaRegEnvelope,
@@ -13,7 +14,9 @@ import {
   FaEnvelope,
   FaSeedling,
   FaArrowRight,
+  FaLock,
 } from 'react-icons/fa';
+import { BILLING_NUDGE_PATH } from '../lib/policy';
 import './FiscalAgentInbox.css';
 
 /*
@@ -75,7 +78,7 @@ function DetailRow({ label, children }) {
   );
 }
 
-export default function FiscalAgentInbox({ inquiries, onUpdateStatus, onOnboard }) {
+export default function FiscalAgentInbox({ inquiries, onUpdateStatus, onOnboard, readOnly = false }) {
   const [filter, setFilter] = useState('all');
   const [selectedId, setSelectedId] = useState(null);
 
@@ -114,6 +117,17 @@ export default function FiscalAgentInbox({ inquiries, onUpdateStatus, onOnboard 
         </h2>
         <p>Applications from projects seeking you as their fiscal sponsor.</p>
       </header>
+
+      {readOnly && (
+        <div className="inbox-readonly" role="status">
+          <FaLock aria-hidden="true" />
+          <span>
+            Your Fiscal Agent subscription is inactive, so your inbox is read-only and your
+            listing is unlisted. You can still review applications.{' '}
+            <Link to={BILLING_NUDGE_PATH}>Resubscribe to edit</Link>.
+          </span>
+        </div>
+      )}
 
       <div className="inbox-tabs" role="tablist" aria-label="Filter applications by status">
         {FILTERS.map((f) => (
@@ -231,7 +245,7 @@ export default function FiscalAgentInbox({ inquiries, onUpdateStatus, onOnboard 
                   <button
                     type="button"
                     className="inbox-action inbox-action-reviewing"
-                    disabled={selected.status === 'reviewing'}
+                    disabled={readOnly || selected.status === 'reviewing'}
                     onClick={() => onUpdateStatus(selected.id, 'reviewing')}
                   >
                     <FaClock /> Mark reviewing
@@ -239,7 +253,7 @@ export default function FiscalAgentInbox({ inquiries, onUpdateStatus, onOnboard 
                   <button
                     type="button"
                     className="inbox-action inbox-action-accept"
-                    disabled={selected.status === 'accepted'}
+                    disabled={readOnly || selected.status === 'accepted'}
                     onClick={() => onUpdateStatus(selected.id, 'accepted')}
                   >
                     <FaCheckCircle /> Accept
@@ -247,7 +261,7 @@ export default function FiscalAgentInbox({ inquiries, onUpdateStatus, onOnboard 
                   <button
                     type="button"
                     className="inbox-action inbox-action-waitlist"
-                    disabled={selected.status === 'waitlisted'}
+                    disabled={readOnly || selected.status === 'waitlisted'}
                     onClick={() => onUpdateStatus(selected.id, 'waitlisted')}
                   >
                     <FaRegClock /> Waitlist
@@ -255,7 +269,7 @@ export default function FiscalAgentInbox({ inquiries, onUpdateStatus, onOnboard 
                   <button
                     type="button"
                     className="inbox-action inbox-action-decline"
-                    disabled={selected.status === 'declined'}
+                    disabled={readOnly || selected.status === 'declined'}
                     onClick={() => onUpdateStatus(selected.id, 'declined')}
                   >
                     <FaTimesCircle /> Decline
@@ -266,6 +280,7 @@ export default function FiscalAgentInbox({ inquiries, onUpdateStatus, onOnboard 
                   <button
                     type="button"
                     className="fad-btn fad-btn-primary fad-btn-block inbox-onboard"
+                    disabled={readOnly}
                     onClick={() => onOnboard(selected)}
                   >
                     <FaSeedling /> Onboard as grantee <FaArrowRight />

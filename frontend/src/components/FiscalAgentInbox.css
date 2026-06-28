@@ -287,6 +287,21 @@
 
 .inbox-onboard { margin-top: 1rem; }
 
+/* ---- Read-only (lapsed subscription) notice ---- */
+.inbox-readonly {
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  color: #92400e;
+  border-radius: 8px;
+  padding: 0.7em 1em;
+  margin: 0 0 1rem;
+  font-size: 0.88rem;
+}
+.inbox-readonly a { color: #92400e; font-weight: 600; }
+
 /* ---- Empty state ---- */
 .inbox-empty {
   display: grid;

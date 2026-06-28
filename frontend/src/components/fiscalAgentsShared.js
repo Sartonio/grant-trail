@@ -215,7 +215,9 @@ export function OwnerListingPanel({ listing, completeness, status, onEdit, onTog
             <FaCheckCircle /> Live
           </span>
         ) : (
-          <span className="fad-badge fad-badge-muted">{status === 'hidden' ? 'Hidden' : 'Draft'}</span>
+          <span className="fad-badge fad-badge-muted">
+            {status === 'hidden' ? 'Hidden' : status === 'unlisted' ? 'Unlisted' : 'Draft'}
+          </span>
         )}
         <button
           type="button"
