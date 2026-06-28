@@ -189,17 +189,19 @@ function mask(value) {
 // validation step gives the user a clear "fill this in" message.
 
 function fetchVercelIds(vars, fetched) {
-  if (vars.VERCEL_ORG_ID && vars.VERCEL_PROJECT_ID) return;
+  // VERCEL_PROJECT_ID is environment-specific (staging vs prod differ) — must be
+  // set explicitly in the env file. Never auto-fill it from .vercel/project.json
+  // as that would silently deploy the wrong project.
+  if (vars.VERCEL_ORG_ID) return;
   if (!fs.existsSync(VERCEL_PROJECT_JSON)) {
-    console.warn('⚠️  .vercel/project.json not found — run `npx vercel link`, or fill VERCEL_ORG_ID/VERCEL_PROJECT_ID by hand.');
+    console.warn('⚠️  .vercel/project.json not found — fill VERCEL_ORG_ID by hand.');
     return;
   }
   try {
-    const { orgId, projectId } = JSON.parse(fs.readFileSync(VERCEL_PROJECT_JSON, 'utf8'));
+    const { orgId } = JSON.parse(fs.readFileSync(VERCEL_PROJECT_JSON, 'utf8'));
     if (!vars.VERCEL_ORG_ID && orgId) { vars.VERCEL_ORG_ID = orgId; fetched.VERCEL_ORG_ID = orgId; }
-    if (!vars.VERCEL_PROJECT_ID && projectId) { vars.VERCEL_PROJECT_ID = projectId; fetched.VERCEL_PROJECT_ID = projectId; }
   } catch (e) {
-    console.warn(`⚠️  Could not read Vercel IDs from .vercel/project.json: ${e.message}`);
+    console.warn(`⚠️  Could not read Vercel org ID from .vercel/project.json: ${e.message}`);
   }
 }
 
