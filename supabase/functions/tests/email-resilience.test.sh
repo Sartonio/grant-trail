@@ -98,7 +98,6 @@ write_env() {
     echo "STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}"
     echo "STRIPE_PRICE_BASIC=${STRIPE_PRICE_BASIC}"
     echo "STRIPE_PRICE_PRO=${STRIPE_PRICE_PRO:-}"
-    echo "STRIPE_PRICE_DIRECTORY=${STRIPE_PRICE_DIRECTORY:-price_dummy_directory}"
     echo "STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}"
     echo "APP_URL=${APP_URL}"
     if [ "$email" = "on" ]; then

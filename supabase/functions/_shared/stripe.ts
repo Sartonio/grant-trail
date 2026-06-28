@@ -200,10 +200,10 @@ export async function upsertSubscriptionFromStripe(subscription: Stripe.Subscrip
     if (featureKey === 'premium_membership' || featureKey === 'admin_membership' || featureKey === 'excel_export') membershipTier = 'premium';
   }
 
-  // The directory_access tier is identified purely by the metadata stamped at
-  // checkout (no platform_settings product ID to match). The charity onboarding
-  // flow uses the 'premium' tier (matched by product ID like any premium sub).
-  const KNOWN_TIERS = ['basic', 'premium', 'directory_access'];
+  // The app has exactly two SKUs: 'basic' and 'premium' (the "Fiscal Agents
+  // Plan"). The charity onboarding flow uses the 'premium' tier (matched by
+  // product ID like any premium sub).
+  const KNOWN_TIERS = ['basic', 'premium'];
 
   if (!KNOWN_TIERS.includes(membershipTier)) {
     const { data: platform } = await adminSupabase

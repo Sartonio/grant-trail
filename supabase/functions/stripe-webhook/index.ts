@@ -93,7 +93,6 @@ Deno.serve(async (request) => {
               if (['admin_membership', 'premium_membership', 'excel_export'].includes(tier)) tier = 'premium';
               const PLAN_NAMES: Record<string, string> = {
                 premium: 'Fiscal Agents Plan',
-                directory_access: 'Directory Access Plan',
                 basic: 'Basic Plan',
               };
               const planName = PLAN_NAMES[tier] ?? 'Basic Plan';
