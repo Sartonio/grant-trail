@@ -402,10 +402,6 @@ verify_jwt = true
 enabled = true
 verify_jwt = true
 
-[functions.create-directory-access-checkout-session]
-enabled = true
-verify_jwt = true
-
 # Pay-first: a charity checks out BEFORE any account exists, so no user JWT is
 # available. The handler accepts only intake fields it stamps into Stripe
 # metadata (no privileged data access), and the webhook does the provisioning.
