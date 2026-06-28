@@ -207,7 +207,6 @@ function fetchVercelIds(vars, fetched) {
 
 function fetchSupabaseKey(vars, fetched) {
   if (vars.VITE_SUPABASE_KEY) return;
-  if (remoteHas('VITE_SUPABASE_KEY')) return; // already in the environment — keep it
   if (!vars.SUPABASE_PROJECT_REF || !vars.SUPABASE_ACCESS_TOKEN) return;
   const res = run('npx', ['--prefix', 'frontend', 'supabase', 'projects', 'api-keys',
     '--project-ref', vars.SUPABASE_PROJECT_REF, '--output', 'json'],
@@ -349,7 +348,7 @@ function preflight(vars) {
   // when the value is absent both locally and in the environment.
   if (STAGE_DEF.autoFetch) {
     // supabase — only needed to fetch the publishable key.
-    if (!vars.VITE_SUPABASE_KEY?.trim() && !remoteHas('VITE_SUPABASE_KEY')) {
+    if (!vars.VITE_SUPABASE_KEY?.trim()) {
       if (!toolInstalled('npx', ['--prefix', 'frontend', 'supabase', '--version'])) {
         problems.push('• Supabase CLI is unavailable — run `npm install --prefix frontend`.');
       } else if (vars.SUPABASE_ACCESS_TOKEN?.trim()) {
