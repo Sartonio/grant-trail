@@ -65,7 +65,8 @@ jobs:
             create-fiscal-agent-checkout-session \
             create-billing-portal-session \
             stripe-webhook \
-            sync-my-subscription; do
+            sync-my-subscription \
+            notify-inquiry; do
             supabase functions deploy "$fn" \
               --project-ref "${{ vars.SUPABASE_PROJECT_REF }}"
           done

@@ -25,6 +25,7 @@ import { startCheckoutSession, MEMBERSHIP_TIERS } from '../lib/billing';
 import { mapTeaserListing, mapFullListing } from './fiscalAgents.map';
 import { isNewListing, NewBadge } from './fiscalAgentsShared';
 import SponsorshipApplicationModal from './SponsorshipApplicationModal';
+import { notifyInquirySubmitted } from '../lib/inquiries';
 import './FiscalAgentProfile.css';
 
 /*
@@ -107,22 +108,27 @@ export default function FiscalAgentProfile({ session }) {
     }
   }
 
+  // Throws on insert failure so the modal can surface an inline error and let the
+  // seeker retry; on success the modal shows its own confirmation panel and stays
+  // open until dismissed, so we don't close it here.
   async function handleApplicationSubmit(application) {
-    try {
-      const { error } = await supabase.from('sponsorship_inquiries').insert({
+    const { data, error } = await supabase
+      .from('sponsorship_inquiries')
+      .insert({
         listing_id: Number(agent.id),
         project: application.project,
         contact: application.contact,
         message: application.message,
-      });
-      if (error) throw error;
-      setApplyOpen(false);
-      setNotice({ kind: 'apply', msg: `Application sent to ${agent.name}.` });
-    } catch (err) {
-      Sentry.captureException(err);
-      setApplyOpen(false);
-      setNotice({ kind: 'apply', msg: 'Could not send your application. Please try again.' });
+      })
+      .select('id')
+      .single();
+    if (error) {
+      Sentry.captureException(error);
+      throw error;
     }
+    // Notify the charity by email — best effort. The inquiry is already saved, so
+    // a notification failure must never block the seeker's confirmation.
+    notifyInquirySubmitted(data.id).catch((err) => Sentry.captureException(err));
   }
 
   function handleSave() {

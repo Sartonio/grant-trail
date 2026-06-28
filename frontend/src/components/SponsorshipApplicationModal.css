@@ -113,6 +113,47 @@
 }
 .sapp-foot-note svg { color: var(--color-success); flex-shrink: 0; }
 
+/* Inline submit error shown on the review step when the send fails. */
+.sapp-submit-error {
+  margin: 0.75rem 0 0;
+  padding: 0.6rem 0.8rem;
+  font-size: 0.85rem;
+  background: rgba(220, 38, 38, 0.06);
+  border: 1px solid rgba(220, 38, 38, 0.25);
+  border-radius: var(--radius-md);
+}
+
+/* ---- Success confirmation panel ---- */
+.sapp-success {
+  text-align: center;
+  padding: 0.5rem 0.5rem 0.25rem;
+}
+.sapp-success-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 1rem;
+  border-radius: 50%;
+  background: rgba(16, 122, 64, 0.1);
+}
+.sapp-success-icon svg {
+  width: 34px;
+  height: 34px;
+  color: var(--color-success);
+}
+.sapp-success .fad-modal-title { margin-bottom: 0.5rem; }
+.sapp-success .fad-modal-sub {
+  max-width: 38ch;
+  margin: 0 auto;
+  line-height: 1.6;
+}
+.sapp-success-foot {
+  justify-content: center;
+  margin-top: 1.5rem;
+}
+
 @media (max-width: 640px) {
   .sapp-row { grid-template-columns: 1fr; }
   .sapp-review-list > div { grid-template-columns: 1fr; gap: 0.15rem; }
