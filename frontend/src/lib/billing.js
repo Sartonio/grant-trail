@@ -11,7 +11,7 @@ export const MEMBERSHIP_TIERS = {
   // Charity listing ownership is NOT its own tier — it folds into ORG_ADMIN
   // ('premium', the "Fiscal Agents Plan"). FISCAL_AGENT is only a client-side
   // selector for the pay-first onboarding checkout, which charges the premium
-  // price server-side (STRIPE_PRICE_PRO) and provisions the tenant + draft listing.
+  // price server-side (STRIPE_PRICE_FISCAL_AGENT) and provisions the tenant + draft listing.
   FISCAL_AGENT: 'fiscal_agent',
 };
 
@@ -211,7 +211,7 @@ function safeJsonParse(text) {
 
 export async function startCheckoutSession({ membershipTier, returnPath = '/subscription', intake = null }) {
   // Charity pay-FIRST onboarding: no existing session is required, the price is
-  // the premium "Fiscal Agents Plan" (STRIPE_PRICE_PRO) resolved server-side, and
+  // the premium "Fiscal Agents Plan" (STRIPE_PRICE_FISCAL_AGENT) resolved server-side, and
   // intake fields ride along as checkout metadata so the webhook can provision the
   // tenant + draft listing under a premium subscription.
   if (membershipTier === MEMBERSHIP_TIERS.FISCAL_AGENT) {

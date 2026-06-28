@@ -2,7 +2,7 @@ import { adminSupabase, corsHeaders, buildRedirectUrl, stripe } from '../_shared
 import { assertPostRequest, parseJsonBody, validateReturnPath, ValidationError } from '../_shared/validation.ts';
 
 // Charity onboarding (pay-first). A charity becomes a fiscal agent under the
-// existing PREMIUM plan ("Fiscal Agents Plan", STRIPE_PRICE_PRO) — there is no
+// existing PREMIUM plan ("Fiscal Agents Plan", STRIPE_PRICE_FISCAL_AGENT) — there is no
 // separate fiscal_agent SKU. This is simply the pay-FIRST entry path into premium:
 // it does NOT require an existing authenticated session. The charity supplies
 // intake fields in the body; we stamp them into Checkout metadata (with
@@ -71,10 +71,10 @@ Deno.serve(async (request) => {
     const returnPath = validateReturnPath(body.returnPath);
     // Charity listing ownership folds into premium, so the pay-first onboarding
     // charges the premium price (the "Fiscal Agents Plan").
-    const stripePriceId = Deno.env.get('STRIPE_PRICE_PRO');
+    const stripePriceId = Deno.env.get('STRIPE_PRICE_FISCAL_AGENT');
 
     if (!stripePriceId) {
-      throw new Error('Missing STRIPE_PRICE_PRO environment variable.');
+      throw new Error('Missing STRIPE_PRICE_FISCAL_AGENT environment variable.');
     }
 
     const intake = {

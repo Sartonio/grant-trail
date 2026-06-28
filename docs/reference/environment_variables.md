@@ -38,7 +38,7 @@ Read by the Supabase CLI when serving Edge Functions locally (`supabase function
 |----------|----------|-------------|----------------|
 | `STRIPE_SECRET_KEY` | ✅ | Stripe secret API key used to create checkout sessions, portal sessions, and retrieve subscriptions | [Stripe Dashboard → Developers → API keys](https://dashboard.stripe.com/apikeys) — use `sk_test_...` locally, `sk_live_...` in production |
 | `STRIPE_PRICE_BASIC` | ✅ | Stripe Price ID for the Basic membership plan | [Stripe Dashboard → Product Catalog](https://dashboard.stripe.com/products) → Basic plan → Price ID (`price_...`) |
-| `STRIPE_PRICE_PRO` | ✅ | Stripe Price ID for the Premium membership plan. | Same as above, for the Premium plan |
+| `STRIPE_PRICE_FISCAL_AGENT` | ✅ | Stripe Price ID for the Premium membership plan. | Same as above, for the Premium plan |
 | `STRIPE_WEBHOOK_SECRET` | ✅ | Signing secret used to verify that webhook events genuinely came from Stripe | [Stripe Dashboard → Developers → Webhooks](https://dashboard.stripe.com/webhooks) → your endpoint → Signing secret (`whsec_...`) |
 | `STRIPE_BILLING_PORTAL_CONFIGURATION_ID` | ❌ Optional | ID of a custom Stripe Billing Portal configuration. If omitted, Stripe uses the default portal configuration. | [Stripe Dashboard → Billing → Customer Portal](https://dashboard.stripe.com/settings/billing/portal) → Configuration ID (`bpc_...`) |
 | `APP_URL` | ✅ | The frontend URL, used for Stripe redirect URLs after checkout/portal | Local: `http://localhost:3000`. Production: your Vercel URL |
@@ -71,7 +71,7 @@ Set via the Supabase CLI. These are stored encrypted in Supabase's secrets vault
 npx supabase secrets set --project-ref <your-project-ref> \
   STRIPE_SECRET_KEY="sk_live_..." \
   STRIPE_PRICE_BASIC="price_..." \
-  STRIPE_PRICE_PRO="price_..." \
+  STRIPE_PRICE_FISCAL_AGENT="price_..." \
   STRIPE_WEBHOOK_SECRET="whsec_..." \
   APP_URL="https://your-app.vercel.app"
 ```
@@ -111,7 +111,7 @@ The `build-and-test` job in [`.github/workflows/ci.yml`](../../.github/workflows
 |-----------|-----------|-------------|
 | `STRIPE_SECRET_KEY_TEST` | `STRIPE_SECRET_KEY` (and `STRIPE_API_KEY`) | Test-mode Stripe secret key |
 | `STRIPE_PRICE_BASIC_TEST` | `STRIPE_PRICE_BASIC` | Test-mode Basic price ID |
-| `STRIPE_PRICE_PRO_TEST` | `STRIPE_PRICE_PRO` | Test-mode Premium price ID |
+| `STRIPE_PRICE_FISCAL_AGENT_TEST` | `STRIPE_PRICE_FISCAL_AGENT` | Test-mode Premium price ID |
 
 `STRIPE_WEBHOOK_SECRET` is derived at runtime from `stripe listen --print-secret` (the forwarder's signing secret), and `APP_URL` is set to `http://localhost:3000`.
 
@@ -126,7 +126,7 @@ The `build-and-test` job in [`.github/workflows/ci.yml`](../../.github/workflows
 | `VITE_SENTRY_DSN` | `frontend/.env.local` | ✅ optional | — |
 | `STRIPE_SECRET_KEY` | `supabase/.env` | — | ✅ |
 | `STRIPE_PRICE_BASIC` | `supabase/.env` | — | ✅ |
-| `STRIPE_PRICE_PRO` | `supabase/.env` | — | ✅ |
+| `STRIPE_PRICE_FISCAL_AGENT` | `supabase/.env` | — | ✅ |
 | `STRIPE_WEBHOOK_SECRET` | `supabase/.env` | — | ✅ |
 | `STRIPE_BILLING_PORTAL_CONFIGURATION_ID` | `supabase/.env` optional | — | ✅ optional |
 | `APP_URL` | `supabase/.env` | — | ✅ |

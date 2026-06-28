@@ -209,6 +209,6 @@ The `npm run setup` script automatically copies `supabase/.env.example` to `supa
 |----------|----------|-------------|-----------------|
 | `STRIPE_SECRET_KEY` | Yes | Stripe secret API key (looks like `sk_test_...`) | Stripe Dashboard → Developers → API keys |
 | `STRIPE_PRICE_BASIC` | Yes | Price ID for the Basic membership tier | Stripe Dashboard → Products → Basic price ID |
-| `STRIPE_PRICE_PRO` | Yes | Price ID for the Premium membership tier | Stripe Dashboard → Products → Premium price ID |
+| `STRIPE_PRICE_FISCAL_AGENT` | Yes | Price ID for the Premium membership tier | Stripe Dashboard → Products → Premium price ID |
 | `APP_URL` | Yes | Local frontend application URL | Default: `http://localhost:3000` |
 

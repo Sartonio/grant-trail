@@ -16,10 +16,10 @@ Deno.serve(async (request) => {
     const body = await parseJsonBody(request);
     const returnPath = validateReturnPath(body.returnPath);
     const featureKey = validateFeatureKey(body.featureKey, ALLOWED_FEATURE_KEYS, 'admin_membership');
-    const stripePriceId = Deno.env.get('STRIPE_PRICE_PRO');
+    const stripePriceId = Deno.env.get('STRIPE_PRICE_FISCAL_AGENT');
 
     if (!stripePriceId) {
-      throw new Error('Missing STRIPE_PRICE_PRO environment variable.');
+      throw new Error('Missing STRIPE_PRICE_FISCAL_AGENT environment variable.');
     }
 
     await ensurePlatformMembershipProductIds();

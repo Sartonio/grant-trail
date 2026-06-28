@@ -36,8 +36,7 @@ jobs:
             STRIPE_SECRET_KEY="${{ secrets.STRIPE_SECRET_KEY }}" \
             STRIPE_WEBHOOK_SECRET="${{ secrets.STRIPE_WEBHOOK_SECRET }}" \
             STRIPE_PRICE_BASIC="${{ vars.STRIPE_PRICE_BASIC }}" \
-            STRIPE_PRICE_PRO="${{ vars.STRIPE_PRICE_PRO }}" \
-            STRIPE_PRICE_DIRECTORY="${{ vars.STRIPE_PRICE_DIRECTORY }}" \
+            STRIPE_PRICE_FISCAL_AGENT="${{ vars.STRIPE_PRICE_FISCAL_AGENT }}" \
             STRIPE_BILLING_PORTAL_CONFIGURATION_ID="${{ vars.STRIPE_BILLING_PORTAL_CONFIGURATION_ID }}" \
             APP_URL="${{ vars.APP_URL }}" \
             RESEND_API_KEY="${{ secrets.RESEND_API_KEY }}" \
@@ -63,8 +62,7 @@ jobs:
           for fn in \
             create-checkout-session \
             create-basic-membership-checkout-session \
-            create-directory-access-checkout-session \
-            create-fiscal-agent-checkout-session \
+create-fiscal-agent-checkout-session \
             create-billing-portal-session \
             stripe-webhook \
             sync-my-subscription; do

@@ -130,7 +130,7 @@ export async function getOrCreateStripeCustomer(profile: {
 
 export async function ensurePlatformMembershipProductIds() {
   const basicPriceId = Deno.env.get('STRIPE_PRICE_BASIC') ?? '';
-  const premiumPriceId = Deno.env.get('STRIPE_PRICE_PRO') || '';
+  const premiumPriceId = Deno.env.get('STRIPE_PRICE_FISCAL_AGENT') || '';
 
   if (!basicPriceId && !premiumPriceId) {
     return;

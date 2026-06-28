@@ -85,7 +85,7 @@ STRIPE_SECRET_KEY="sk_test_51..."
 
 # Price IDs from your Stripe test-mode Product Catalog
 STRIPE_PRICE_BASIC="price_..."
-STRIPE_PRICE_PRO="price_..."
+STRIPE_PRICE_FISCAL_AGENT="price_..."
 
 # Webhook signing secret — printed by `stripe listen` (see Section 4)
 STRIPE_WEBHOOK_SECRET="whsec_..."
@@ -103,7 +103,7 @@ EMAIL_FROM="onboarding@resend.dev"       # sandbox sender (delivers only to your
 **`STRIPE_SECRET_KEY`**
 Go to [Stripe Dashboard → Developers → API keys](https://dashboard.stripe.com/apikeys). Copy the **Secret key** (`sk_test_...`). Never use a `sk_live_...` key locally.
 
-**`STRIPE_PRICE_BASIC` and `STRIPE_PRICE_PRO`**
+**`STRIPE_PRICE_BASIC` and `STRIPE_PRICE_FISCAL_AGENT`**
 Go to [Stripe Dashboard → Product Catalog](https://dashboard.stripe.com/products). Open each product, click on the price, and copy the **Price ID** (`price_...`). You need one for Basic and one for the Fiscal Agents / Pro plan.
 
 **`STRIPE_WEBHOOK_SECRET`**
@@ -296,7 +296,7 @@ This is the complete list of changes required. Nothing else needs to change in t
 |---|---|---|
 | `STRIPE_SECRET_KEY` | `sk_test_...` | `sk_live_...` from [Stripe Dashboard → Developers → API keys](https://dashboard.stripe.com/apikeys) |
 | `STRIPE_PRICE_BASIC` | your test price ID | **live** price ID from your Stripe product catalog |
-| `STRIPE_PRICE_PRO` | your test price ID | **live** price ID from your Stripe product catalog |
+| `STRIPE_PRICE_FISCAL_AGENT` | your test price ID | **live** price ID from your Stripe product catalog |
 
 > Your live price IDs are different from your test ones. Go to [Stripe Dashboard → Products](https://dashboard.stripe.com/products) — make sure you are **not** in test mode when you copy these.
 
@@ -353,7 +353,7 @@ Run this once after your project exists (or whenever a value changes):
 npx supabase secrets set --project-ref <your-project-ref> \
   STRIPE_SECRET_KEY="sk_live_..." \
   STRIPE_PRICE_BASIC="price_..." \
-  STRIPE_PRICE_PRO="price_..." \
+  STRIPE_PRICE_FISCAL_AGENT="price_..." \
   STRIPE_WEBHOOK_SECRET="whsec_..." \
   APP_URL="https://your-app.vercel.app" \
   RESEND_API_KEY="re_..." \

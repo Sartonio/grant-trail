@@ -80,7 +80,7 @@ Single-row platform-wide configuration managed by the super admin. Provides defa
 | `default_support_email` | VARCHAR(75) | no | `'support@granttrail.org'` | Default support email for all tenants |
 | `default_support_phone` | VARCHAR(20) | no | `'(555) 123-4567'` | Default support phone for all tenants |
 | `basic_membership_product_id` | VARCHAR | yes | `NULL` | Stripe product ID for the Basic tier. Not hard-coded — synced from `STRIPE_PRICE_BASIC` by the Edge Functions, or set by a super admin. |
-| `premium_membership_product_id` | VARCHAR | yes | `NULL` | Stripe product ID for the Premium (Org Admin) tier. Not hard-coded — synced from `STRIPE_PRICE_PRO` by the Edge Functions, or set by a super admin. |
+| `premium_membership_product_id` | VARCHAR | yes | `NULL` | Stripe product ID for the Premium (Org Admin) tier. Not hard-coded — synced from `STRIPE_PRICE_FISCAL_AGENT` by the Edge Functions, or set by a super admin. |
 | `platform_root_slug` | VARCHAR(100) | no | `'tfac'` | Slug of the platform-root (operator) tenant whose admins are membership-exempt. Replaces the previously hard-coded `'tfac'` literal so the platform root is config-driven (GitHub #29, `20260619130000`). Read via `platform_root_slug()`; compared via `is_platform_root_tenant(slug, name)`. Re-point with `UPDATE platform_settings SET platform_root_slug = '<new-slug>' WHERE id = 1`. |
 
 **RLS:** Anyone can read. Only super admins can update.

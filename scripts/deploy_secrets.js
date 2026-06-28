@@ -55,7 +55,7 @@ const WEBHOOK_EVENTS = [
 // schema (same key names, different values); `ci` is secrets-only.
 const STAGES = {
   ci: {
-    secrets: ['STRIPE_SECRET_KEY_TEST', 'STRIPE_PRICE_BASIC_TEST', 'STRIPE_PRICE_PRO_TEST', 'STRIPE_PRICE_DIRECTORY_TEST'],
+    secrets: ['STRIPE_SECRET_KEY_TEST', 'STRIPE_PRICE_BASIC_TEST', 'STRIPE_PRICE_FISCAL_AGENT_TEST'],
     variables: [],
     optional: [],
     autoFetch: false,
@@ -73,8 +73,7 @@ const STAGES = {
     variables: [
       'SUPABASE_PROJECT_REF',
       'STRIPE_PRICE_BASIC',
-      'STRIPE_PRICE_PRO',
-      'STRIPE_PRICE_DIRECTORY',
+      'STRIPE_PRICE_FISCAL_AGENT',
       'STRIPE_BILLING_PORTAL_CONFIGURATION_ID',
       'APP_URL',
       'VITE_SUPABASE_URL',
@@ -275,14 +274,14 @@ function fetchStripeWebhookSecret(vars, fetched) {
 
 // Money-critical: never auto-pick which price is "basic" vs "pro". Just list them.
 function hintStripePrices(vars) {
-  if (vars.STRIPE_PRICE_BASIC && vars.STRIPE_PRICE_PRO) return;
+  if (vars.STRIPE_PRICE_BASIC && vars.STRIPE_PRICE_FISCAL_AGENT) return;
   if (!vars.STRIPE_SECRET_KEY) return;
   const res = run('stripe', ['prices', 'list', '--api-key', vars.STRIPE_SECRET_KEY, '--limit', '100']);
   if (res.status !== 0) return;
   try {
     const prices = (JSON.parse(res.stdout).data || []).filter((p) => p.active);
     if (!prices.length) return;
-    console.log('\nℹ️  Live prices — set STRIPE_PRICE_BASIC / STRIPE_PRICE_PRO to the right ids yourself:');
+    console.log('\nℹ️  Live prices — set STRIPE_PRICE_BASIC / STRIPE_PRICE_FISCAL_AGENT to the right ids yourself:');
     for (const p of prices) {
       const amount = p.unit_amount != null ? `${(p.unit_amount / 100).toFixed(2)} ${p.currency}` : '—';
       console.log(`     ${p.id}  ${amount}  product=${p.product}  ${p.nickname || ''}`);
@@ -441,10 +440,10 @@ function main() {
   // Money-critical: Basic and Pro must be distinct prices. A shared id means one
   // tier is silently billing at the other's rate — refuse rather than deploy it.
   // (Only the staging/production schema carries these keys.)
-  if (vars.STRIPE_PRICE_BASIC && vars.STRIPE_PRICE_PRO &&
-      vars.STRIPE_PRICE_BASIC.trim() === vars.STRIPE_PRICE_PRO.trim()) {
+  if (vars.STRIPE_PRICE_BASIC && vars.STRIPE_PRICE_FISCAL_AGENT &&
+      vars.STRIPE_PRICE_BASIC.trim() === vars.STRIPE_PRICE_FISCAL_AGENT.trim()) {
     console.error(
-      `\n❌ STRIPE_PRICE_BASIC and STRIPE_PRICE_PRO are the same id (${vars.STRIPE_PRICE_BASIC}).\n` +
+      `\n❌ STRIPE_PRICE_BASIC and STRIPE_PRICE_FISCAL_AGENT are the same id (${vars.STRIPE_PRICE_BASIC}).\n` +
       '   Set two distinct Stripe price ids before deploying.'
     );
     process.exitCode = 1;

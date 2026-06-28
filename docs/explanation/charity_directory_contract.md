@@ -8,7 +8,7 @@ naming/shape conflict.
 > **AMENDMENT (post-build, pricing review): folded to 2 SKUs.** The original draft
 > below proposed a separate `fiscal_agent` entitlement for listing ownership. That
 > was dropped: a charity operates as a fiscal agent under the EXISTING **premium**
-> "Fiscal Agents Plan" (`STRIPE_PRICE_PRO`), so listing publish/triage gates on
+> "Fiscal Agents Plan" (`STRIPE_PRICE_FISCAL_AGENT`), so listing publish/triage gates on
 > `has_premium_membership()` (`canOwnListing` = premium), NOT a `fiscal_agent` tier.
 > Only `directory_access` is a NEW SKU. Wherever this doc says `fiscal_agent` /
 > `has_fiscal_agent_access()` / `hasFiscalAgentAccess`, read **premium** /

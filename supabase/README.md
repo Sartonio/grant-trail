@@ -68,14 +68,14 @@ Set these in your linked Supabase project:
 supabase secrets set \
   STRIPE_SECRET_KEY=<your-stripe-secret-key> \
   STRIPE_PRICE_BASIC=<your-basic-stripe-price-id> \
-  STRIPE_PRICE_PRO=<your-premium-stripe-price-id> \
+  STRIPE_PRICE_FISCAL_AGENT=<your-premium-stripe-price-id> \
   STRIPE_BILLING_PORTAL_CONFIGURATION_ID=<optional-portal-config-id> \
   APP_URL=http://localhost:3000
 ```
 
 Notes:
 - Do not set SUPABASE_* secrets for deployed functions. Supabase provides those automatically.
-- STRIPE_PRICE_BASIC and STRIPE_PRICE_PRO must be Stripe Price IDs (price_...), not Product IDs (prod_...).
+- STRIPE_PRICE_BASIC and STRIPE_PRICE_FISCAL_AGENT must be Stripe Price IDs (price_...), not Product IDs (prod_...).
 - STRIPE_BILLING_PORTAL_CONFIGURATION_ID is optional, but recommended if you want to disable upgrades or plan switching in Stripe's customer portal.
 - Use your production app URL for production deploys.
 
@@ -99,7 +99,7 @@ curl -sS -X POST "https://api.supabase.com/v1/projects/${SUPABASE_PROJECT_REF}/s
   -d '[
     {"name":"STRIPE_SECRET_KEY","value":"<your-stripe-secret-key>"},
     {"name":"STRIPE_PRICE_BASIC","value":"<your-basic-stripe-price-id>"},
-    {"name":"STRIPE_PRICE_PRO","value":"<your-premium-stripe-price-id>"},
+    {"name":"STRIPE_PRICE_FISCAL_AGENT","value":"<your-premium-stripe-price-id>"},
     {"name":"STRIPE_BILLING_PORTAL_CONFIGURATION_ID","value":"<optional-portal-config-id>"},
     {"name":"APP_URL","value":"http://localhost:3000"}
   ]'
@@ -155,7 +155,7 @@ SUPABASE_ANON_KEY=<your-anon-key>
 SUPABASE_SERVICE_ROLE_KEY=<your-service-role-key>
 STRIPE_SECRET_KEY=<your-stripe-secret-key>
 STRIPE_PRICE_BASIC=<your-basic-price-id>
-STRIPE_PRICE_PRO=<your-premium-price-id>
+STRIPE_PRICE_FISCAL_AGENT=<your-premium-price-id>
 APP_URL=http://localhost:3000
 ```
 
