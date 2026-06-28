@@ -31,9 +31,10 @@ entirely** — including all the DNS work.
 
 1. **Supabase project** — [supabase.com](https://supabase.com) → New project. Note the
    **project ref**; mint an access token (Account → Access Tokens).
-2. **Stripe (live) products + prices** — in the Stripe **live** dashboard create Basic,
-   Premium / Fiscal Agent, and Directory products, each with a recurring price. Copy the
-   live `price_…` ids (**you** decide which id is which tier — a wrong map = wrong charge).
+2. **Stripe (live) products + prices** — in the Stripe **live** dashboard create the
+   **Basic** and **Premium** ("Fiscal Agents Plan") products, each with a recurring price.
+   Copy the live `price_…` ids (**you** decide which id is which tier — a wrong map = wrong
+   charge). *(There is no separate directory price: directory viewing is folded into Basic.)*
 3. **Resend sending domain (email DNS)** — verify your domain in Resend so receipts can
    deliver to any customer. Full step-by-step incl. the DNS records is in
    [`EMAIL-DNS-SETUP.md`](../../EMAIL-DNS-SETUP.md). This is the only step with external
