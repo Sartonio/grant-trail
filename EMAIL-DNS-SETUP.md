@@ -1,8 +1,9 @@
 # GrantTrail — Email DNS Setup (Resend + GoDaddy)
 
-> **Temporary working doc.** One-time DNS task to let GrantTrail send payment-receipt
-> emails from a verified domain. Delete once `send.atkasolutions.org` is verified in
-> Resend and the prod `SMTP_FROM` is switched over.
+> **One-time owner task** (not part of routine developer deploys). DNS work to let
+> GrantTrail send payment-receipt emails from a verified domain. A developer given
+> access to an already-verified Resend account skips this entirely. Delete this doc
+> once `send.atkasolutions.org` is verified in Resend and `EMAIL_FROM` is set.
 
 **Goal:** verify `send.atkasolutions.org` in Resend so receipts can be sent to *any*
 customer (not just the Resend account owner's address). Uses a `send.` subdomain so
@@ -56,5 +57,5 @@ RESEND_API_KEY=<resend api key>                          # secret
 EMAIL_FROM=GrantTrail <receipts@send.atkasolutions.org>  # variable
 ```
 
-Both must be set in the prod secrets/variables (see `docs/PROD-EMAIL-RUNBOOK.md` §1),
+Both must be set in the prod secrets/variables (see `docs/how_to/prod_setup.md` → "Turning on email"),
 not just locally. `EMAIL_FROM` must be on the domain verified above.

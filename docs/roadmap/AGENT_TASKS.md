@@ -48,7 +48,7 @@ All testing should validate the core flows documented in the walkthroughs:
 **Testing & Quality**
 
 - [ ]  🤖 Gap analysis vs. the WS2 role matrix; list uncovered flows *(AI Active)*
-- [ ]  🟢 **Email send test (SMTP)** — with `SMTP_*` set, drive a test-mode `checkout.session.completed` and confirm `sendPaymentConfirmationEmail` delivers a receipt via the cPanel SMTP relay. Cover: `From` accepted by the relay (must match the authenticated mailbox), port/TLS match (465 implicit vs 587 STARTTLS), and the disabled-without-creds no-op path. See the Subscription/email section of `TEST-CHECKLIST.md`.
+- [x]  🟢 **Email send test** — done. `email-resilience.test.sh` proves failure-isolation (Resend unreachable → webhook still 200, sub synced, one `payment_confirmation_email_failure` row, no worker crash) and the disabled-without-creds no-op path. Email sends via the Resend HTTP API.
 
 ---
 
@@ -61,7 +61,7 @@ All testing should validate the core flows documented in the walkthroughs:
 - [ ]  🟠 Verify PITR is on; document restore runbook; do one **test restore** to a scratch project (#17 — #1 risk)
 - [ ]  🟠 Branch protection: require CI + Supabase status check before merge to `main` (#8)
 - [ ]  🟠 **Upgrade Supabase & test 1,000+ users** — scale validation; k6 script in `tests/load/k6-load-test.js` (needs paid tier)
-- [ ]  🟠 **Finalize email API keys** — fill the `SMTP_*` block (host/port/user/pass/from) in `.deploy/production.env` (and `.deploy/staging.env`) and push with `npm run deploy:secrets` / `:staging`. cPanel SMTP is already provisioned; just needs the live creds wired into the GitHub environments and forwarded to Supabase by `deploy.yml`.
+- [ ]  🟠 **Finalize email keys** — verify the Resend sending domain (`EMAIL-DNS-SETUP.md`), then set `RESEND_API_KEY` (secret) + `EMAIL_FROM` (variable) in the GitHub `production` environment (`npm run deploy:secrets`, forwarded to Supabase by `deploy.yml`). Email is deploy-optional, so prod can stand up first; see `docs/how_to/prod_setup.md` → "Turning on email".
 
 **Prod/staging cutover (Ryan)** — sequential:
 
