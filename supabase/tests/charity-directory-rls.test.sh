@@ -216,6 +216,18 @@ assert_eq "(e) super_admin reads ALL 3 full listings" "3" "$(scalar "$out")"
 out=$(psql_as "$SUPER_TFAC" "" "SELECT email FROM fiscal_agent_listings WHERE id=3;")
 assert_contains "(e) super_admin CAN see contact email" "intake@northwindfund.org" "$out"
 
+# (f) a PREMIUM subscriber who is NOT a listing owner ALSO reads full rows. The
+# directory SELECT clause is has_basic_membership(), which returns true for the
+# premium tier as well (tier IN ('basic','premium')) — so spec item (b)'s
+# "basic/premium subscriber" is satisfied for premium too. user 7 owns no listing,
+# isolating the premium-via-basic path from the owner clause.
+out=$(psql_as "$GRANTEE_BRIGHT2" "$(m_fa $UID7)" "SELECT has_basic_membership();")
+assert_eq "(f) has_basic_membership() true for premium tier (premium ⊇ basic)" "t" "$(boolean "$out")"
+out=$(psql_as "$GRANTEE_BRIGHT2" "$(m_fa $UID7)" "SELECT count(*) FROM fiscal_agent_listings;")
+assert_eq "(f) premium (non-owner) subscriber reads ALL 3 full listings" "3" "$(scalar "$out")"
+out=$(psql_as "$GRANTEE_BRIGHT2" "$(m_fa $UID7)" "SELECT email FROM fiscal_agent_listings WHERE id=1;")
+assert_contains "(f) premium (non-owner) subscriber CAN see contact email" "partnerships@cedarroots.org" "$out"
+
 # ============================================================================
 # ITEM 3 — Inquiry INSERT gating
 # ============================================================================
@@ -353,6 +365,28 @@ out=$(psql_as "$GRANTEE_BRIGHT" "$(m_fa $UID6)" "
   VALUES (2, $UID6, 'SelfVerify2', 'published', 'verified', true);
   SELECT count(*) FROM fiscal_agent_listings_public WHERE name='SelfVerify2';")
 assert_eq "(4g) self-'verified' INSERT does NOT appear in public directory" "0" "$(scalar "$out")"
+
+# (4h) SECURITY (review finding #1, UPDATE path): the moderation guard must ALSO
+# block self-verification via UPDATE, not just INSERT. The guard's UPDATE branch
+# force-restores OLD.verification/OLD.verified for non-staff, so even though the
+# owner UPDATE policy lets a premium owner edit their own still-unverified draft
+# (listing 2 = pending/false in seed), an attempt to flip the moderation columns is
+# silently reverted. Without this the owner could self-grant the verified badge.
+out=$(psql_as "$ADMIN_BRIGHT" "$(m_fa $UID8)" "
+  UPDATE fiscal_agent_listings SET verification='verified', verified=true WHERE id=2;
+  SELECT verification||'/'||verified FROM fiscal_agent_listings WHERE id=2;")
+assert_contains "(4h) owner self-verify via UPDATE is reverted to pending/unverified" "pending/f" "$out"
+
+# (4i) self-PUBLISH is intentionally allowed (the owner controls go-live) but is
+# INERT without staff verification: an owner publishing their still-unverified
+# listing 2 does NOT surface it in the public teaser, which keys on
+# status='published' AND verification='verified'. This is the "blocks self-publish"
+# property at the visibility layer — the two-key model means an owner acting alone
+# can never push a row into the public verified directory.
+out=$(psql_as "$ADMIN_BRIGHT" "$(m_fa $UID8)" "
+  UPDATE fiscal_agent_listings SET status='published' WHERE id=2;
+  SELECT count(*) FROM fiscal_agent_listings_public WHERE id=2;")
+assert_eq "(4i) owner self-publish (unverified) does NOT surface in public teaser" "0" "$(scalar "$out")"
 
 # ============================================================================
 # ITEM 5 — Inquiry SELECT scoping (owner sees only own listings' inquiries)
