@@ -38,29 +38,12 @@ is **staging**. Full steps: `prod_setup.md`.
 
 ---
 
-## 3. Charity directory — decisions & full review (do later)
+## 3. Charity directory — functionality audit (do later)
 
-> Post-build review of the charity / fiscal-agent feature. **Biggest risk:** a 3-iteration
-> pricing churn (separate `directory_access` + `fiscal_agent` → fold `fiscal_agent` into
-> `premium` → fold `directory_access` into `basic`), which left stale references — now cleaned up (B1).
+> Verify the charity / fiscal-agent feature still holds; not all known-broken.
 > Grounded in: migration `supabase/migrations/20260624120000_charity_directory.sql`,
 > `_shared/stripe.ts`, `create-fiscal-agent-checkout-session/`, `FiscalAgent*` components,
 > `frontend/src/lib/{billing,policy}.js`, `docs/explanation/charity_directory_contract.md`.
-
-### PM decisions (A1–A3, standing model) — recommended calls; override before implementing
-
-> A4–A8 are shipped; only the foundational decisions are kept here for reference.
-
-- **A1. Pricing = exactly 2 SKUs.** **Decision:** Lock **basic** (app + directory *viewing*) +
-  **premium** ("Fiscal Agents Plan", listing *ownership*); `directory_access`/`fiscal_agent`
-  are not tiers. **Why:** simpler pricing/billing/support; leftovers only cause bugs (→ B1).
-- **A2. Two journeys; no third path.** **Decision:** ship only seeker (subscribe-to-view) and
-  charity (pay-first-to-list). **Why:** they map 1:1 to the two SKUs; more entry points multiply edge cases.
-- **A3. Platform is sole verifier; strict gate.** **Decision:** super_admin verifies; charities
-  edit drafts + request publish; public only when `published AND verified`. **Why:** trust is the
-  whole value of a money-handling directory; self-publish would gut it.
-
-### Functionality audit (B3–B9) — verify; not all known-broken
 
 - **B3. Pay-first provisioning robustness** (`provisionFiscalAgentFromCheckout` + webhook): duplicate-event
   idempotency, partial-failure behavior (re-raise vs email isolated), existing account w/ same billing
@@ -77,6 +60,3 @@ is **staging**. Full steps: `prod_setup.md`.
   status/verification CHECKs; `updated_at` upkeep.
 - **B9. Tests/seed/CI:** `charity-directory-rls.test.sh` wired into CI; `seed.sql` has the contract's
   test rows (published+verified, draft, unverified, inquiries); seed stays local-only.
-
-### Suggested order
-Work the B3–B9 audit (mostly verifiable in-repo), then re-confirm the A1–A3 decisions still hold.
