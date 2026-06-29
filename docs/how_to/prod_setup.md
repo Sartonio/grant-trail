@@ -5,7 +5,9 @@ You fill it once, run `npm run deploy:secrets`, and every value lands in the Git
 `production` environment. The *Deploy to Production* workflow is the only thing that
 reads that environment — each run sets the Supabase secrets, injects the Vite build
 vars, applies migrations, deploys edge functions, and deploys the frontend. **You never
-set variables by hand in the GitHub, Vercel, or Supabase dashboards.**
+set variables by hand in the GitHub, Vercel, or Supabase dashboards** — with one
+exception: the public Vite vars on Vercel's **preview** environment (Part A step 6),
+which the workflow can't reach.
 
 ```
 .deploy/production.env ──(npm run deploy:secrets)──▶ GitHub `production` env
@@ -33,8 +35,7 @@ entirely** — including all the DNS work.
    **project ref**; mint an access token (Account → Access Tokens).
 2. **Stripe (live) products + prices** — in the Stripe **live** dashboard create the
    **Basic** and **Premium** ("Fiscal Agents Plan") products, each with a recurring price.
-   Copy the live `price_…` ids (**you** decide which id is which tier — a wrong map = wrong
-   charge). *(There is no separate directory price: directory viewing is folded into Basic.)*
+   Copy the live `price_…` ids
 3. **Resend sending domain (email DNS)** — verify your domain in Resend so receipts can
    deliver to any customer. Full step-by-step incl. the DNS records is in
    [`EMAIL-DNS-SETUP.md`](../../EMAIL-DNS-SETUP.md). This is the only step with external
@@ -47,6 +48,31 @@ entirely** — including all the DNS work.
 5. **(Recommended, once)** Add a **required reviewer** to the `production` environment
    (Settings → Environments → production) so prod deploys pause for approval. The script
    can't set reviewers via the API.
+6. **Vercel preview env vars (one-time).** The `Vercel – grant-trail` /
+   `grant-trail-staging` checks on a PR are Vercel's **Git-integration preview builds** —
+   they build on Vercel's own infra and do **not** run through *Deploy to Production*, so
+   they can't read the GitHub `production`/`staging` env. The frontend's `prebuild` guard
+   (`frontend/scripts/check-env.mjs`) then fails the build with *"Missing required
+   environment variable(s): VITE_SUPABASE_URL, VITE_SUPABASE_KEY"*. Set those two **public**
+   client vars once per Vercel project so preview builds pass — both are safe to store
+   (the publishable/anon key is inlined into the browser bundle either way):
+
+   ```bash
+   # repeat for each project: grant-trail, grant-trail-staging
+   npx vercel link --project grant-trail
+   for scope in preview production; do
+     printf '%s' "https://<project-ref>.supabase.co" \
+       | npx vercel env add VITE_SUPABASE_URL "$scope" --token="$VERCEL_TOKEN"
+     printf '%s' "sb_publishable_…" \
+       | npx vercel env add VITE_SUPABASE_KEY "$scope" --token="$VERCEL_TOKEN"
+   done
+   ```
+
+   `<project-ref>` is the Supabase project ref; the publishable key is in **Supabase →
+   Project Settings → API**. Equivalent to typing them into **Vercel → Settings →
+   Environment Variables** (Preview + Production) by hand. The prod/staging *workflow*
+   deploys still inject their own copies from the GitHub env (`deploy.yml`), so this only
+   affects the Git-integration preview builds.
 
 > **Reusing an existing Supabase project as prod?** Clear it first so migrations apply
 > onto a clean schema — see [Clearing the database](#clearing-the-database).
