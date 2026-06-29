@@ -3,8 +3,6 @@
 .vscode/
 .env.local
 .deploy/
-frontend/playwright-report/
-frontend/test-results/
 bin/
 .claude/
 .vercel
@@ -12,3 +10,10 @@ bin/
 # Incidental local-tooling artifacts (repo app deps live under frontend/)
 /node_modules/
 /deno.lock
+
+# Keep env templates tracked despite .env* above (e.g. supabase/functions/.env.example)
+!.env.example
+
+# Playwright (frontend e2e artifacts)
+/frontend/playwright-report/
+/frontend/test-results/

@@ -59,7 +59,3 @@ Desktop.ini
 *.tmp
 *.temp
 temp/
-
-# Playwright
-/playwright-report/
-/test-results/
