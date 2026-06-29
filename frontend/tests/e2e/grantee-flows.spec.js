@@ -45,7 +45,7 @@ test.describe('Grantee detail, attachments & exports', () => {
       user_id: ctx.userId,
       stripe_customer_id: `cus_${ts}`,
       stripe_subscription_id: `sub_${ts}`,
-      stripe_product_id: 'prod_UKEACUGjIeg3MU',
+      stripe_product_id: 'prod_UPriYIVgR8sgXz',
       stripe_price_id: `price_${ts}`,
       membership_tier: 'basic',
       status: 'active',

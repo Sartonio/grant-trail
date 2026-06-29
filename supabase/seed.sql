@@ -452,20 +452,20 @@ INSERT INTO billing_customers (user_id, stripe_customer_id) VALUES
 -- longer hard-codes them, so seed data must set them before inserting
 -- subscriptions (the enforce_subscription_tier_product_match trigger checks them).
 UPDATE platform_settings
-SET basic_membership_product_id = 'prod_UKEACUGjIeg3MU',
-    premium_membership_product_id = 'prod_UDClBMtvFLKyNW'
+SET basic_membership_product_id = 'prod_UPriYIVgR8sgXz',
+    premium_membership_product_id = 'prod_UPriKcjudCymTU'
 WHERE id = 1;
 
 -- Seeding Stripe subscriptions for mock users
 INSERT INTO subscriptions (user_id, stripe_customer_id, stripe_subscription_id, stripe_product_id, stripe_price_id, membership_tier, status, current_period_end) VALUES
-  ((SELECT id FROM users WHERE email = 'maria.smith@example.com'), 'cus_maria123', 'sub_maria123', 'prod_UKEACUGjIeg3MU', 'price_maria123', 'basic', 'active', now() + interval '1 year'),
-  ((SELECT id FROM users WHERE email = 'jacob.soto@example.com'), 'cus_jacob123', 'sub_jacob123', 'prod_UKEACUGjIeg3MU', 'price_jacob123', 'basic', 'active', now() + interval '1 year'),
-  ((SELECT id FROM users WHERE email = 'faizan.sharp@example.com'), 'cus_faizan123', 'sub_faizan123', 'prod_UKEACUGjIeg3MU', 'price_faizan123', 'basic', 'active', now() + interval '1 year'),
-  ((SELECT id FROM users WHERE email = 'priya.sharma@example.com'), 'cus_priya123', 'sub_priya123', 'prod_UKEACUGjIeg3MU', 'price_priya123', 'basic', 'active', now() + interval '1 year'),
-  ((SELECT id FROM users WHERE email = 'david.chen@example.com'), 'cus_david123', 'sub_david123', 'prod_UKEACUGjIeg3MU', 'price_david123', 'basic', 'active', now() + interval '1 year'),
-  ((SELECT id FROM users WHERE email = 'carlos.lopez@example.com'), 'cus_carlos123', 'sub_carlos123', 'prod_UKEACUGjIeg3MU', 'price_carlos123', 'basic', 'active', now() + interval '1 year'),
-  ((SELECT id FROM users WHERE email = 'nadia.park@example.com'), 'cus_nadia123', 'sub_nadia123', 'prod_UKEACUGjIeg3MU', 'price_nadia123', 'basic', 'active', now() + interval '1 year'),
-  ((SELECT id FROM users WHERE email = 'amara.okafor@example.com'), 'cus_amara123', 'sub_amara123', 'prod_UDClBMtvFLKyNW', 'price_amara123', 'premium', 'active', now() + interval '1 year');
+  ((SELECT id FROM users WHERE email = 'maria.smith@example.com'), 'cus_maria123', 'sub_maria123', 'prod_UPriYIVgR8sgXz', 'price_maria123', 'basic', 'active', now() + interval '1 year'),
+  ((SELECT id FROM users WHERE email = 'jacob.soto@example.com'), 'cus_jacob123', 'sub_jacob123', 'prod_UPriYIVgR8sgXz', 'price_jacob123', 'basic', 'active', now() + interval '1 year'),
+  ((SELECT id FROM users WHERE email = 'faizan.sharp@example.com'), 'cus_faizan123', 'sub_faizan123', 'prod_UPriYIVgR8sgXz', 'price_faizan123', 'basic', 'active', now() + interval '1 year'),
+  ((SELECT id FROM users WHERE email = 'priya.sharma@example.com'), 'cus_priya123', 'sub_priya123', 'prod_UPriYIVgR8sgXz', 'price_priya123', 'basic', 'active', now() + interval '1 year'),
+  ((SELECT id FROM users WHERE email = 'david.chen@example.com'), 'cus_david123', 'sub_david123', 'prod_UPriYIVgR8sgXz', 'price_david123', 'basic', 'active', now() + interval '1 year'),
+  ((SELECT id FROM users WHERE email = 'carlos.lopez@example.com'), 'cus_carlos123', 'sub_carlos123', 'prod_UPriYIVgR8sgXz', 'price_carlos123', 'basic', 'active', now() + interval '1 year'),
+  ((SELECT id FROM users WHERE email = 'nadia.park@example.com'), 'cus_nadia123', 'sub_nadia123', 'prod_UPriYIVgR8sgXz', 'price_nadia123', 'basic', 'active', now() + interval '1 year'),
+  ((SELECT id FROM users WHERE email = 'amara.okafor@example.com'), 'cus_amara123', 'sub_amara123', 'prod_UPriKcjudCymTU', 'price_amara123', 'premium', 'active', now() + interval '1 year');
 
 -- Seeding active memberships for mock users
 INSERT INTO user_memberships (user_id, subscription_id, membership_tier, is_active, source, starts_at) VALUES
