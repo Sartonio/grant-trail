@@ -146,7 +146,7 @@ function App() {
   // resolves them inline against the same centralized policy (lib/policy.js).
   function resolveRootElement() {
     if (needsProfile) return <Navigate to="/complete-profile" />;
-    if (!session) return <LandingPage />;
+    if (!session) return <LandingPage session={session} />;
     if (session.userRecord?.role === ROLES.SUPER_ADMIN) return <Navigate to="/super/tenants" />;
     // Authenticated-but-unpaid (non-super) -> upgrade landing (the billing nudge target).
     if (needsSubscription(session)) return <Navigate to={GRANTEE_BILLING_REDIRECT} />;
@@ -306,7 +306,7 @@ function App() {
           } />
           <Route path="/admin/grants" element={
             <Guard session={session} requireRole={ROLES.ADMIN} roleRedirect="/" billingMode="readOnly">
-              <AdminGrantList session={session} />
+              <AdminGrantList />
             </Guard>
           } />
           <Route path="/admin/grants/:id" element={
@@ -316,7 +316,7 @@ function App() {
           } />
           <Route path="/admin/audit" element={
             <Guard session={session} requireRole={ROLES.ADMIN} roleRedirect="/" billingMode="readOnly">
-              <AdminAuditLog session={session} />
+              <AdminAuditLog />
             </Guard>
           } />
           <Route path="/admin/users" element={

@@ -67,7 +67,7 @@ export function NewBadge() {
   return <span className="fad-badge fad-badge-new">New</span>;
 }
 
-export function Field({ label, children, required }) {
+export function Field({ label, children, required = false }) {
   return (
     <label className="fad-field">
       <span className="fad-field-label">

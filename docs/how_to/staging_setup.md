@@ -28,6 +28,7 @@ differences are below. Background: [Deploy Architecture](../explanation/deploy_a
      --api-key sk_test_… \
      --url https://<staging-ref>.supabase.co/functions/v1/stripe-webhook \
      --enabled-events checkout.session.completed \
+     --enabled-events customer.subscription.created \
      --enabled-events customer.subscription.updated \
      --enabled-events customer.subscription.deleted
    ```

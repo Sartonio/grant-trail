@@ -46,7 +46,7 @@ function Main({ session }) {
       // Fetch all grants for stats in one query
       const { data: allGrants } = await supabase
         .from("grant_record")
-        .select("status, grant_amount, disbursed_funds, total_spent")
+        .select("id, status, grant_amount, disbursed_funds, total_spent")
         .eq("user_id", userId);
 
       const totalGrants  = allGrants?.length ?? 0;
@@ -94,7 +94,7 @@ function Main({ session }) {
       // First day of the tax month (this year or next year)
       let taxDate = new Date(year, taxMonth - 1, 1);
       if (taxDate < now) taxDate = new Date(year + 1, taxMonth - 1, 1);
-      const daysUntil = Math.ceil((taxDate - now) / (1000 * 60 * 60 * 24));
+      const daysUntil = Math.ceil((taxDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
       if (daysUntil <= 30) {
         const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
         setTaxMonthName(monthNames[taxMonth - 1]);
@@ -309,7 +309,7 @@ function Main({ session }) {
   );
 }
 
-function StatCard({ title, value, icon, accentColor, linkTo, dimWhenZero }) {
+function StatCard({ title, value, icon, accentColor, linkTo = undefined, dimWhenZero = false }) {
   const isMonetary = title === "Total Funding" || title === "Total Spent" || title === "Spent";
   const displayValue = isMonetary ? `$${(value ?? 0).toLocaleString()}` : value ?? 0;
   const dimmed = dimWhenZero && !value;

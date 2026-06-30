@@ -480,7 +480,6 @@ function GrantBreakdown({ session }) {
           budgetItem={budgetItems.find(bi => bi.id === activeBudgetItemId)}
           grantStartDate={grant.start_spend_period}
           grantEndDate={grant.end_spend_period}
-          existingItems={expenses.filter(e => e.budget_item_id === activeBudgetItemId)}
           expenseItem={editingExpense}
           existingReceipt={editingExpense ? (receiptMap[editingExpense.id] || null) : null}
           onClose={() => {

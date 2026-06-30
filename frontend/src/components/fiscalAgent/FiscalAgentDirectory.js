@@ -532,14 +532,15 @@ export default function FiscalAgentDirectory({ session }) {
         ) : (
           <section className={`fad-grid ${!subscribed ? 'is-gated' : ''}`} aria-hidden={!subscribed}>
             {visible.map((a) => (
-              <AgentCard
-                key={a.id}
-                agent={a}
-                saved={saved.has(a.id)}
-                onToggleSave={toggleSave}
-                onOpen={setProfileAgent}
-                onContact={setApplyAgent}
-              />
+              <React.Fragment key={a.id}>
+                <AgentCard
+                  agent={a}
+                  saved={saved.has(a.id)}
+                  onToggleSave={toggleSave}
+                  onOpen={setProfileAgent}
+                  onContact={setApplyAgent}
+                />
+              </React.Fragment>
             ))}
           </section>
         )}

@@ -16,19 +16,10 @@
     "noImplicitAny": false,
     "types": ["vite/client"]
   },
-  "//": "Enforced scope: the load-bearing access-control/data/hooks closure, plus",
-  "// ": "src/utils (pure, fully-typed) and a handful of clean leaf components. The",
-  "//  ": "rest of src is excluded until annotated — ratchet the include list outward",
-  "//   ": "as files are cleaned up. TODO(types): widen.",
-  "include": [
-    "src/lib/**/*.js",
-    "src/hooks/**/*.js",
-    "src/utils/**/*.js",
-    "src/supabaseClient.js",
-    "src/components/common/StatusBadge.js",
-    "src/components/common/ReadOnlyBanner.js",
-    "src/components/layout/Footer.js",
-    "src/components/layout/NotificationBell.js"
-  ],
+  "//": "Enforced scope: the whole of src, type-clean as of 2026-06-30. Includes",
+  "// ": "src/types/*.d.ts (the react-icons className/style augmentation — must stay",
+  "//  ": "in the program for the augmentation to take effect). Any new file must be",
+  "//   ": "added type-clean; don't widen `any`/ts-ignore your way past a real error.",
+  "include": ["src/**/*.js", "src/types/**/*.d.ts"],
   "exclude": ["node_modules", "dist", "tests", "**/*.test.js"]
 }

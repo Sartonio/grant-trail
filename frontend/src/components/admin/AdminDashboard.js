@@ -64,7 +64,7 @@ function AdminDashboard({ session, readOnly = false }) {
         // Pending review queue: pending + needs_changes, oldest first, up to 5
         const reviewQueue = grants
           .filter(g => g.status === 'pending' || g.status === 'needs_changes')
-          .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+          .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
           .slice(0, 5);
 
         setQueue(reviewQueue);
@@ -74,8 +74,14 @@ function AdminDashboard({ session, readOnly = false }) {
         grants.forEach(g => {
           const key = g.user_id;
           if (!granteeMap[key]) {
+            // Forward FK embed (grant_record.user_id -> users) is always a single row at
+            // runtime; the generated type widens it to an array since the column isn't
+            // unique on the other side, so narrow it back here.
+            const granteeUser = /** @type {{ firstname: any; lastname: any; organization_name: any }} */ (
+              /** @type {unknown} */ (g.users)
+            );
             granteeMap[key] = {
-              name: g.users?.organization_name || `${g.users?.firstname} ${g.users?.lastname}`,
+              name: granteeUser?.organization_name || `${granteeUser?.firstname} ${granteeUser?.lastname}`,
               Funding: 0,
             };
           }

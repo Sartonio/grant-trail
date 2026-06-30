@@ -107,7 +107,7 @@ function AdminGrantList({ readOnly = false }) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const end = new Date(endDateStr + 'T00:00:00');
-    const days = Math.round((end - today) / 86400000);
+    const days = Math.round((end.getTime() - today.getTime()) / 86400000);
     if (days < 0)  return { display: 'Expired', cls: 'expired' };
     if (days === 0) return { display: 'Last day!', cls: 'warning' };
     if (days < 30)  return { display: `${days}d left`, cls: 'warning' };

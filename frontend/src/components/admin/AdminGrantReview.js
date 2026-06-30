@@ -101,7 +101,7 @@ function AdminGrantReview({ session, readOnly = false }) {
         approval_notes: notes.trim() || null,
       };
 
-      const { error: updateErr } = await updateGrant(id, updates);
+      const { error: updateErr } = await updateGrant(Number(id), updates);
       if (updateErr) throw updateErr;
       // Note: grant_status_history is written automatically by the DB trigger
       // trg_grant_status_tracking when grant_record.status changes.
@@ -149,7 +149,7 @@ function AdminGrantReview({ session, readOnly = false }) {
     setDisbursedSuccess('');
     try {
       const value = disbursedInput === '' ? null : parseFloat(disbursedInput);
-      const { error: updateErr } = await updateGrant(id, { disbursed_funds: value });
+      const { error: updateErr } = await updateGrant(Number(id), { disbursed_funds: value });
       if (updateErr) throw updateErr;
       setDisbursedSuccess('Disbursed funds updated.');
       await reload(true);

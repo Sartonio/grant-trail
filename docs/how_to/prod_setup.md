@@ -44,6 +44,7 @@ entirely** — including all the DNS work.
      --api-key sk_live_… \
      --url https://<project-ref>.supabase.co/functions/v1/stripe-webhook \
      --enabled-events checkout.session.completed \
+     --enabled-events customer.subscription.created \
      --enabled-events customer.subscription.updated \
      --enabled-events customer.subscription.deleted
    ```

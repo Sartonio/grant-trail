@@ -20,6 +20,7 @@
 /** @typedef {import('./types').Session} Session */
 /** @typedef {import('./types').Role} Role */
 
+/** @type {{ SUPER_ADMIN: Role, ADMIN: Role, GRANTEE: Role }} */
 export const ROLES = {
   SUPER_ADMIN: 'super_admin',
   ADMIN: 'admin',

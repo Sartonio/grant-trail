@@ -62,7 +62,7 @@ const STEPS = ['Project', 'Contact', 'Review'];
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-function Field({ label, children, required }) {
+function Field({ label, children, required = false }) {
   return (
     <label className="fad-field">
       <span className="fad-field-label">

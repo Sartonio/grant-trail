@@ -33,7 +33,7 @@ function GrantDetail({ session }) {
     async function fetchData() {
       setLoading(true);
 
-      const { data: grantData, error: grantError } = await getGrant(id);
+      const { data: grantData, error: grantError } = await getGrant(Number(id));
 
       if (grantError || !grantData) {
         setError('Grant not found.');
