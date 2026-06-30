@@ -66,16 +66,25 @@ jobs:
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: |
-          for fn in \
-            create-checkout-session \
-            create-basic-membership-checkout-session \
-            create-fiscal-agent-checkout-session \
-            create-billing-portal-session \
-            stripe-webhook \
-            sync-my-subscription \
-            notify-inquiry; do
-            supabase functions deploy "$fn" \
-              --project-ref "${{ vars.SUPABASE_PROJECT_REF }}"
+          REF="${{ vars.SUPABASE_PROJECT_REF }}"
+          # Repo is the source of truth: deploy every function dir (one with an
+          # index.ts; this skips _shared and tests), then prune any remote
+          # function that no longer exists in the repo.
+          local_fns=""
+          for dir in supabase/functions/*/; do
+            [ -f "${dir}index.ts" ] || continue
+            fn="$(basename "$dir")"
+            local_fns="${local_fns} ${fn}"
+            supabase functions deploy "$fn" --project-ref "$REF"
+          done
+          # Prune remote-only functions. jq is preinstalled on ubuntu runners.
+          supabase functions list --project-ref "$REF" -o json | jq -r '.[].slug' | \
+          while read -r slug; do
+            case " ${local_fns} " in
+              *" ${slug} "*) ;;  # still in the repo — keep
+              *) echo "Pruning remote-only function: ${slug}";
+                 supabase functions delete "$slug" --project-ref "$REF" ;;
+            esac
           done
 
       - name: Set up Node.js
