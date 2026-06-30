@@ -7,8 +7,7 @@ export const listBudgetItems = (grantId) =>
   supabase.from('budget_items').select('*').eq('grant_id', grantId).order('id');
 
 /** @param {number} id */
-export const deleteBudgetItem = (id) =>
-  supabase.from('budget_items').delete().eq('id', id);
+export const deleteBudgetItem = (id) => supabase.from('budget_items').delete().eq('id', id);
 
 // Approve/reject a budget item. Throws on a zero-row update (RLS dropped it),
 // preserving the inline error message. When a budget item is rejected, its
@@ -21,7 +20,10 @@ export const deleteBudgetItem = (id) =>
  */
 export async function setBudgetItemStatus(id, status) {
   const { data, error } = await supabase
-    .from('budget_items').update({ status }).eq('id', id).select();
+    .from('budget_items')
+    .update({ status })
+    .eq('id', id)
+    .select();
   if (error) throw error;
   if (!data || data.length === 0) {
     throw new Error('Update was not applied — check RLS policies for budget_items.');

@@ -39,7 +39,7 @@ describe('setBudgetItemStatus', () => {
   it('throws the RLS message when no rows are updated', async () => {
     calls.results.budget_items = { data: [], error: null };
     await expect(setBudgetItemStatus(1, 'approved')).rejects.toThrow(
-      /check RLS policies for budget_items/,
+      /check RLS policies for budget_items/
     );
   });
 });

@@ -1,0 +1,8 @@
+node_modules
+dist
+build
+coverage
+playwright-report
+test-results
+src/lib/database.types.ts
+*.min.js

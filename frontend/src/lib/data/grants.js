@@ -6,8 +6,7 @@ import { supabase } from '../../supabaseClient';
 /** @typedef {import('../types').GrantUpdate} GrantUpdate */
 
 /** @param {number} id */
-export const getGrant = (id) =>
-  supabase.from('grant_record').select('*').eq('id', id).single();
+export const getGrant = (id) => supabase.from('grant_record').select('*').eq('id', id).single();
 
 /**
  * @param {number} id
