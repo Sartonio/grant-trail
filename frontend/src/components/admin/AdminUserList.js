@@ -19,6 +19,7 @@ function AdminUserList({ session, readOnly = false }) {
   const [search,         setSearch]         = useState('');
   const [confirmRole,    setConfirmRole]    = useState(null); // user.id pending role confirm
   const [confirmDisable, setConfirmDisable] = useState(null); // user.id pending enable/disable confirm
+  const [confirmWaive,   setConfirmWaive]   = useState(null); // { uid, action: 'waive'|'remove' }
   const [saving,         setSaving]         = useState(null); // user.id currently being saved
   const [memberships,    setMemberships]    = useState({});   // user.id → membership row
 
@@ -505,11 +506,35 @@ function AdminUserList({ session, readOnly = false }) {
 
                           {/* Waive/Remove subscription requirement */}
                           {(u.role === 'grantee' || (u.role === 'admin' && !isTfacTenant)) && (
-                            memberships[u.id]?.source === 'manual' ? (
+                            confirmWaive?.uid === u.id ? (
+                              <span className="user-confirm-group">
+                                <span className="user-confirm-label">
+                                  {confirmWaive.action === 'remove'
+                                    ? `Remove subscription waiver for ${u.firstname} ${u.lastname}? This will cut off their access if they have no active subscription.`
+                                    : `Waive subscription for ${u.firstname} ${u.lastname}? They will get full access without a paid subscription.`}
+                                </span>
+                                <button
+                                  className="user-action-btn confirm"
+                                  disabled={isSavingThis}
+                                  onClick={() => {
+                                    setConfirmWaive(null);
+                                    confirmWaive.action === 'remove' ? handleRemoveWaiver(u) : handleWaiveSubscription(u);
+                                  }}
+                                >
+                                  Yes
+                                </button>
+                                <button
+                                  className="user-action-btn cancel"
+                                  onClick={() => setConfirmWaive(null)}
+                                >
+                                  No
+                                </button>
+                              </span>
+                            ) : memberships[u.id]?.source === 'manual' ? (
                               <button
                                 className="user-action-btn disable"
                                 title={u.role === 'admin' ? 'Remove waiver — admin will need a Fiscal Agents plan subscription' : 'Remove waiver — user will need a Stripe subscription'}
-                                onClick={() => handleRemoveWaiver(u)}
+                                onClick={() => { setConfirmRole(null); setConfirmDisable(null); setConfirmWaive({ uid: u.id, action: 'remove' }); }}
                                 disabled={isSavingThis}
                               >
                                 <FiXCircle size={13} /> Remove Waiver
@@ -518,7 +543,7 @@ function AdminUserList({ session, readOnly = false }) {
                               <button
                                 className="user-action-btn enable"
                                 title={u.role === 'admin' ? 'Waive subscription — grant fiscal agent access without billing' : 'Waive subscription — grant full access for free'}
-                                onClick={() => handleWaiveSubscription(u)}
+                                onClick={() => { setConfirmRole(null); setConfirmDisable(null); setConfirmWaive({ uid: u.id, action: 'waive' }); }}
                                 disabled={isSavingThis}
                               >
                                 <FiCheckCircle size={13} /> Waive
