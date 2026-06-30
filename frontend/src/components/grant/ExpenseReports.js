@@ -168,6 +168,13 @@ function ExpenseReports({ session }) {
     setStatusFilter("all");
   };
 
+  // Summary stats — approved-only, matching Main.js and GrantBreakdown.js convention
+  const approvedItems = items.filter(i => i.status === 'approved');
+  const totalExpenses = approvedItems.length;
+  const totalSpent = approvedItems.reduce((sum, i) => sum + (i.amount_spent || 0), 0);
+  const grantsWithExpenses = new Set(approvedItems.map(i => i.grant_id)).size;
+
+
   // Filtering
   const filteredExpenses = items.filter(item => {
     if (selectedGrantFilter !== "all" && item.grant_id !== parseInt(selectedGrantFilter)) return false;
@@ -434,19 +441,19 @@ function ExpenseReports({ session }) {
         <div className="stat-chip">
           <FaMoneyBillWave className="chip-icon" />
           <span className="chip-value">{totalExpenses}</span>
-          <span className="chip-label">expenses</span>
+          <span className="chip-label">approved expenses</span>
         </div>
         <span className="chip-divider" />
         <div className="stat-chip">
           <FaCoins className="chip-icon" />
           <span className="chip-value">${totalSpent.toLocaleString()}</span>
-          <span className="chip-label">total spent</span>
+          <span className="chip-label">total spent (approved)</span>
         </div>
         <span className="chip-divider" />
         <div className="stat-chip">
           <FaWallet className="chip-icon" />
           <span className="chip-value">{grantsWithExpenses}</span>
-          <span className="chip-label">grants with expenses</span>
+          <span className="chip-label">grants with approved expenses</span>
         </div>
       </div>
 

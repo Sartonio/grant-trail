@@ -163,7 +163,7 @@ export default function FiscalAgentListingEditor({ session, readOnly = false }) 
         <div className="fad-empty">
           <p>You don’t have a listing yet.</p>
           <Link to="/fiscal-agents/list" className="fad-btn fad-btn-primary">
-            List your charity
+            Create your listing
           </Link>
         </div>
       </div>
