@@ -124,4 +124,5 @@ Defined in `.claude/agents/` — prefer them for their domains:
 ## Docs
 
 Full docs under `docs/` (Diátaxis: `tutorials/`, `how_to/`, `reference/`, `explanation/`, `roadmap/`).
-Start with `docs/AI-FRIENDLY-PLAN.md` for the AI-agent-oriented overview.
+Setup is three flows: `docs/how_to/dev_setup.md`, `staging_setup.md`, `prod_setup.md`; everyday
+ops in `docs/how_to/dev_practices.md`.
