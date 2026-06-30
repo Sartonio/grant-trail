@@ -59,4 +59,26 @@ if [ -n "$(printf '%s' "$diff_out" | tr -d '[:space:]')" ]; then
 fi
 
 echo "✓ pre-push: no uncaptured schema changes."
+
+# --- Definition-of-Done fast tier ------------------------------------------
+# Run `npm run verify` (lint + typecheck + unit tests) before letting a push
+# through. Bypass with SKIP_VERIFY=1 git push (or git push --no-verify).
+# The stack tier (verify:full) is intentionally NOT run here — it needs Docker
+# + Stripe keys and would make every push slow/flaky; the schema-drift check
+# above already keeps DB changes honest, and CI runs the full tier.
+if [ "${SKIP_VERIFY:-}" = "1" ]; then
+  echo "pre-push: SKIP_VERIFY=1 — skipping npm run verify."
+  exit 0
+fi
+
+echo "pre-push: running 'npm run verify' (lint + typecheck + unit tests)..."
+if ! npm run verify >/dev/null 2>&1; then
+  echo ""
+  echo "❌ pre-push blocked: 'npm run verify' failed."
+  echo "   Run it to see the failures:  npm run verify"
+  echo "   To bypass (not recommended): SKIP_VERIFY=1 git push   (or git push --no-verify)"
+  exit 1
+fi
+
+echo "✓ pre-push: npm run verify passed."
 exit 0

@@ -57,6 +57,10 @@ The frontend lives in `frontend/`. Root scripts proxy via `--prefix frontend`; r
 | `npm run dev` | Vite dev server (http://localhost:3000) |
 | `npm run build` | Production build to `frontend/dist/` |
 | `npm test` | Vitest unit suite (once) |
+| `npm run verify` | Definition-of-Done fast tier: lint + typecheck + unit tests |
+| `npm run verify:full` | verify + security-critical stack tier (RLS, edge-fn, webhook, e2e; fail-open w/o Docker) |
+| `npm run typecheck` (`--prefix frontend`) | `tsc --noEmit` over the load-bearing JS scope (checkJs) |
+| `npm run db:types` (`--prefix frontend`) | Regenerate `lib/database.types.ts` from the local DB |
 | `npm run e2e` / `e2e:install` | Playwright E2E suite / install browsers |
 | `npm --prefix frontend run lint` | ESLint over `frontend/src` (no root proxy) |
 | `npm run db:check` | `supabase db diff` — flag uncommitted schema drift |
@@ -80,6 +84,27 @@ Test accounts (local, password `password123`): `maria.smith@example.com` (grante
 - **`grant_comments` are admin-only by design** — grantees cannot post comments. Don't "fix" this.
 - **Migrations are `YYYYMMDDHHMMSS_name.sql`.** Any new table MUST get tenant-scoped RLS in the same
   migration. Schema changes only via a migration file (a pre-push hook blocks uncommitted DB drift).
+
+## Required checks — Definition of Done (every agent, every change)
+
+A change is NOT done until it meets these. Don't declare completion otherwise.
+
+- **`npm run verify` must pass.** This is the fast tier every agent can run locally:
+  `lint + typecheck + unit tests`. Run it from the repo root before saying a change is done.
+- **Security-touching changes must ALSO pass `npm run verify:full`** — the stack tier (RLS
+  adversarial, grant triggers, charity-directory RLS, platform-root config, edge-fn identity,
+  Stripe webhook/checkout/portal matrix, Playwright e2e). "Security-touching" = anything under
+  `supabase/migrations/`, `supabase/functions/`, `lib/policy.js`, `lib/guards.js`,
+  `lib/billing.js`, or any data-mutating component. `verify:full` is fail-open when Docker/Stripe
+  keys are absent (stack tier skipped with a warning) — run it where they exist.
+- **NEW code uses the `lib/data/` access layer.** No raw `supabase.from(...)` in components; add or
+  reuse a thin function in `frontend/src/lib/data/<entity>.js` (each typed to its table via the
+  generated `lib/database.types.ts`). Components import from there.
+- **Types stay honest.** After any migration, regenerate `lib/database.types.ts`
+  (`npm run db:types --prefix frontend`); annotate new `lib/`/`hooks/` code with JSDoc so
+  `npm run typecheck` stays green over the enforced scope.
+- **Structure conventions hold:** co-locate `.css` and `.test.js` next to their module; keep modules
+  small / single-responsibility; follow the existing domain-folder layout.
 
 ## Conventions
 
