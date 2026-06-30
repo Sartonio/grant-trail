@@ -2,9 +2,13 @@ name: Deploy to Staging
 
 # Auto-deploy to staging on every push to main. Delegates the full deploy
 # pipeline to the reusable deploy.yml, targeting the `staging` environment.
+#
+# TEMPORARILY DISABLED: auto-deploy on push to main is off. Re-enable by
+# restoring the `push` trigger below. For now it only runs on manual dispatch.
 on:
-  push:
-    branches: [ main ]
+  workflow_dispatch:
+  # push:
+  #   branches: [ main ]
 
 jobs:
   deploy:

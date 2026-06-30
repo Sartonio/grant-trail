@@ -59,8 +59,8 @@ jobs:
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: |
-          supabase db execute --project-ref "${{ vars.SUPABASE_PROJECT_REF }}" \
-            --sql "UPDATE platform_settings SET basic_membership_product_id = '${{ vars.STRIPE_PRODUCT_BASIC }}', premium_membership_product_id = '${{ vars.STRIPE_PRODUCT_FISCAL_AGENT }}' WHERE id = 1"
+          supabase db query --linked \
+            "UPDATE platform_settings SET basic_membership_product_id = '${{ vars.STRIPE_PRODUCT_BASIC }}', premium_membership_product_id = '${{ vars.STRIPE_PRODUCT_FISCAL_AGENT }}' WHERE id = 1"
 
       - name: Deploy edge functions
         env:
