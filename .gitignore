@@ -4,7 +4,9 @@
 .env.local
 .deploy/
 bin/
-.claude/
+.claude/*
+# Track project subagent definitions (shared with cloud/other clones); keep the rest of .claude local
+!.claude/agents/
 .vercel
 .env*
 # Incidental local-tooling artifacts (repo app deps live under frontend/)
