@@ -257,6 +257,7 @@ function AdminGrantReview({ session, readOnly = false }) {
 
   const handleRejectBudgetItem = async (item) => {
     if (!guardWrite()) return;
+    if (!window.confirm('Reject this budget item? All linked expenses will be reset to pending.')) return;
     setApprovalLoading(`bi-${item.id}`);
     setApprovalError('');
     try {

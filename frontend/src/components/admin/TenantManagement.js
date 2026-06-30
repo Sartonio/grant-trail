@@ -242,6 +242,9 @@ function TenantManagement({ session }) {
 
   async function handleToggleSubscription(t) {
     const newVal = t.settings?.require_subscription === false ? true : false;
+    if (newVal === true && t.tenant_type === 'self_service') {
+      if (!window.confirm(`Require subscriptions for ${t.name}? This will remove all manual subscription waivers for users in this tenant.`)) return;
+    }
     setSaving(t.id);
     const { error: err } = await supabase
       .from('tenant_settings')
