@@ -17,11 +17,13 @@ The PRs that landed: #77 (CI), #78 (security audit docs), #79 (tests + modularit
 - [ ] **RLS perf nit.** Policies call helpers (`current_tenant_id()`, `is_admin()`, …) directly
       rather than wrapped as `(SELECT …)` for initplan caching. Indexing itself is thorough (4/5).
 
-## Pre-existing test issue (surfaced during #81 verification)
-- [ ] **Unrelated RLS adversarial failure:** `"grantee cannot plant a grant into another tenant"`
-      fails because the seeded grantee has no active membership (subscription-gating denial on
-      `grant_record` INSERT), independent of any escalation fix. Investigate the seed/membership
-      setup so the adversarial suite is fully green on a fresh `db:reset`.
+## Resolved during #81 verification
+- [x] **Seed breakage from the F1 guard** — the BEFORE INSERT guard initially rejected `seed.sql`'s
+      direct user inserts (run as `postgres`, no `auth.uid()`), breaking `db reset`. Fixed
+      (commit c1e7b2c) by exempting the no-end-user-identity context (`auth.uid() IS NULL`). On a
+      fresh `db:reset` the seed succeeds and `rls-adversarial.test.sh` is **46/46** — including the
+      `"grantee cannot plant a grant into another tenant"` case the agent had seen fail on its
+      non-fresh stack (a seed/membership artifact, not a real hole).
 
 ## Modularity (from `modularity.md` / PR #79) — Phases not completed
 - [ ] **Phase 2 remainder:** `lib/data/{tenants,users}.js` + migrate `TenantManagement` (12 `.from`)
