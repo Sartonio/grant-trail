@@ -30,6 +30,7 @@ import TenantManagement from './components/TenantManagement';
 import AdminSettings from './components/AdminSettings';
 import CompleteProfile from './components/CompleteProfile';
 import LandingPage from './components/LandingPage';
+import Join from './components/Join';
 import SubscriptionPage from './components/SubscriptionPage';
 import FiscalAgentDirectory from './components/FiscalAgentDirectory';
 import FiscalAgentProfile from './components/FiscalAgentProfile';
@@ -39,7 +40,7 @@ import FiscalAgentOwnerDashboard from './components/FiscalAgentOwnerDashboard';
 import FiscalAgentListingEditor from './components/FiscalAgentListingEditor';
 import { fetchMembershipStatus, fetchSessionContext, syncMembershipFromStripe } from './lib/billing';
 import { Guard, GRANTEE_BILLING_REDIRECT } from './lib/guards';
-import { ROLES, needsSubscription } from './lib/policy';
+import { ROLES, needsSubscription, isAuthenticated } from './lib/policy';
 
 // Charity onboarding (S9) is token-auth, not session-auth. The pay-first webhook
 // emails a one-time signup link carrying an invite token; we reuse the existing
@@ -388,6 +389,13 @@ function App() {
             path="/login"
             element={<Login onLogin={handleLogin} />}
           />
+          {/* Single decision point for new accounts. Authenticated users have
+              already chosen a path, so bounce them home. Invite links skip this
+              and go straight to /signup?invite=…. */}
+          <Route
+            path="/join"
+            element={isAuthenticated(session) ? <Navigate to="/" replace /> : <Join />}
+          />
           <Route
             path="/signup"
             element={<SignUp />}
@@ -410,7 +418,12 @@ function App() {
           />
           <Route
             path="/fiscal-agents/list"
-            element={<FiscalAgentListIntake />}
+            element={
+              // Pay-first onboarding provisions a fresh tenant + admin — only valid
+              // for logged-out visitors. Signed-in users (grantee/admin) would pay
+              // for nothing, so bounce them back to the directory.
+              isAuthenticated(session) ? <Navigate to="/fiscal-agents" replace /> : <FiscalAgentListIntake />
+            }
           />
           <Route
             path="/fiscal-agents/checkout/return"

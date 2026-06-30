@@ -4,6 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { getInviteByToken, consumeInvite } from '../lib/invites';
+import { startCheckoutSession, MEMBERSHIP_TIERS } from '../lib/billing';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { FaUser, FaBuilding, FaPhone, FaCalendarAlt, FaCheckCircle } from 'react-icons/fa';
 import '../styles/Login.css';
@@ -119,11 +120,23 @@ function CompleteProfile({ session, onProfileComplete }) {
           setLoading(false);
           return;
         }
-        userRecord = record;
+
+        // Pay at signup: a self-serve grantee goes straight into Basic checkout as
+        // the final step of signup. The role is already assigned by the RPC; the
+        // return lands on /subscription, where the billing sync flips access (and
+        // resume-pay is available if they abandon checkout).
+        // ponytail/redesign: when billing-model-redesign makes seekers free, this
+        // becomes conditional (free seeker -> skip checkout, enter the app directly).
+        const { url } = await startCheckoutSession({
+          membershipTier: MEMBERSHIP_TIERS.BASIC,
+          returnPath: '/subscription',
+        });
+        window.location.assign(url);
+        return;
       }
 
-      // Notify App.js to refresh session with the new userRecord
-      // Don't navigate — App.js will redirect once session is set
+      // Invite flow: role + tenant come from the invite and the org covers billing,
+      // so no checkout. Notify App.js to refresh session; it redirects from there.
       if (onProfileComplete) await onProfileComplete({ user, userRecord });
     } catch (err) {
       setErrorMsg('Unexpected error completing profile');

@@ -97,7 +97,7 @@ function Header({ session, onLogout, notifications, onMarkRead, onMarkAllRead, o
                 </NavLink>
               </li>
               <li>
-                <NavLink to="/signup" className={({ isActive }) => `header-public-cta${isActive ? ' active' : ''}`}>
+                <NavLink to="/join" className={({ isActive }) => `header-public-cta${isActive ? ' active' : ''}`}>
                   Get Started
                 </NavLink>
               </li>

@@ -24,7 +24,7 @@ import {
 } from 'react-icons/fa';
 import * as Sentry from '@sentry/react';
 import { supabase } from '../supabaseClient';
-import { canViewDirectory } from '../lib/policy';
+import { canViewDirectory, isAuthenticated } from '../lib/policy';
 import { startCheckoutSession, MEMBERSHIP_TIERS } from '../lib/billing';
 import { mapTeaserListing, mapFullListing } from './fiscalAgents.map';
 import {
@@ -608,7 +608,10 @@ export default function FiscalAgentDirectory({ session }) {
         )}
       </div>
 
-      {/* Charity acquisition CTA — pay-first Fiscal Agent intake */}
+      {/* Charity acquisition CTA — pay-first Fiscal Agent intake. Logged-out only:
+          onboarding provisions a fresh tenant + admin, so it's broken for any
+          signed-in user (grantee pays for nothing; admin double-creates an org). */}
+      {!isAuthenticated(session) && (
       <section className="fad-list-cta">
         <div className="fad-list-cta-inner">
           <span className="fad-list-cta-icon">
@@ -629,6 +632,7 @@ export default function FiscalAgentDirectory({ session }) {
           </Link>
         </div>
       </section>
+      )}
 
       {/* Trust strip */}
       <section className="fad-trust">

@@ -197,7 +197,7 @@ function Login({ onLogin }) {
         )}
 
         <div className="login-footer">
-          Don't have an account? <Link to="/signup">Sign up here</Link>
+          Don't have an account? <Link to="/join">Sign up here</Link>
         </div>
       </div>
     </div>

@@ -19,7 +19,7 @@ import SubscriptionPage from './SubscriptionPage';
 
 const BANNER = /Billing is temporarily unavailable — please try again later/i;
 
-// Grantee without access: the Basic "Get Started" button is enabled.
+// Grantee without access: the resume-pay ("Complete Basic payment") button shows.
 const granteeSession = {
   userRecord: { role: 'grantee' },
   membership: { hasBasicAccess: false, isExempt: false },
@@ -27,8 +27,7 @@ const granteeSession = {
 
 function expectPageStillFunctional() {
   // Core subscription UI is still rendered and interactive (not a crash/blank).
-  expect(screen.getByText('Basic Plan')).toBeInTheDocument();
-  expect(screen.getByText('Fiscal Agents (Charities) Plan')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: /Complete Basic payment/i })).toBeInTheDocument();
   expect(screen.getByRole('button', { name: /Refresh Access Status/i })).toBeEnabled();
 }
 
@@ -45,7 +44,7 @@ describe('SubscriptionPage degraded billing UI', () => {
     startCheckoutSession.mockRejectedValue(err);
 
     render(<SubscriptionPage session={granteeSession} />);
-    fireEvent.click(screen.getByRole('button', { name: /Get Started/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Complete Basic payment/i }));
 
     expect(await screen.findByText(BANNER)).toBeInTheDocument();
     expect(captureException).toHaveBeenCalledWith(err);
@@ -58,7 +57,7 @@ describe('SubscriptionPage degraded billing UI', () => {
     startCheckoutSession.mockReturnValue(new Promise(() => {}));
 
     render(<SubscriptionPage session={granteeSession} />);
-    fireEvent.click(screen.getByRole('button', { name: /Get Started/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Complete Basic payment/i }));
 
     // Advance past the request timeout to trip the degraded path.
     await act(async () => { await vi.advanceTimersByTimeAsync(15000); });

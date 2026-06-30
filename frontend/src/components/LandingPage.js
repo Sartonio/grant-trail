@@ -135,7 +135,7 @@ function getCurrentAccessLabel(session) {
 function LandingPage({ session }) {
   const isAuthenticated = !!session;
   const accessLabel = getCurrentAccessLabel(session);
-  const primaryLink = isAuthenticated ? '/subscription' : '/signup';
+  const primaryLink = isAuthenticated ? '/subscription' : '/join';
   const secondaryLink = isAuthenticated ? (session?.userRecord?.role === 'admin' ? '/admin' : '/grants') : '/login';
   const primaryLabel = isAuthenticated ? 'Manage Subscription' : 'Get Started';
   const secondaryLabel = isAuthenticated ? 'Open Workspace' : 'Sign In';
@@ -271,7 +271,7 @@ function LandingPage({ session }) {
               <li>Scalable system for growth</li>
               <li>Subscription for high-impact fiscal agents</li>
             </ul>
-            <Link to={isAuthenticated ? '/subscription' : '/fiscal-agents'} className="landing-plan-cta">
+            <Link to={isAuthenticated ? '/subscription' : '/fiscal-agents/list'} className="landing-plan-cta">
               {isAuthenticated ? 'Manage Fiscal Agent Access' : 'Start Managing Smarter'}
             </Link>
           </article>

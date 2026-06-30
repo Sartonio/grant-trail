@@ -1,9 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import * as Sentry from '@sentry/react';
-import { FaCheckCircle, FaBuilding, FaShieldAlt, FaSyncAlt, FaExclamationTriangle } from 'react-icons/fa';
+import { FaShieldAlt, FaSyncAlt, FaExclamationTriangle, FaArrowRight } from 'react-icons/fa';
 import {
   MEMBERSHIP_TIERS,
-  isOrgAdminSubscriptionRequired,
   startBillingPortalSession,
   startCheckoutSession,
 } from '../lib/billing';
@@ -21,59 +20,31 @@ function withTimeout(promise, ms) {
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timeoutId));
 }
 
-function PlanCard({
-  title,
-  subtitle,
-  icon,
-  features,
-  ctaLabel,
-  onClick,
-  disabled,
-  featured,
-  current,
-  loading,
-}) {
-  return (
-    <article className={`subscription-plan-card${featured ? ' featured' : ''}${current ? ' current' : ''}`}>
-      <div className="subscription-plan-header">
-        <div className="subscription-plan-icon">{icon}</div>
-        <div>
-          <h3>{title}</h3>
-          <p>{subtitle}</p>
-        </div>
-      </div>
-
-      <ul className="subscription-plan-features">
-        {features.map((feature) => (
-          <li key={feature}>
-            <FaCheckCircle />
-            <span>{feature}</span>
-          </li>
-        ))}
-      </ul>
-
-      <button className="subscription-plan-btn" onClick={onClick} disabled={disabled || loading}>
-        {loading ? 'Opening Checkout...' : current ? 'Current Plan' : ctaLabel}
-      </button>
-    </article>
-  );
-}
-
+// Manage-only subscription page. The PLAN CHOICE happens once at signup (the /join
+// fork → grantee/Basic or fiscal-agent/Premium), so this page is no longer a plan
+// chooser. It surfaces current access, a single resume-pay button for the plan the
+// user's role already requires (covers abandoned-signup and lapsed subs), and the
+// Stripe billing portal for managing an active subscription.
 function SubscriptionPage({ session, onMembershipUpdated }) {
   const membership = session?.membership;
   const role = session?.userRecord?.role;
-  const needsAdminSubscription = isOrgAdminSubscriptionRequired(session);
   const isAdmin = role === 'admin';
-  const [checkoutTier, setCheckoutTier] = useState(null);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [portalLoading, setPortalLoading] = useState(false);
   const [billingUnavailable, setBillingUnavailable] = useState(false);
   const [syncNotice, setSyncNotice] = useState('');
 
   const isWaived = membership?.membership?.source === 'manual';
-  const hasAccess = role === 'admin'
+  const hasAccess = isAdmin
     ? membership?.hasPremiumAccess || membership?.isExempt || isWaived
     : membership?.hasBasicAccess || membership?.isExempt || isWaived;
-  const hasBasicOnlyAdminAccess = role === 'admin'
+
+  // Resume-pay is for self-finishing the plan the role already requires — only when
+  // the user is genuinely unpaid (never-paid OR lapsed) and not exempt/waived.
+  const needsPayment = !hasAccess && !isWaived && !membership?.isExempt;
+  const resumeTier = isAdmin ? MEMBERSHIP_TIERS.ORG_ADMIN : MEMBERSHIP_TIERS.BASIC;
+
+  const hasBasicOnlyAdminAccess = isAdmin
     && !membership?.isExempt
     && !isWaived
     && membership?.hasBasicAccess
@@ -119,27 +90,24 @@ function SubscriptionPage({ session, onMembershipUpdated }) {
     return 'No active subscription';
   }, [membership, isWaived, role]);
 
-  const headline = role === 'admin'
-    ? 'Manage Fiscal Agents Subscription'
-    : 'Manage Basic Subscription';
+  const headline = isAdmin ? 'Manage Fiscal Agents Subscription' : 'Manage Basic Subscription';
 
-  const description = role === 'admin'
-    ? 'Review your current fiscal agent access, start checkout if you still need a plan, or open the billing portal to manage an existing subscription.'
-    : 'Review your current basic access, start checkout if you still need a plan, or open the billing portal to manage an existing subscription.';
+  const description = isAdmin
+    ? 'Review your current fiscal agent access, finish or renew payment if needed, or open the billing portal to manage an existing subscription.'
+    : 'Review your current basic access, finish or renew payment if needed, or open the billing portal to manage an existing subscription.';
 
-  const requiredMessage = role === 'admin'
+  const requiredMessage = isAdmin
     ? 'Your admin account needs an active Fiscal Agents plan before you can use the admin dashboard.'
     : 'Your account needs an active Basic plan before using grants and expenses.';
 
-  const basicButtonLabel = !isAdmin ? 'Get Started' : 'Best for grantee accounts';
-  const fiscalButtonLabel = isAdmin ? 'Start Managing Smarter' : 'For fiscal agent admins';
+  const resumeLabel = isAdmin ? 'Complete Fiscal Agents payment' : 'Complete Basic payment';
 
-  const handleCheckout = async (tier) => {
+  const handleResumePayment = async () => {
     setBillingUnavailable(false);
-    setCheckoutTier(tier);
+    setCheckoutLoading(true);
     try {
       const { url } = await withTimeout(
-        startCheckoutSession({ membershipTier: tier, returnPath: '/subscription' }),
+        startCheckoutSession({ membershipTier: resumeTier, returnPath: '/subscription' }),
         BILLING_REQUEST_TIMEOUT_MS,
       );
       window.location.assign(url);
@@ -148,7 +116,7 @@ function SubscriptionPage({ session, onMembershipUpdated }) {
       // raw error, and report the real cause to Sentry for diagnosis.
       Sentry.captureException(error);
       setBillingUnavailable(true);
-      setCheckoutTier(null);
+      setCheckoutLoading(false);
     }
   };
 
@@ -206,49 +174,13 @@ function SubscriptionPage({ session, onMembershipUpdated }) {
         )}
       </div>
 
-      <div className="subscription-plans-grid">
-        <PlanCard
-          title="Basic Plan"
-          subtitle="Perfect for small organizations getting started"
-          icon={<FaShieldAlt />}
-          features={[
-            'Expense tracking dashboard',
-            'Receipt uploading and secure storage',
-            'Simple reporting tools',
-            'Secure data storage',
-            'User-friendly interface',
-            'Excel export included in the basic workflow',
-            'Affordable monthly subscription',
-          ]}
-          ctaLabel={basicButtonLabel}
-          onClick={!isAdmin ? () => handleCheckout(MEMBERSHIP_TIERS.BASIC) : undefined}
-          disabled={isAdmin || hasAccess}
-          current={!isAdmin && !isWaived && membership?.hasBasicAccess}
-          loading={checkoutTier === MEMBERSHIP_TIERS.BASIC}
-        />
-
-        <PlanCard
-          title="Fiscal Agents (Charities) Plan"
-          subtitle="Designed for charities managing multiple organizations and projects"
-          icon={<FaBuilding />}
-          featured
-          features={[
-            'Manage multiple organizations in one platform',
-            'Advanced reporting and financial insights',
-            'Real-time tracking across projects',
-            'Enhanced transparency for funders',
-            'Scalable system for growth',
-            'Required for non-TFAC admin accounts',
-          ]}
-          ctaLabel={fiscalButtonLabel}
-          onClick={isAdmin ? () => handleCheckout(MEMBERSHIP_TIERS.ORG_ADMIN) : undefined}
-          disabled={!isAdmin || hasAccess || !needsAdminSubscription}
-          current={isAdmin && !isWaived && membership?.hasPremiumAccess}
-          loading={checkoutTier === MEMBERSHIP_TIERS.ORG_ADMIN}
-        />
-      </div>
-
       <div className="subscription-actions-row">
+        {needsPayment && (
+          <button className="subscription-plan-btn" onClick={handleResumePayment} disabled={checkoutLoading}>
+            {checkoutLoading ? 'Opening Checkout...' : <>{resumeLabel} <FaArrowRight /></>}
+          </button>
+        )}
+
         {!isWaived && !membership?.isExempt && (
           <button className="subscription-manage-btn" onClick={handleManageBilling} disabled={portalLoading}>
             <FaSyncAlt /> {portalLoading ? 'Opening Billing...' : 'Manage Subscription'}
