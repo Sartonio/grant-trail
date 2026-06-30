@@ -16,7 +16,10 @@ vi.mock('@sentry/react', () => ({ captureException: vi.fn() }));
 vi.mock('./supabaseClient', () => ({
   supabase: { auth: { getUser: mocks.getUser, signOut: mocks.signOut } },
 }));
-vi.mock('./lib/billing', () => ({ fetchSessionContext: mocks.fetchSessionContext }));
+vi.mock('./lib/billing', async (importOriginal) => ({
+  ...await importOriginal(),
+  fetchSessionContext: mocks.fetchSessionContext,
+}));
 
 vi.mock('./hooks/useNotifications', () => ({
   useNotifications: () => ({
@@ -82,10 +85,10 @@ describe('App route table + Guard wiring', () => {
     expect(await screen.findByText('ADMIN_DASH')).toBeInTheDocument();
   });
 
-  it('redirects an unpaid grantee from "/" to the billing nudge (/home)', async () => {
+  it('redirects an unpaid grantee from "/" to the subscription page (/subscription)', async () => {
     seedUser({ role: 'grantee', membership: { hasBasicAccess: false } });
     renderAt('/');
-    await waitFor(() => expect(window.location.pathname).toBe('/home'));
+    await waitFor(() => expect(window.location.pathname).toBe('/subscription'));
   });
 
   it('renders the grantee dashboard at "/" for a paid grantee', async () => {
