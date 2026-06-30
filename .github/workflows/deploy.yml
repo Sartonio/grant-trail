@@ -13,94 +13,161 @@ on:
         required: true
         type: string
 
+# Least privilege: this workflow only reads the repo; deploy auth comes from
+# environment secrets, not the GITHUB_TOKEN.
+permissions:
+  contents: read
+
+# Never let two deploys to the same environment race `db push` / `functions
+# deploy` against one project. Serialize per environment; do NOT cancel an
+# in-flight deploy (a half-applied migration is worse than a queued run).
+concurrency:
+  group: deploy-${{ inputs.environment }}
+  cancel-in-progress: false
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     environment: ${{ inputs.environment }}
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v5
 
-      - name: Setup Supabase CLI
-        uses: supabase/setup-cli@v2
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
         with:
-          version: latest
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: './frontend/package-lock.json'
+
+      # The pinned Supabase CLI used by scripts/prune_functions.js
+      # (`npx --prefix frontend supabase`) lives in frontend devDeps (2.106.0),
+      # matching the setup-cli version pinned below.
+      - name: Install frontend dependencies (for prune script CLI)
+        run: npm ci
+        working-directory: ./frontend
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf  # v2.1.1
+        with:
+          version: 2.106.0
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
+      # Secrets/vars are bound to env (not inlined into the command template) so
+      # the runner never expands an attacker-controllable value into the shell
+      # command line, and the values don't appear in the `${{ }}` expansion.
       - name: Push secrets to Supabase
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+          STRIPE_PRICE_BASIC: ${{ vars.STRIPE_PRICE_BASIC }}
+          STRIPE_PRICE_FISCAL_AGENT: ${{ vars.STRIPE_PRICE_FISCAL_AGENT }}
+          STRIPE_BILLING_PORTAL_CONFIGURATION_ID: ${{ vars.STRIPE_BILLING_PORTAL_CONFIGURATION_ID }}
+          APP_URL: ${{ vars.APP_URL }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          EMAIL_FROM: ${{ vars.EMAIL_FROM }}
         run: |
+          set -euo pipefail
           supabase secrets set \
-            STRIPE_SECRET_KEY="${{ secrets.STRIPE_SECRET_KEY }}" \
-            STRIPE_WEBHOOK_SECRET="${{ secrets.STRIPE_WEBHOOK_SECRET }}" \
-            STRIPE_PRICE_BASIC="${{ vars.STRIPE_PRICE_BASIC }}" \
-            STRIPE_PRICE_FISCAL_AGENT="${{ vars.STRIPE_PRICE_FISCAL_AGENT }}" \
-            STRIPE_BILLING_PORTAL_CONFIGURATION_ID="${{ vars.STRIPE_BILLING_PORTAL_CONFIGURATION_ID }}" \
-            APP_URL="${{ vars.APP_URL }}" \
-            RESEND_API_KEY="${{ secrets.RESEND_API_KEY }}" \
-            EMAIL_FROM="${{ vars.EMAIL_FROM }}" \
-            --project-ref "${{ vars.SUPABASE_PROJECT_REF }}"
+            STRIPE_SECRET_KEY="$STRIPE_SECRET_KEY" \
+            STRIPE_WEBHOOK_SECRET="$STRIPE_WEBHOOK_SECRET" \
+            STRIPE_PRICE_BASIC="$STRIPE_PRICE_BASIC" \
+            STRIPE_PRICE_FISCAL_AGENT="$STRIPE_PRICE_FISCAL_AGENT" \
+            STRIPE_BILLING_PORTAL_CONFIGURATION_ID="$STRIPE_BILLING_PORTAL_CONFIGURATION_ID" \
+            APP_URL="$APP_URL" \
+            RESEND_API_KEY="$RESEND_API_KEY" \
+            EMAIL_FROM="$EMAIL_FROM" \
+            --project-ref "$SUPABASE_PROJECT_REF"
 
       - name: Link Supabase project
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
         run: |
-          supabase link --project-ref "${{ vars.SUPABASE_PROJECT_REF }}"
+          set -euo pipefail
+          supabase link --project-ref "$SUPABASE_PROJECT_REF"
 
       - name: Apply database migrations
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: |
+          set -euo pipefail
           supabase db push --linked
 
+      # Values bound to env so they're not interpolated into the SQL/command
+      # template by the runner (avoids the untrusted-input-into-command shape).
       - name: Seed platform settings
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          STRIPE_PRODUCT_BASIC: ${{ vars.STRIPE_PRODUCT_BASIC }}
+          STRIPE_PRODUCT_FISCAL_AGENT: ${{ vars.STRIPE_PRODUCT_FISCAL_AGENT }}
         run: |
+          set -euo pipefail
           supabase db query --linked \
-            "UPDATE platform_settings SET basic_membership_product_id = '${{ vars.STRIPE_PRODUCT_BASIC }}', premium_membership_product_id = '${{ vars.STRIPE_PRODUCT_FISCAL_AGENT }}' WHERE id = 1"
+            "UPDATE platform_settings SET basic_membership_product_id = '${STRIPE_PRODUCT_BASIC}', premium_membership_product_id = '${STRIPE_PRODUCT_FISCAL_AGENT}' WHERE id = 1"
 
-      - name: Deploy edge functions
+      # config.toml is the single source of truth for which edge functions exist
+      # (same list scripts/prune_functions.js reads). Deploy exactly those, then
+      # prune via the script so CI and the script can never diverge.
+      - name: Deploy edge functions (config.toml = source of truth)
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
         run: |
-          REF="${{ vars.SUPABASE_PROJECT_REF }}"
-          # Repo is the source of truth: deploy every function dir (one with an
-          # index.ts; this skips _shared and tests), then prune any remote
-          # function that no longer exists in the repo.
-          local_fns=""
-          for dir in supabase/functions/*/; do
-            [ -f "${dir}index.ts" ] || continue
-            fn="$(basename "$dir")"
-            local_fns="${local_fns} ${fn}"
-            supabase functions deploy "$fn" --project-ref "$REF"
-          done
-          # Prune remote-only functions. jq is preinstalled on ubuntu runners.
-          supabase functions list --project-ref "$REF" -o json | jq -r '.[].slug' | \
-          while read -r slug; do
-            case " ${local_fns} " in
-              *" ${slug} "*) ;;  # still in the repo — keep
-              *) echo "Pruning remote-only function: ${slug}";
-                 supabase functions delete "$slug" --project-ref "$REF" ;;
-            esac
+          set -euo pipefail
+          mapfile -t fns < <(grep -oP '^\s*\[functions\.\K[^\]]+' supabase/config.toml)
+          if [ "${#fns[@]}" -eq 0 ]; then
+            echo "::error::No [functions.*] declared in supabase/config.toml — refusing to deploy nothing."
+            exit 1
+          fi
+          echo "Deploying declared functions: ${fns[*]}"
+          for fn in "${fns[@]}"; do
+            supabase functions deploy "$fn" --project-ref "$SUPABASE_PROJECT_REF"
           done
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
+      - name: Prune remote-only edge functions
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+        run: |
+          set -euo pipefail
+          node scripts/prune_functions.js --project-ref "$SUPABASE_PROJECT_REF" --yes
+
+      # C1: drive the Vercel target from the deploy input. production → the prod
+      # target; staging → a Vercel preview build. This is OUR controlled value,
+      # not a secret, so interpolating the step outputs below is safe.
+      # NOTE FOR HUMANS: this only keeps a staging deploy off the prod Vercel
+      # *deployment alias*. Confirm VERCEL_PROJECT_ID differs per GitHub
+      # Environment so a staging build can't publish into the prod project at all.
+      - name: Resolve Vercel target
+        id: vercel
+        env:
+          ENVIRONMENT: ${{ inputs.environment }}
+        run: |
+          set -euo pipefail
+          if [ "$ENVIRONMENT" = "production" ]; then
+            echo "vercel_env=production" >> "$GITHUB_OUTPUT"
+            echo "prod_flag=--prod" >> "$GITHUB_OUTPUT"
+          else
+            echo "vercel_env=preview" >> "$GITHUB_OUTPUT"
+            echo "prod_flag=" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Pull Vercel Environment Information
-        run: npx vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+        run: npx vercel pull --yes --environment=${{ steps.vercel.outputs.vercel_env }} --token="$VERCEL_TOKEN"
         env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
       - name: Build Project Artifacts
-        run: npx vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+        run: npx vercel build ${{ steps.vercel.outputs.prod_flag }} --token="$VERCEL_TOKEN"
         env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
           # Build-time vars Vite inlines into the bundle. Injected from the
@@ -112,7 +179,8 @@ jobs:
           VITE_SENTRY_DSN: ${{ vars.VITE_SENTRY_DSN }}
 
       - name: Deploy Project Artifacts to Vercel
-        run: npx vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+        run: npx vercel deploy --prebuilt ${{ steps.vercel.outputs.prod_flag }} --token="$VERCEL_TOKEN"
         env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}

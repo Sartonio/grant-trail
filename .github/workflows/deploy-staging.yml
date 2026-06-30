@@ -1,14 +1,18 @@
 name: Deploy to Staging
 
-# Auto-deploy to staging on every push to main. Delegates the full deploy
-# pipeline to the reusable deploy.yml, targeting the `staging` environment.
+# Deploys to the `staging` environment via the reusable deploy.yml.
 #
-# TEMPORARILY DISABLED: auto-deploy on push to main is off. Re-enable by
-# restoring the `push` trigger below. For now it only runs on manual dispatch.
+# Policy: deploys are MANUAL ONLY (workflow_dispatch), by deliberate decision —
+# not a temporary state. There is intentionally no `push` trigger here, matching
+# the manual-only prod policy (deploy-prod.yml) and `vercel.json` disabling git
+# deploys for main. To switch staging to auto-deploy on push to main, add a
+# `push: { branches: [ main ] }` trigger; deploy.yml already serializes runs per
+# environment via its `concurrency` group.
 on:
   workflow_dispatch:
-  # push:
-  #   branches: [ main ]
+
+permissions:
+  contents: read
 
 jobs:
   deploy:

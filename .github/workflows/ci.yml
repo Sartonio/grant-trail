@@ -6,9 +6,21 @@ on:
   pull_request:
     branches: [ main ]
 
+# Least privilege: none of these jobs push to the repo or call the GitHub API
+# beyond reads. Grant only read access to the default GITHUB_TOKEN.
+permissions:
+  contents: read
+
+# A push to main plus its PR would otherwise run this slow (Supabase + Playwright)
+# matrix twice in parallel. Coalesce per ref and cancel superseded runs.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     defaults:
       run:
@@ -51,9 +63,9 @@ jobs:
         run: npm audit --audit-level=high || true
 
       - name: Setup Supabase CLI
-        uses: supabase/setup-cli@v2
+        uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf  # v2.1.1
         with:
-          version: latest
+          version: 2.106.0
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Start Supabase
@@ -93,6 +105,7 @@ jobs:
   migration-replay:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Check out repository
         uses: actions/checkout@v5
@@ -100,9 +113,9 @@ jobs:
           fetch-depth: 0
 
       - name: Setup Supabase CLI
-        uses: supabase/setup-cli@v2
+        uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf  # v2.1.1
         with:
-          version: latest
+          version: 2.106.0
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Replay pending migrations on the base-branch baseline
@@ -133,14 +146,15 @@ jobs:
   # not a sibling lane has landed its test file yet.
   edge-function-tests:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Check out repository
         uses: actions/checkout@v5
 
       - name: Setup Supabase CLI
-        uses: supabase/setup-cli@v2
+        uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf  # v2.1.1
         with:
-          version: latest
+          version: 2.106.0
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Start Supabase
@@ -179,14 +193,15 @@ jobs:
   # checked through the browser by the LS1 e2e walkthroughs.
   db-trigger-tests:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Check out repository
         uses: actions/checkout@v5
 
       - name: Setup Supabase CLI
-        uses: supabase/setup-cli@v2
+        uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf  # v2.1.1
         with:
-          version: latest
+          version: 2.106.0
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Start Supabase
@@ -206,6 +221,11 @@ jobs:
   # job runs and gates. Until then it's a green no-op.
   stripe-edge-function-tests:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # S5: this job carries `environment: ci` secrets (STRIPE_*_TEST). Never run it
+    # for a PR from a fork, so a malicious PR can't exfiltrate them. Same-repo PRs
+    # and pushes still run it.
+    if: github.event.pull_request.head.repo.fork == false || github.event_name == 'push'
     environment: ci
     steps:
       - name: Check out repository
@@ -223,28 +243,29 @@ jobs:
 
       - name: Setup Supabase CLI
         if: steps.guard.outputs.present == 'true'
-        uses: supabase/setup-cli@v2
+        uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf  # v2.1.1
         with:
-          version: latest
+          version: 2.106.0
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Stripe CLI
         if: steps.guard.outputs.present == 'true'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Pinned for reproducibility + supply-chain safety. Bump deliberately:
+          # update STRIPE_CLI_SHA256 to the value in that release's
+          # stripe-linux-checksums.txt when you change the version.
+          STRIPE_CLI_VERSION: 1.21.8
+          STRIPE_CLI_SHA256: 143b3eb202731d9ffdd510350596ab668d006f440720e746cbaeb8bfa578678a
         run: |
           set -euo pipefail
           # The Stripe CLI ships as a static binary in GitHub Releases; there is
           # no cli.stripe.com installer host (the old URL fails DNS resolution).
-          # Resolve the latest release tag (authenticated, to dodge rate limits)
-          # and drop the linux x86_64 binary on PATH.
-          ver="$(curl -fsSL -H "Authorization: Bearer ${GH_TOKEN}" \
-            https://api.github.com/repos/stripe/stripe-cli/releases/latest \
-            | grep -oP '"tag_name":\s*"v\K[^"]+' || true)"
-          ver="${ver:-1.21.8}"
-          echo "Installing Stripe CLI v${ver}"
-          curl -fsSL "https://github.com/stripe/stripe-cli/releases/download/v${ver}/stripe_${ver}_linux_x86_64.tar.gz" \
+          echo "Installing Stripe CLI v${STRIPE_CLI_VERSION}"
+          curl -fsSL "https://github.com/stripe/stripe-cli/releases/download/v${STRIPE_CLI_VERSION}/stripe_${STRIPE_CLI_VERSION}_linux_x86_64.tar.gz" \
             -o /tmp/stripe.tar.gz
+          # Verify the downloaded tarball against the pinned checksum BEFORE
+          # extracting/installing, so a tampered or swapped release is rejected.
+          echo "${STRIPE_CLI_SHA256}  /tmp/stripe.tar.gz" | sha256sum -c -
           tar -xzf /tmp/stripe.tar.gz -C /tmp stripe
           sudo install -m 0755 /tmp/stripe /usr/local/bin/stripe
           stripe version
