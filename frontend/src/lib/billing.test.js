@@ -119,8 +119,12 @@ describe('invokeFirstAvailable', () => {
   });
 
   beforeEach(() => {
-    // requireAuth:false in these tests -> getOptionalAccessToken -> getSession.
-    authMock.getSession.mockResolvedValue({ data: { session: null } });
+    // invokeViaHttp -> getRequiredAccessToken is authenticated-only now, so
+    // every candidate call needs an active session. refreshSession yields a
+    // token whose project ref matches, so getRequiredAccessToken succeeds.
+    authMock.refreshSession.mockResolvedValue({
+      data: { session: { access_token: makeJwt({ ref: EXPECTED_REF }) } },
+    });
     global.fetch = vi.fn();
   });
 
@@ -129,7 +133,7 @@ describe('invokeFirstAvailable', () => {
       Promise.resolve(url.endsWith('/first') ? makeResp({}) : makeResp({ url: 'https://checkout/2' })),
     );
 
-    const result = await invokeFirstAvailable(['first', 'second'], () => ({}), { requireAuth: false });
+    const result = await invokeFirstAvailable(['first', 'second'], () => ({}));
 
     expect(result).toEqual({ url: 'https://checkout/2' });
     expect(global.fetch).toHaveBeenCalledTimes(2);
@@ -142,7 +146,7 @@ describe('invokeFirstAvailable', () => {
         : Promise.resolve(makeResp({ url: 'https://checkout/2' })),
     );
 
-    const result = await invokeFirstAvailable(['first', 'second'], () => ({}), { requireAuth: false });
+    const result = await invokeFirstAvailable(['first', 'second'], () => ({}));
     expect(result).toEqual({ url: 'https://checkout/2' });
   });
 
@@ -150,7 +154,7 @@ describe('invokeFirstAvailable', () => {
     global.fetch.mockResolvedValue(makeResp({}));
 
     await expect(
-      invokeFirstAvailable(['first', 'second'], () => ({}), { requireAuth: false }),
+      invokeFirstAvailable(['first', 'second'], () => ({})),
     ).rejects.toThrow(/did not return a checkout URL/);
   });
 });

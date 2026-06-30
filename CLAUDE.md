@@ -59,6 +59,8 @@ The frontend lives in `frontend/`. Root scripts proxy via `--prefix frontend`; r
 | `npm test` | Vitest unit suite (once) |
 | `npm run verify` | Definition-of-Done fast tier: lint + typecheck + unit tests |
 | `npm run verify:full` | verify + security-critical stack tier (RLS, edge-fn, webhook, e2e; fail-open w/o Docker) |
+| `npm run verify:changed [-- <base>]` | fast tier + only the stack tiers the diff touches (path heuristic; CI still runs full) |
+| `npm run verify:rls` / `verify:edge` / `verify:e2e` | run one stack tier on its own (boots the local stack) |
 | `npm run typecheck` (`--prefix frontend`) | `tsc --noEmit` over the load-bearing JS scope (checkJs) |
 | `npm run db:types` (`--prefix frontend`) | Regenerate `lib/database.types.ts` from the local DB |
 | `npm run e2e` / `e2e:install` | Playwright E2E suite / install browsers |

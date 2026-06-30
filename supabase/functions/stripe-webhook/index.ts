@@ -1,6 +1,6 @@
-import { adminSupabase, corsHeaders, provisionFiscalAgentFromCheckout, stripe, upsertSubscriptionFromStripe } from '../_shared/stripe.ts';
+import { adminSupabase, corsHeaders, stripe, upsertSubscriptionFromStripe } from '../_shared/stripe.ts';
 import { assertPostRequest, ValidationError } from '../_shared/validation.ts';
-import { sendFiscalAgentInviteEmail, sendPaymentConfirmationEmail } from '../_shared/email.ts';
+import { sendPaymentConfirmationEmail } from '../_shared/email.ts';
 
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') {
@@ -36,51 +36,9 @@ Deno.serve(async (request) => {
       case 'checkout.session.completed': {
         const session = event.data.object;
         if (session.mode === 'subscription' && session.subscription) {
-          // Pay-first charity flow: provision the tenant + admin user +
-          // billing_customers link + draft listing + invite BEFORE syncing the
-          // subscription (which requires the billing_customers link to exist).
-          // The invite token is the hard requirement; the rest is wrapped so a
-          // provisioning hiccup never blocks the subscription sync.
-          if (String(session.metadata?.provision_flow ?? '').toLowerCase() === 'fiscal_agent_onboarding') {
-            try {
-              const { token, signupUrl, email, orgName } = await provisionFiscalAgentFromCheckout(session);
-              console.log('Fiscal agent provisioned; invite token issued:', Boolean(token));
-
-              // Send the "signup link" email the checkout return page promises.
-              // Isolated like the receipt below: a mail failure must never re-throw
-              // here, or Stripe would retry the whole (already-done) provisioning.
-              if (signupUrl && email) {
-                try {
-                  await sendFiscalAgentInviteEmail({ to: email, orgName, signupUrl });
-                } catch (inviteEmailError) {
-                  console.error('Fiscal agent invite email failed:', inviteEmailError);
-                  try {
-                    await adminSupabase.from('system_logs').insert({
-                      event_name: 'fiscal_agent_invite_email_failure',
-                      error_message: inviteEmailError instanceof Error ? inviteEmailError.message : String(inviteEmailError),
-                      severity: 'error',
-                      metadata: { stripe_event_id: event.id },
-                    });
-                  } catch (_logError) { /* swallow */ }
-                }
-              }
-            } catch (provisionError) {
-              console.error('Fiscal agent provisioning failed:', provisionError);
-              // supabase-js query builders are thenables, not Promises — no .catch().
-              // Wrap the log write so a logging failure can never mask the original.
-              try {
-                await adminSupabase.from('system_logs').insert({
-                  event_name: 'fiscal_agent_provisioning_failure',
-                  error_message: provisionError instanceof Error ? provisionError.message : String(provisionError),
-                  error_stack: provisionError instanceof Error ? provisionError.stack : undefined,
-                  severity: 'critical',
-                  metadata: { stripe_event_id: event.id },
-                });
-              } catch (_logError) { /* swallow */ }
-              throw provisionError; // re-raise so Stripe retries provisioning.
-            }
-          }
-
+          // Account-first: the tenant + admin user + draft listing are already
+          // provisioned by provision_fiscal_agent_tenant during signup, so the
+          // webhook just syncs the subscription like every other tier.
           const subscription = await stripe.subscriptions.retrieve(String(session.subscription));
           await upsertSubscriptionFromStripe(subscription);
 

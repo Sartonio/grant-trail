@@ -4,8 +4,8 @@ export const MEMBERSHIP_TIERS = {
   ORG_ADMIN: 'premium',
   // Charity listing ownership is NOT its own tier — it folds into ORG_ADMIN
   // ('premium', the "Fiscal Agents Plan"). FISCAL_AGENT is only a client-side
-  // selector for the pay-first onboarding checkout, which charges the premium
-  // price server-side (STRIPE_PRICE_FISCAL_AGENT) and provisions the tenant + draft listing.
+  // selector used by the account-first charity signup; it routes through the same
+  // authenticated premium checkout (STRIPE_PRICE_FISCAL_AGENT) as ORG_ADMIN.
   FISCAL_AGENT: 'fiscal_agent',
 };
 
@@ -22,10 +22,6 @@ const BASIC_CHECKOUT_FUNCTION_CANDIDATES = [
 
 const ORG_ADMIN_CHECKOUT_FUNCTION_CANDIDATES = [
   'create-checkout-session',
-];
-
-const FISCAL_AGENT_CHECKOUT_FUNCTION_CANDIDATES = [
-  'create-fiscal-agent-checkout-session',
 ];
 
 const PORTAL_FUNCTION_CANDIDATES = [
@@ -98,17 +94,6 @@ export async function getRequiredAccessToken() {
   return accessToken;
 }
 
-// Best-effort token for pay-first flows: returns the current session's token if
-// one exists, or an empty string when the caller is anonymous (no throw).
-async function getOptionalAccessToken() {
-  try {
-    const { data: sessionData } = await supabase.auth.getSession();
-    return sessionData?.session?.access_token || '';
-  } catch (_error) {
-    return '';
-  }
-}
-
 async function getMembershipProductIds() {
   if (cachedProductIds) return cachedProductIds;
 
@@ -134,13 +119,13 @@ async function getMembershipProductIds() {
   return cachedProductIds;
 }
 
-export async function invokeFirstAvailable(functionNames, payloadFactory, { requireAuth = true } = {}) {
+export async function invokeFirstAvailable(functionNames, payloadFactory) {
   let lastError = null;
 
   for (const fnName of functionNames) {
     const payload = payloadFactory(fnName);
     try {
-      const data = await invokeViaHttp(fnName, payload, { requireAuth });
+      const data = await invokeViaHttp(fnName, payload);
       if (data?.url) {
         return data;
       }
@@ -164,16 +149,12 @@ function withFetchDiagnostics(error) {
   return error instanceof Error ? error : new Error(message);
 }
 
-async function invokeViaHttp(functionName, payload, { requireAuth = true } = {}) {
+async function invokeViaHttp(functionName, payload) {
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
     throw new Error('Supabase configuration is missing for direct Edge Function fallback.');
   }
 
-  // Pay-first flows (charity Fiscal Agent checkout) run before any account
-  // exists, so they fall back to the anon key when no session is available.
-  const accessToken = requireAuth
-    ? await getRequiredAccessToken()
-    : await getOptionalAccessToken();
+  const accessToken = await getRequiredAccessToken();
 
   const response = await fetch(`${SUPABASE_URL}/functions/v1/${functionName}`, {
     method: 'POST',
@@ -204,25 +185,13 @@ function safeJsonParse(text) {
   }
 }
 
-export async function startCheckoutSession({ membershipTier, returnPath = '/subscription', intake = null }) {
-  // Charity pay-FIRST onboarding: no existing session is required, the price is
-  // the premium "Fiscal Agents Plan" (STRIPE_PRICE_FISCAL_AGENT) resolved server-side, and
-  // intake fields ride along as checkout metadata so the webhook can provision the
-  // tenant + draft listing under a premium subscription.
-  if (membershipTier === MEMBERSHIP_TIERS.FISCAL_AGENT) {
-    return invokeFirstAvailable(FISCAL_AGENT_CHECKOUT_FUNCTION_CANDIDATES, () => ({
-      membershipTier,
-      membership_tier: membershipTier,
-      tier: membershipTier,
-      returnPath,
-      return_path: returnPath,
-      intake,
-      ...(intake || {}),
-    }), { requireAuth: false });
-  }
-
+export async function startCheckoutSession({ membershipTier, returnPath = '/subscription' }) {
   const productIds = await getMembershipProductIds();
-  const isOrgAdminPlan = membershipTier === MEMBERSHIP_TIERS.ORG_ADMIN;
+  // Fiscal Agent is account-FIRST now: the charity is authenticated and folds
+  // into the premium "Fiscal Agents Plan" — same product, same checkout function,
+  // same STRIPE_PRICE_FISCAL_AGENT (resolved server-side) as the org-admin plan.
+  const isOrgAdminPlan =
+    membershipTier === MEMBERSHIP_TIERS.ORG_ADMIN || membershipTier === MEMBERSHIP_TIERS.FISCAL_AGENT;
   const stripeProductId = isOrgAdminPlan ? productIds.premium : productIds.basic;
   const featureKey = isOrgAdminPlan ? FEATURE_KEYS.ADMIN_MEMBERSHIP : FEATURE_KEYS.BASIC_MEMBERSHIP;
   const checkoutFunctions = isOrgAdminPlan

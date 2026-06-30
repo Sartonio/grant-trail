@@ -12,6 +12,10 @@ import '../../styles/Login.css';
 function SignUp() {
   const [searchParams] = useSearchParams();
   const inviteToken = searchParams.get('invite');
+  // Account-first Fiscal Agent signup carries ?plan=fiscal-agent through email
+  // verification so CompleteProfile provisions an admin/listing tenant + premium
+  // checkout instead of the default grantee + basic checkout.
+  const plan = searchParams.get('plan');
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -52,6 +56,8 @@ function SignUp() {
     let redirectUrl = `${window.location.origin}/complete-profile`;
     if (inviteToken) {
       redirectUrl += `?invite=${inviteToken}`;
+    } else if (plan) {
+      redirectUrl += `?plan=${encodeURIComponent(plan)}`;
     }
     return redirectUrl;
   }
@@ -228,6 +234,8 @@ function SignUp() {
           <p className="signup-subtitle">
             You've been invited to join as a <strong>{invite.role}</strong>
           </p>
+        ) : plan === 'fiscal-agent' ? (
+          <p className="signup-subtitle">Create your account to list your charity as a Fiscal Agent</p>
         ) : (
           <p className="signup-subtitle">Create your own workspace to track grants and expenses</p>
         )}

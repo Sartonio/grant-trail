@@ -11,47 +11,22 @@
 # warning (mirrors the pre-push hook), so this stays runnable on machines that
 # can't boot the stack. CI should run it where Docker + Stripe secrets exist.
 #
-# Reuses the existing runners — it does not reinvent them:
-#   supabase/tests/*.test.sh                 (RLS / triggers / config; no Stripe)
-#   supabase/functions/tests/authz-identity.test.sh + run-all.sh (edge-fn + Stripe)
-#   frontend playwright (npm run e2e)
+# Tier bodies live in scripts/verify-lib.sh (shared with verify-changed.sh).
 set -uo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
-
-echo "==> fast tier (npm run verify)"
-npm run verify --prefix frontend || exit 1
-
-if ! docker info >/dev/null 2>&1; then
-  echo "WARN: Docker unavailable — SKIPPING stack tier (RLS, edge-fn, webhook, e2e)."
-  echo "      Run on a machine with Docker + Stripe TEST keys for full coverage."
-  exit 0
-fi
-
-echo "==> booting local Supabase stack"
-npx --prefix frontend supabase start || exit 1
-npx --prefix frontend supabase db reset || exit 1
+source scripts/verify-lib.sh
 
 fail=0
+vf_fast
+[ "$fail" -eq 0 ] || exit 1   # don't boot the stack if the fast tier is red
 
-echo "==> RLS / trigger / config SQL tier (no Stripe needed)"
-for t in supabase/tests/*.test.sh; do
-  echo "--- $t"
-  bash "$t" || fail=1
-done
+vf_have_docker || exit 0
+vf_boot_stack
 
-echo "==> edge-function identity"
-bash supabase/functions/tests/authz-identity.test.sh || fail=1
-
-# Stripe-dependent tier: only if TEST secrets are present (fail-open otherwise).
-if [ -f supabase/functions/.env ] && grep -q STRIPE_SECRET_KEY supabase/functions/.env; then
-  echo "==> Stripe payment-flow matrix (run-all.sh)"
-  bash supabase/functions/tests/run-all.sh || fail=1
-else
-  echo "WARN: supabase/functions/.env with STRIPE_SECRET_KEY not found — SKIPPING Stripe matrix."
-fi
-
-echo "==> Playwright e2e"
-npm run e2e --prefix frontend || fail=1
+vf_sql
+vf_edge_identity
+vf_stripe_matrix
+vf_e2e
 
 exit $fail

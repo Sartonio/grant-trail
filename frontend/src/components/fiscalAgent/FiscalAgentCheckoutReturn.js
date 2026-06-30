@@ -1,31 +1,26 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { FaCheckCircle, FaEnvelopeOpenText, FaTimesCircle, FaArrowRight } from 'react-icons/fa';
+import { FaCheckCircle, FaTimesCircle, FaArrowRight } from 'react-icons/fa';
 import * as Sentry from '@sentry/react';
 import { syncMembershipFromStripe } from '../../lib/billing';
-import { INTAKE_STORAGE_KEY } from './FiscalAgentListIntake';
 import './FiscalAgentDirectory.css';
 
 /*
-  Checkout return — S7 (success) / S8 (cancel), UX §5.
-  ----------------------------------------------------
+  Checkout return — success / cancel.
+  -----------------------------------
   Both the Directory Access (seeker) and Fiscal Agent (charity) checkouts return
-  here. On success we sync the membership from Stripe so the entitlement flips
-  promptly, then surface the next step:
-    - Fiscal Agent (pay-first charity): "Check your email for your signup link."
-      The listing exists as draft/unverified; the invite token is the signup
-      link. Intake draft is cleared on success.
+  here, and both are now account-FIRST: the caller is authenticated, so on success
+  we sync the membership from Stripe to flip the entitlement promptly, then point
+  to the next step:
+    - Fiscal Agent onboarding (flow=onboarding): the charity's draft listing
+      already exists — send them to the listing editor to finish it.
     - Directory Access (seeker): the directory unlocks — continue browsing.
-  On cancel we keep the intake draft so the charity can resume the intake (S8).
 */
 
 function readStatus() {
   const params = new URLSearchParams(window.location.search);
   return {
     status: params.get('status') || params.get('checkout') || 'success',
-    // The charity pay-first onboarding return carries flow=onboarding; the seeker
-    // Directory Access return does not. (Charity onboarding charges the premium
-    // "Fiscal Agents Plan" — there is no separate fiscal_agent tier.)
     flow: params.get('flow') || '',
   };
 }
@@ -41,21 +36,11 @@ export default function FiscalAgentCheckoutReturn() {
     if (isCancel) return undefined;
 
     let cancelled = false;
-    // Best-effort: flip the seeker's Directory Access entitlement promptly. For
-    // the pay-first charity flow there's no session yet, so this is a no-op that
-    // simply resolves — the real provisioning is the webhook + signup email.
     syncMembershipFromStripe()
       .catch((err) => Sentry.captureException(err))
       .finally(() => {
         if (!cancelled) setSyncing(false);
       });
-
-    // Success means the funnel completed — clear the preserved intake draft.
-    try {
-      sessionStorage.removeItem(INTAKE_STORAGE_KEY);
-    } catch (_error) {
-      // ignore
-    }
 
     return () => {
       cancelled = true;
@@ -70,13 +55,13 @@ export default function FiscalAgentCheckoutReturn() {
             <FaTimesCircle />
           </span>
           <h2>Checkout canceled</h2>
-          <p>No charge was made. Your details are saved — pick up where you left off.</p>
-          <Link to="/fiscal-agents/list" className="fad-btn fad-btn-primary fad-btn-block">
-            Resume <FaArrowRight />
+          <p>No charge was made. You can pick up your subscription whenever you’re ready.</p>
+          <Link
+            to={isFiscalAgent ? '/fiscal-agents/me' : '/fiscal-agents'}
+            className="fad-btn fad-btn-primary fad-btn-block"
+          >
+            {isFiscalAgent ? 'Go to your dashboard' : 'Back to the directory'} <FaArrowRight />
           </Link>
-          <p className="fad-paywall-fine">
-            <Link to="/fiscal-agents">Back to the directory</Link>
-          </p>
         </div>
       </div>
     );
@@ -86,20 +71,19 @@ export default function FiscalAgentCheckoutReturn() {
     <div className="fad-page">
       <div className="fad-paywall-card fad-checkout-return">
         <span className="fad-paywall-icon">
-          {isFiscalAgent ? <FaEnvelopeOpenText /> : <FaCheckCircle />}
+          <FaCheckCircle />
         </span>
         {isFiscalAgent ? (
           <>
-            <h2>Payment received</h2>
+            <h2>You’re subscribed</h2>
             <p>
-              Check your email for your signup link to finish setting up your listing. This usually
-              arrives within a few minutes. Your listing is being created now and will appear in the
-              directory once you complete it and we verify your 501(c)(3) status.
+              {syncing
+                ? 'Activating your Fiscal Agent subscription…'
+                : 'Your subscription is active. Finish your listing and we’ll verify your 501(c)(3) status before it goes live.'}
             </p>
-            <p className="fad-paywall-fine">
-              Didn’t get the email? Check spam, or contact support if you don’t receive it within
-              10 minutes.
-            </p>
+            <Link to="/fiscal-agents/listing/edit" className="fad-btn fad-btn-primary fad-btn-block">
+              Finish your listing <FaArrowRight />
+            </Link>
           </>
         ) : (
           <>

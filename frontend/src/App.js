@@ -41,15 +41,6 @@ import { useNotifications } from './hooks/useNotifications';
 import { usePlatformSettings } from './hooks/usePlatformSettings';
 import { useSession } from './hooks/useSession';
 
-// Charity onboarding (S9) is token-auth, not session-auth. The pay-first webhook
-// emails a one-time signup link carrying an invite token; we reuse the existing
-// invite-based CompleteProfile flow by mapping ?token= -> ?invite=.
-function FiscalAgentOnboardRedirect() {
-  const params = new URLSearchParams(window.location.search);
-  const token = params.get('token') || params.get('invite');
-  return <Navigate to={token ? `/complete-profile?invite=${encodeURIComponent(token)}` : '/login'} replace />;
-}
-
 function App() {
   const {
     session,
@@ -195,7 +186,7 @@ function App() {
           {/*
             Fiscal Agent / Charity Directory.
             Public surfaces (S1/S2 directory, S3/S4 profile, S5 intake, S7/S8
-            return, S9 onboard) stay public — the seeker paywall is an
+            return) stay public — the seeker paywall is an
             in-component check (canViewDirectory), NOT a route redirect, so the
             marketing page is reachable while anonymous. Owner surfaces
             (S10–S12) are admin-only with read-only billing degrade (#40).
@@ -207,19 +198,15 @@ function App() {
           <Route
             path="/fiscal-agents/list"
             element={
-              // Pay-first onboarding provisions a fresh tenant + admin — only valid
-              // for logged-out visitors. Signed-in users (grantee/admin) would pay
-              // for nothing, so bounce them back to the directory.
+              // Account-first onboarding: the "list your charity" page is just a
+              // CTA into /signup?plan=fiscal-agent. Signed-in users already have an
+              // account/tenant, so bounce them back to the directory.
               isAuthenticated(session) ? <Navigate to="/fiscal-agents" replace /> : <FiscalAgentListIntake />
             }
           />
           <Route
             path="/fiscal-agents/checkout/return"
             element={<FiscalAgentCheckoutReturn />}
-          />
-          <Route
-            path="/fiscal-agents/onboard"
-            element={<FiscalAgentOnboardRedirect />}
           />
           <Route path="/fiscal-agents/me" element={
             <Guard session={session} requireRole={ROLES.ADMIN} roleRedirect="/" billingMode="readOnly">

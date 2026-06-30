@@ -13,6 +13,7 @@ function CompleteProfile({ session, onProfileComplete }) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const inviteToken = searchParams.get('invite');
+  const isFiscalAgent = searchParams.get('plan') === 'fiscal-agent';
 
   const [firstname, setFirstname] = useState('');
   const [lastname, setLastname] = useState('');
@@ -91,6 +92,32 @@ function CompleteProfile({ session, onProfileComplete }) {
         }
         userRecord = record;
 
+      } else if (isFiscalAgent) {
+        // Account-first Fiscal Agent: provision a charity tenant (admin role +
+        // draft listing) atomically, then go straight into the premium "Fiscal
+        // Agents Plan" checkout — the same account-then-pay shape as basic.
+        const { error: rpcError } = await supabase
+          .rpc('provision_fiscal_agent_tenant', {
+            p_auth_uid: user.id,
+            p_email: user.email,
+            p_firstname: firstname,
+            p_lastname: lastname,
+            p_organization: organization,
+            p_phone: phone,
+          });
+
+        if (rpcError) {
+          setErrorMsg(rpcError.message || 'Error creating account.');
+          setLoading(false);
+          return;
+        }
+
+        const { url } = await startCheckoutSession({
+          membershipTier: MEMBERSHIP_TIERS.FISCAL_AGENT,
+          returnPath: '/fiscal-agents/checkout/return?flow=onboarding',
+        });
+        window.location.assign(url);
+        return;
       } else {
         // Self-service flow - provision a new tenant atomically via RPC
         const { data: record, error: rpcError } = await supabase
@@ -155,6 +182,11 @@ function CompleteProfile({ session, onProfileComplete }) {
           <p className="signup-subtitle">
             Welcome! Your grants will be managed by <strong>{invite.tenants?.name}</strong>.<br />
             Just a few more details to get started.
+          </p>
+        ) : isFiscalAgent ? (
+          <p className="signup-subtitle">
+            Tell us about your charity, then choose your Fiscal Agent plan. You’ll finish your public
+            listing right after checkout.
           </p>
         ) : (
           <p className="signup-subtitle">One more step - tell us about yourself to set up your workspace.</p>

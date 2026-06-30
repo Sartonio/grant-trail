@@ -1232,6 +1232,17 @@ export type Database = {
       }
       is_super_admin: { Args: never; Returns: boolean }
       platform_root_slug: { Args: never; Returns: string }
+      provision_fiscal_agent_tenant: {
+        Args: {
+          p_auth_uid: string
+          p_email: string
+          p_firstname: string
+          p_lastname: string
+          p_organization: string
+          p_phone: string
+        }
+        Returns: Json
+      }
       provision_self_service_tenant: {
         Args: {
           p_auth_uid: string
