@@ -17,6 +17,9 @@
 // every admin route read-only but cannot perform mutations. Mutation attempts
 // route to the billing nudge. See `canMutate`.
 
+/** @typedef {import('./types').Session} Session */
+/** @typedef {import('./types').Role} Role */
+
 export const ROLES = {
   SUPER_ADMIN: 'super_admin',
   ADMIN: 'admin',
@@ -26,10 +29,18 @@ export const ROLES = {
 // Where unpaid-but-authenticated users are nudged to pay.
 export const BILLING_NUDGE_PATH = '/subscription';
 
+/**
+ * @param {Session} [session]
+ * @returns {Role|null}
+ */
 export function getRole(session) {
   return session?.userRecord?.role || null;
 }
 
+/**
+ * @param {Session} [session]
+ * @returns {boolean}
+ */
 export function isAuthenticated(session) {
   return !!session?.userRecord;
 }
@@ -44,6 +55,10 @@ export function isAuthenticated(session) {
 //
 // This is the single subscription decision; it replaces the copy that used to
 // live in both App.js and lib/billing.js:hasRequiredSubscription.
+/**
+ * @param {Session} [session]
+ * @returns {boolean}
+ */
 export function hasRequiredSubscription(session) {
   const role = getRole(session);
   if (!role) return false;
@@ -56,6 +71,10 @@ export function hasRequiredSubscription(session) {
 
 // True when an authenticated, non-super_admin user is missing the subscription
 // their role requires (i.e. should be nudged to pay).
+/**
+ * @param {Session} [session]
+ * @returns {boolean}
+ */
 export function needsSubscription(session) {
   if (!isAuthenticated(session)) return false;
   if (getRole(session) === ROLES.SUPER_ADMIN) return false;
@@ -71,12 +90,20 @@ export function needsSubscription(session) {
 //     admins are not subject to the read-only-admin policy), so default true.
 //   - Admin with required subscription (or exempt/waived): can mutate.
 //   - Lapsed admin (no premium, not exempt): read-only -> cannot mutate.
+/**
+ * @param {Session} [session]
+ * @returns {boolean}
+ */
 export function canMutate(session) {
   if (getRole(session) !== ROLES.ADMIN) return true;
   return hasRequiredSubscription(session);
 }
 
 // Convenience inverse for components: is this admin in read-only (lapsed) mode?
+/**
+ * @param {Session} [session]
+ * @returns {boolean}
+ */
 export function isReadOnlyAdmin(session) {
   return getRole(session) === ROLES.ADMIN && !hasRequiredSubscription(session);
 }
@@ -95,6 +122,10 @@ export function isReadOnlyAdmin(session) {
 // True for the basic SKU OR super_admin OR exempt. (Premium/listing
 // owners still see their OWN listing via RLS; browsing the directory is part of
 // the basic product.)
+/**
+ * @param {Session} [session]
+ * @returns {boolean}
+ */
 export function canViewDirectory(session) {
   if (getRole(session) === ROLES.SUPER_ADMIN) return true;
   const membership = session?.membership;
@@ -109,6 +140,10 @@ export function canViewDirectory(session) {
 // ("Fiscal Agents Plan") entitlement: true for premium OR super_admin OR exempt.
 // Mutation rights on top of this still defer to the read-only-admin lapse policy
 // via `canMutate` / `useWriteGuard`.
+/**
+ * @param {Session} [session]
+ * @returns {boolean}
+ */
 export function canOwnListing(session) {
   if (getRole(session) === ROLES.SUPER_ADMIN) return true;
   const membership = session?.membership;

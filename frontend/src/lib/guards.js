@@ -14,6 +14,9 @@
 // rendered element so components can disable mutations; mutation handlers
 // themselves route blocked writes to the billing nudge via useWriteGuard.
 
+/** @typedef {import('./types').Session} Session */
+/** @typedef {import('./types').Role} Role */
+
 import React from 'react';
 import { Navigate } from 'react-router-dom';
 import {
@@ -46,6 +49,15 @@ export const GRANTEE_BILLING_REDIRECT = '/home';
 //   - 'none'     -> billing not gated on this route
 //   - 'redirect' -> unpaid user redirected (grantee routes)
 //   - 'readOnly' -> route renders; lapsed admin gets read-only (no redirect)
+/**
+ * @param {Session} [session]
+ * @param {Object} options
+ * @param {Role|'authenticated'} [options.requireRole]
+ * @param {string|((session: Session) => string)} [options.roleRedirect]
+ * @param {'none'|'redirect'|'readOnly'} [options.billingMode]
+ * @param {string} [options.billingRedirect]
+ * @returns {{ redirect: string|null, readOnly?: boolean }}
+ */
 export function resolveGuard(session, { requireRole, roleRedirect, billingMode = 'none', billingRedirect = GRANTEE_BILLING_REDIRECT }) {
   const resolveRoleRedirect = () =>
     typeof roleRedirect === 'function' ? roleRedirect(session) : roleRedirect;
@@ -70,6 +82,15 @@ export function resolveGuard(session, { requireRole, roleRedirect, billingMode =
 // Guard component. Renders `children` when access is allowed, otherwise a
 // <Navigate>. In readOnly mode it injects `readOnly` and `session` into a
 // single child element so the page can degrade gracefully.
+/**
+ * @param {Object} props
+ * @param {Session} [props.session]
+ * @param {Role|'authenticated'} [props.requireRole]
+ * @param {string|((session: Session) => string)} [props.roleRedirect]
+ * @param {'none'|'redirect'|'readOnly'} [props.billingMode]
+ * @param {string} [props.billingRedirect]
+ * @param {React.ReactNode} props.children
+ */
 export function Guard({ session, requireRole, roleRedirect, billingMode, billingRedirect, children }) {
   const { redirect, readOnly } = resolveGuard(session, {
     requireRole,
@@ -87,6 +108,13 @@ export function Guard({ session, requireRole, roleRedirect, billingMode, billing
 }
 
 // Thin role-only wrapper (authz axis). Wrong role / not authenticated -> redirect.
+/**
+ * @param {Object} props
+ * @param {Session} [props.session]
+ * @param {Role} [props.role]
+ * @param {string|((session: Session) => string)} [props.redirectTo]
+ * @param {React.ReactNode} props.children
+ */
 export function RequireRole({ session, role, redirectTo, children }) {
   return (
     <Guard session={session} requireRole={role ?? 'authenticated'} roleRedirect={redirectTo} billingMode="none">
@@ -97,9 +125,13 @@ export function RequireRole({ session, role, redirectTo, children }) {
 
 // Thin subscription-only wrapper (billing axis). Assumes role already checked.
 // Unpaid -> billing redirect.
+/**
+ * @param {Object} props
+ * @param {Session} [props.session]
+ * @param {string} [props.redirectTo]
+ * @param {React.ReactNode} props.children
+ */
 export function RequireSubscription({ session, redirectTo = GRANTEE_BILLING_REDIRECT, children }) {
   if (needsSubscription(session)) return <Navigate to={redirectTo} />;
   return children;
 }
-
-export { ROLES, BILLING_NUDGE_PATH };

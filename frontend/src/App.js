@@ -8,39 +8,41 @@ import './styles/variables.css';
 import './styles/global.css';
 import './styles/utilities.css';
 import './styles/Charts.css';
-import './App.css';
 
-import Header from './components/Header';
-import Main from './components/Main';
-import Footer from './components/Footer';
-import Login from './components/Login';
-import SignUp from './components/SignUpClean';
-import ResetPassword from './components/ResetPassword';
-import Grants from './components/Grants';
-import GrantDetail from './components/GrantDetail';
-import GrantBreakdown from './components/GrantBreakdown';
-import CreateGrant from './components/CreateGrant';
-import ExpenseReports from './components/ExpenseReports';
-import AdminDashboard from './components/AdminDashboard';
-import AdminGrantList from './components/AdminGrantList';
-import AdminGrantReview from './components/AdminGrantReview';
-import AdminAuditLog from './components/AdminAuditLog';
-import AdminUserList from './components/AdminUserList';
-import TenantManagement from './components/TenantManagement';
-import AdminSettings from './components/AdminSettings';
-import CompleteProfile from './components/CompleteProfile';
-import LandingPage from './components/LandingPage';
-import Join from './components/Join';
-import SubscriptionPage from './components/SubscriptionPage';
-import FiscalAgentDirectory from './components/FiscalAgentDirectory';
-import FiscalAgentProfile from './components/FiscalAgentProfile';
-import FiscalAgentListIntake from './components/FiscalAgentListIntake';
-import FiscalAgentCheckoutReturn from './components/FiscalAgentCheckoutReturn';
-import FiscalAgentOwnerDashboard from './components/FiscalAgentOwnerDashboard';
-import FiscalAgentListingEditor from './components/FiscalAgentListingEditor';
-import { fetchMembershipStatus, fetchSessionContext, syncMembershipFromStripe } from './lib/billing';
+import Header from './components/layout/Header';
+import Main from './components/grant/Main';
+import Footer from './components/layout/Footer';
+import Login from './components/auth/Login';
+import SignUp from './components/auth/SignUpClean';
+import ResetPassword from './components/auth/ResetPassword';
+import Grants from './components/grant/Grants';
+import GrantDetail from './components/grant/GrantDetail';
+import GrantBreakdown from './components/grant/GrantBreakdown';
+import CreateGrant from './components/grant/CreateGrant';
+import ExpenseReports from './components/grant/ExpenseReports';
+import AdminDashboard from './components/admin/AdminDashboard';
+import AdminGrantList from './components/admin/AdminGrantList';
+import AdminGrantReview from './components/admin/AdminGrantReview';
+import AdminAuditLog from './components/admin/AdminAuditLog';
+import AdminUserList from './components/admin/AdminUserList';
+import TenantManagement from './components/admin/TenantManagement';
+import AdminSettings from './components/admin/AdminSettings';
+import CompleteProfile from './components/auth/CompleteProfile';
+import LandingPage from './components/landing/LandingPage';
+import Join from './components/auth/Join';
+import SubscriptionPage from './components/billing/SubscriptionPage';
+import FiscalAgentDirectory from './components/fiscalAgent/FiscalAgentDirectory';
+import FiscalAgentProfile from './components/fiscalAgent/FiscalAgentProfile';
+import FiscalAgentListIntake from './components/fiscalAgent/FiscalAgentListIntake';
+import FiscalAgentCheckoutReturn from './components/fiscalAgent/FiscalAgentCheckoutReturn';
+import FiscalAgentOwnerDashboard from './components/fiscalAgent/FiscalAgentOwnerDashboard';
+import FiscalAgentListingEditor from './components/fiscalAgent/FiscalAgentListingEditor';
+import { fetchSessionContext } from './lib/billing';
 import { Guard, GRANTEE_BILLING_REDIRECT } from './lib/guards';
 import { ROLES, needsSubscription, isAuthenticated } from './lib/policy';
+import { useNotifications } from './hooks/useNotifications';
+import { usePlatformSettings } from './hooks/usePlatformSettings';
+import { useMembership } from './hooks/useMembership';
 
 // Charity onboarding (S9) is token-auth, not session-auth. The pay-first webhook
 // emails a one-time signup link carrying an invite token; we reuse the existing
@@ -58,62 +60,10 @@ function App() {
   const [sessionError,    setSessionError]    = useState(false); // session bootstrap failed
   const [needsProfile,   setNeedsProfile]   = useState(false);
   const [authUser,       setAuthUser]       = useState(null); // Auth user without a users table record
-  const [platformSettings, setPlatformSettings] = useState(null);
-  const [notifications,   setNotifications]   = useState([]);
 
-  // Membership status helper — super_admins are exempt, while grantees and some admins can require billing.
-  async function loadMembershipStatus(userRecord) {
-    if (!userRecord) {
-      return {
-        isExempt: true,
-        hasBasicAccess: true,
-        hasPremiumAccess: true,
-        membership: null,
-        activeSubscription: null,
-      };
-    }
-    if (userRecord.role === 'super_admin') {
-      return {
-        isExempt: true,
-        hasBasicAccess: true,
-        hasPremiumAccess: true,
-        membership: null,
-        activeSubscription: null,
-      };
-    }
-    try {
-      return await fetchMembershipStatus();
-    } catch (_error) {
-      return {
-        isExempt: false,
-        hasBasicAccess: false,
-        hasPremiumAccess: false,
-        membership: null,
-        activeSubscription: null,
-      };
-    }
-  }
-
-  async function refreshMembership() {
-    if (!session?.userRecord || session.userRecord.role === 'super_admin') return;
-    try {
-      await syncMembershipFromStripe();
-      const membership = await fetchMembershipStatus();
-      setSession(prev => (prev ? { ...prev, membership: { ...membership } } : prev));
-    } catch (err) {
-      console.error('Failed to refresh membership:', err);
-      Sentry.captureException(err);
-    }
-  }
-
-  // Fetch platform-wide defaults (support contact fallbacks)
-  useEffect(() => {
-    async function fetchPlatformSettings() {
-      const { data } = await supabase.from('platform_settings').select('*').single();
-      if (data) setPlatformSettings(data);
-    }
-    fetchPlatformSettings();
-  }, []);
+  const platformSettings = usePlatformSettings();
+  const { loadMembershipStatus, refreshMembership } = useMembership(session, setSession);
+  const { notifications, handleMarkRead, handleMarkAllRead, handleClearAll } = useNotifications(session);
 
   useEffect(() => {
     const hash = window.location.hash || '';
@@ -172,58 +122,6 @@ function App() {
     };
     getSession();
   }, []);
-
-  // Fetch notifications and subscribe to realtime updates
-  useEffect(() => {
-    if (!session?.userRecord) {
-      setNotifications([]);
-      return;
-    }
-
-    const userId = session.userRecord.id;
-
-    async function fetchNotifications() {
-      const { data } = await supabase
-        .from('notifications')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false })
-        .limit(50);
-      setNotifications(data || []);
-    }
-
-    fetchNotifications();
-
-    // Subscribe to new notifications in realtime
-    const channel = supabase
-      .channel('user-notifications')
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` },
-        (payload) => {
-          setNotifications(prev => [payload.new, ...prev]);
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [session]);
-
-  function handleMarkRead(notificationId) {
-    setNotifications(prev =>
-      prev.map(n => n.id === notificationId ? { ...n, is_read: true } : n)
-    );
-  }
-
-  function handleMarkAllRead() {
-    setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
-  }
-
-  function handleClearAll() {
-    setNotifications([]);
-  }
 
   async function handleLogout() {
     await supabase.auth.signOut();

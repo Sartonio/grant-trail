@@ -22,13 +22,13 @@ vi.mock('./lib/billing', () => ({
 
 // Replace the subscription page with a stub that lets us fire onMembershipUpdated
 // (i.e. App.refreshMembership) directly. Header/Footer are stubbed out as noise.
-vi.mock('./components/SubscriptionPage', () => ({
+vi.mock('./components/billing/SubscriptionPage', () => ({
   default: ({ onMembershipUpdated }) => (
     <button onClick={onMembershipUpdated}>trigger-refresh</button>
   ),
 }));
-vi.mock('./components/Header', () => ({ default: () => <div /> }));
-vi.mock('./components/Footer', () => ({ default: () => <div /> }));
+vi.mock('./components/layout/Header', () => ({ default: () => <div /> }));
+vi.mock('./components/layout/Footer', () => ({ default: () => <div /> }));
 
 // Table-aware Supabase mock that drives App into an authenticated grantee session.
 function responseFor(table, mode) {

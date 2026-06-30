@@ -1,10 +1,4 @@
 import { supabase } from '../supabaseClient';
-// Subscription/routing policy lives in lib/policy.js (single source of truth,
-// issue #41). Re-export for backward compatibility with existing importers.
-import { hasRequiredSubscription } from './policy';
-
-export { hasRequiredSubscription };
-
 export const MEMBERSHIP_TIERS = {
   BASIC: 'basic',
   ORG_ADMIN: 'premium',

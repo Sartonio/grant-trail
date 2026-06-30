@@ -37,9 +37,3 @@ export function useUser() {
 
   return { userRecord, loading };
 }
-
-// backwards-compat alias
-export function useGrantee() {
-  const { userRecord, loading } = useUser();
-  return { grantee: userRecord, loading };
-}
