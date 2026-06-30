@@ -50,7 +50,7 @@ export const GRANTEE_BILLING_REDIRECT = '/home';
 //   - 'redirect' -> unpaid user redirected (grantee routes)
 //   - 'readOnly' -> route renders; lapsed admin gets read-only (no redirect)
 /**
- * @param {Session} [session]
+ * @param {Session} session
  * @param {Object} options
  * @param {Role|'authenticated'} [options.requireRole]
  * @param {string|((session: Session) => string)} [options.roleRedirect]

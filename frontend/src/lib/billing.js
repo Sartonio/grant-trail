@@ -55,6 +55,7 @@ export function decodeJwtPayload(token) {
     const padded = normalized + '='.repeat((4 - (normalized.length % 4)) % 4);
     const raw = typeof atob === 'function'
       ? atob(padded)
+      // @ts-ignore Buffer is the Node fallback used when the browser atob is absent (SSR/tests).
       : Buffer.from(padded, 'base64').toString('utf-8');
     return JSON.parse(raw);
   } catch (_error) {
