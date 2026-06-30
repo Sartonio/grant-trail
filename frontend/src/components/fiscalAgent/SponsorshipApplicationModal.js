@@ -192,9 +192,10 @@ export default function SponsorshipApplicationModal({ agent, onClose, onSubmit }
             Application sent to {agent.name}
           </h2>
           <p className="fad-modal-sub">
-            Your application is now in {agent.name}'s inbox, and we've emailed them a
-            notification.{agent.responseTime ? ` They typically respond ${agent.responseTime}.` : ''}{' '}
-            Keep an eye on the inbox you provided for their reply.
+            Your application has been submitted! {agent.name} will reach out to the email
+            address you provided once they've reviewed it.
+            {agent.responseTime ? ` They typically respond ${agent.responseTime}.` : ' Response times vary —'}{' '}
+            If you don't hear back within a few weeks, feel free to follow up directly.
           </p>
           <div className="fad-form-foot sapp-success-foot">
             <button type="button" className="fad-btn fad-btn-primary" onClick={onClose}>
