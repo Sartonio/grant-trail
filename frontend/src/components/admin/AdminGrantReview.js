@@ -21,6 +21,8 @@ import GrantAttachments from '../grant/GrantAttachments';
 import { FiPaperclip } from 'react-icons/fi';
 import { useWriteGuard } from '../../lib/useWriteGuard';
 import ReadOnlyBanner from '../common/ReadOnlyBanner';
+import { formatDateMed, formatCurrency } from '../../lib/format';
+import { getReceiptSignedUrl } from '../../lib/storage';
 import './Admin.css';
 
 const ACTION_LABEL = {
@@ -68,18 +70,8 @@ function AdminGrantReview({ session, readOnly = false }) {
   // -------------------------------------------------------
   //  Helpers
   // -------------------------------------------------------
-  const formatDate = iso => {
-    if (!iso) return '—';
-    const [y, m, d] = iso.split('T')[0].split('-');
-    return new Date(+y, +m - 1, +d).toLocaleDateString('en-US', {
-      month: 'short', day: 'numeric', year: 'numeric',
-    });
-  };
-
-  const fmt = n =>
-    n == null
-      ? '—'
-      : new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n);
+  const formatDate = formatDateMed;
+  const fmt = n => formatCurrency(n);
 
   // -------------------------------------------------------
   //  Data fetching
@@ -330,14 +322,12 @@ function AdminGrantReview({ session, readOnly = false }) {
   };
 
   const handleViewReceipt = async (storagePath) => {
-    const { data, error: urlErr } = await supabase.storage
-      .from('receipts')
-      .createSignedUrl(storagePath, 60);
-    if (urlErr || !data?.signedUrl) {
+    const signedUrl = await getReceiptSignedUrl(storagePath);
+    if (!signedUrl) {
       alert('Could not open receipt. Please try again.');
       return;
     }
-    window.open(data.signedUrl, '_blank');
+    window.open(signedUrl, '_blank');
   };
 
   // -------------------------------------------------------

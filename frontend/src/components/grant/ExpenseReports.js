@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "../../supabaseClient";
 import * as XLSX from "xlsx";
 import { FEATURE_KEYS, hasFeature } from "../../lib/billing";
+import { formatDate } from "../../lib/format";
 import {
   FaWallet,
   FaMoneyBillWave,
@@ -78,12 +79,6 @@ function formatExcelDate(dateStr) {
   if (!dateStr) return '—';
   const [year, month, day] = dateStr.slice(0, 10).split('-');
   return `${day}-${MONTHS[parseInt(month, 10) - 1]}-${year}`;
-}
-
-function formatDate(dateStr) {
-  if (!dateStr) return '—';
-  const [year, month, day] = dateStr.slice(0, 10).split('-');
-  return `${parseInt(day, 10)}-${MONTHS[parseInt(month, 10) - 1]}-${year}`;
 }
 
 function ExpenseReports({ session }) {

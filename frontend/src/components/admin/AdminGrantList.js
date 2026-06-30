@@ -5,6 +5,7 @@ import { supabase } from '../../supabaseClient';
 import { FiSearch, FiArrowRight, FiArrowLeft, FiClock, FiArrowUp, FiArrowDown, FiDownload } from 'react-icons/fi';
 import StatusBadge from '../common/StatusBadge';
 import ReadOnlyBanner from '../common/ReadOnlyBanner';
+import { formatDateMed, formatCurrency } from '../../lib/format';
 import './Admin.css';
 
 const TABS = [
@@ -97,14 +98,9 @@ function AdminGrantList({ readOnly = false }) {
     return true;
   });
 
-  const fmt = n =>
-    new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n);
+  const fmt = n => formatCurrency(n, 0);
 
-  const formatDate = iso => {
-    if (!iso) return '—';
-    const [y, m, d] = iso.split('T')[0].split('-');
-    return new Date(+y, +m - 1, +d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  };
+  const formatDate = formatDateMed;
 
   function timeRemaining(endDateStr) {
     if (!endDateStr) return { display: '—', cls: '' };

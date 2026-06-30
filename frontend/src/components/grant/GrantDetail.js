@@ -18,13 +18,7 @@ import {
   FaEdit,
 } from 'react-icons/fa';
 import './GrantDetail.css';
-
-function formatDate(dateStr) {
-  if (!dateStr) return '—';
-  const [year, month, day] = dateStr.slice(0, 10).split('-');
-  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  return `${parseInt(day, 10)}-${months[parseInt(month, 10) - 1]}-${year}`;
-}
+import { formatDate } from '../../lib/format';
 
 function GrantDetail({ session }) {
   const { id } = useParams();

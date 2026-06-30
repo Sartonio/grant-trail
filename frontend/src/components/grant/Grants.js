@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { supabase } from "../../supabaseClient";
 import { filterSortGrants } from "../../utils/grantsList";
+import { formatDate } from "../../lib/format";
 import {
   FaFileAlt,
   FaClock,
@@ -33,14 +34,6 @@ function timeRemaining(endDateStr) {
   const rem = days % 30;
   const display = rem > 0 ? `${months}mo ${rem}d left` : `${months}mo left`;
   return { display, cls: days < 90 ? 'warning' : '' };
-}
-
-const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-
-function formatDate(dateStr) {
-  if (!dateStr) return '—';
-  const [y, m, d] = dateStr.split('-');
-  return `${parseInt(d, 10)}-${MONTHS[parseInt(m, 10) - 1]}-${y}`;
 }
 
 function Grants({ session }) {

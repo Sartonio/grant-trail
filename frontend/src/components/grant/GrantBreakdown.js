@@ -22,6 +22,7 @@ import {
   FaClock,
 } from 'react-icons/fa';
 import './GrantBreakdown.css';
+import { getReceiptSignedUrl } from "../../lib/storage";
 import {
   ResponsiveContainer, PieChart, Pie, Cell, Tooltip, Legend,
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -132,14 +133,12 @@ function GrantBreakdown({ session }) {
   };
 
   const handleViewReceipt = async (storagePath) => {
-    const { data, error } = await supabase.storage
-      .from('receipts')
-      .createSignedUrl(storagePath, 60);
-    if (error || !data?.signedUrl) {
+    const signedUrl = await getReceiptSignedUrl(storagePath);
+    if (!signedUrl) {
       alert('Could not open receipt. Please try again.');
       return;
     }
-    window.open(data.signedUrl, '_blank');
+    window.open(signedUrl, '_blank');
   };
 
   if (error) return <div className="detail-error" style={{ padding: '2rem', textAlign: 'center', color: 'var(--color-error)' }}>{error}</div>;

@@ -9,6 +9,7 @@ import {
   FaTimes,
 } from 'react-icons/fa';
 import './GrantAttachments.css';
+import { getSignedUrl } from '../../lib/storage';
 
 const MAX_BYTES = 5 * 1024 * 1024; // 5 MB
 const ALLOWED_TYPES = [
@@ -134,14 +135,12 @@ function GrantAttachments({ grantId, session, readOnly = false }) {
   };
 
   const handleView = async (storagePath) => {
-    const { data, error: signErr } = await supabase.storage
-      .from('grant-documents')
-      .createSignedUrl(storagePath, 60);
-    if (signErr || !data?.signedUrl) {
+    const signedUrl = await getSignedUrl('grant-documents', storagePath);
+    if (!signedUrl) {
       alert('Could not open file. Please try again.');
       return;
     }
-    window.open(data.signedUrl, '_blank');
+    window.open(signedUrl, '_blank');
   };
 
   const handleDelete = async (att) => {

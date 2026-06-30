@@ -5,6 +5,7 @@ import { supabase } from '../../supabaseClient';
 import { FiUsers, FiGrid, FiClock, FiCheckCircle, FiXCircle, FiDollarSign, FiArrowRight, FiAlertCircle, FiActivity } from 'react-icons/fi';
 import StatusBadge from '../common/StatusBadge';
 import ReadOnlyBanner from '../common/ReadOnlyBanner';
+import { formatCurrency } from '../../lib/format';
 import './Admin.css';
 import {
   ResponsiveContainer, PieChart, Pie, Cell, Tooltip, Legend,
@@ -92,8 +93,7 @@ function AdminDashboard({ session, readOnly = false }) {
     load();
   }, []);
 
-  const fmt = n =>
-    new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n);
+  const fmt = n => formatCurrency(n, 0);
 
   if (loading) return <div className="admin-page"><p className="admin-loading">Loading dashboard…</p></div>;
   if (error)   return <div className="admin-page"><p className="admin-error">{error}</p></div>;
