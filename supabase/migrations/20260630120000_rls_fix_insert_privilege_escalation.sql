@@ -64,7 +64,13 @@ BEGIN
   --       already derived role + tenant authoritatively from a trusted source
   --       (provision_self_service_tenant, register_invited_user). This GUC is
   --       transaction-local and cannot be set by a PostgREST client.
+  --   * auth.uid() IS NULL    -> no authenticated end-user identity at all:
+  --       seed.sql, migrations, raw psql, and backend code that does not
+  --       impersonate a user. Every HOSTILE case is an authenticated client whose
+  --       auth.uid() is its own (non-null) uid; anon (also null uid) has no INSERT
+  --       privilege on public.users, so it can never reach this guard.
   IF auth.role() = 'service_role'
+     OR auth.uid() IS NULL
      OR public.is_admin()
      OR public.is_super_admin()
      OR current_setting('app.user_insert_trusted', true) = '1' THEN
