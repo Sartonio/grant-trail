@@ -1,0 +1,314 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+# Least privilege: none of these jobs push to the repo or call the GitHub API
+# beyond reads. Grant only read access to the default GITHUB_TOKEN.
+permissions:
+  contents: read
+
+# A push to main plus its PR would otherwise run this slow (Supabase + Playwright)
+# matrix twice in parallel. Coalesce per ref and cancel superseded runs.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    defaults:
+      run:
+        working-directory: ./frontend
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: './frontend/package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ESLint
+        run: npm run lint
+
+      - name: Typecheck (tsc --noEmit over the checkJs scope)
+        run: npm run typecheck
+
+      - name: Run unit tests
+        env:
+          CI: true
+          VITE_SUPABASE_URL: https://dummy.supabase.co
+          VITE_SUPABASE_KEY: dummy-key
+        run: npm test
+
+      - name: Verify production build
+        env:
+          VITE_SUPABASE_URL: https://dummy.supabase.co
+          VITE_SUPABASE_KEY: dummy-key
+        run: npm run build
+
+      # Advisory only: surfaces HIGH/CRITICAL dependency advisories without
+      # failing the pipeline (|| true). Promote to a hard gate once the known
+      # xlsx advisory is resolved (see docs/roadmap/security-hygiene.md).
+      - name: Dependency audit (advisory)
+        run: npm audit --audit-level=high || true
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf  # v2.1.1
+        with:
+          version: 2.106.0
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Start Supabase
+        run: |
+          supabase start
+          # Extract credentials and map them to GITHUB_ENV, stripping literal quotes
+          echo "VITE_SUPABASE_URL=$(supabase status -o env | grep API_URL | cut -d= -f2- | tr -d '\"')" >> $GITHUB_ENV
+          echo "VITE_SUPABASE_KEY=$(supabase status -o env | grep ANON_KEY | cut -d= -f2- | tr -d '\"')" >> $GITHUB_ENV
+          echo "SUPABASE_SERVICE_ROLE_KEY=$(supabase status -o env | grep SERVICE_ROLE_KEY | cut -d= -f2- | tr -d '\"')" >> $GITHUB_ENV
+        working-directory: .
+
+      - name: Install Playwright browsers and dependencies
+        run: npx playwright install --with-deps
+
+      - name: Run Playwright E2E tests
+        env:
+          CI: true
+          VITE_SUPABASE_URL: ${{ env.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_KEY: ${{ env.VITE_SUPABASE_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ env.SUPABASE_SERVICE_ROLE_KEY }}
+        run: npm run e2e
+
+      - name: Upload Playwright E2E HTML Report
+        uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: playwright-report
+          path: ./frontend/playwright-report/
+          retention-days: 30
+
+  # Validate that a PR's NEW migrations apply cleanly on top of the EXISTING
+  # (base-branch) schema + seed data, not just from an empty database. This
+  # catches failures the from-scratch `db reset` above misses — e.g. adding a
+  # NOT NULL column or a unique constraint that current rows would violate.
+  # It NEVER touches a real database: the baseline is reconstructed in CI from
+  # the base-branch migrations + seed.sql (our synthetic fixture).
+  migration-replay:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf  # v2.1.1
+        with:
+          version: 2.106.0
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Replay pending migrations on the base-branch baseline
+        run: |
+          set -euo pipefail
+          BASE="${{ github.base_ref }}"
+          git fetch origin "$BASE" --depth=1
+          # Stash the PR's migrations, then reset the folder to the base state.
+          mkdir -p /tmp/pr-migrations
+          cp supabase/migrations/*.sql /tmp/pr-migrations/ 2>/dev/null || true
+          rm -f supabase/migrations/*.sql
+          git checkout FETCH_HEAD -- supabase/migrations
+          echo "Baseline (base-branch) migrations:"
+          ls supabase/migrations/
+          # Build the baseline: base migrations + seed.sql (the "existing" data).
+          supabase start
+          supabase db reset
+          # Restore the PR's migrations and apply ONLY the pending (new) ones.
+          cp /tmp/pr-migrations/*.sql supabase/migrations/ 2>/dev/null || true
+          echo "Applying pending migrations on top of the baseline:"
+          supabase migration up --local
+
+  # FAST gate: edge-function .sh tests that only need the local Supabase stack +
+  # served functions + a (dummy) STRIPE_SECRET_KEY so the billing modules boot.
+  # No `stripe listen` forwarder, no test clocks — runs in ~1-2 min and gates
+  # every PR/push. Tests are DISCOVERED by name from the tier list below, and
+  # only run if the file is present, so this job stays valid/green whether or
+  # not a sibling lane has landed its test file yet.
+  edge-function-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf  # v2.1.1
+        with:
+          version: 2.106.0
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Start Supabase
+        run: supabase start
+
+      - name: Run fast edge-function tests
+        run: |
+          set -uo pipefail
+          source .github/scripts/edge-fn-ci-lib.sh
+          # Dummy, non-empty Stripe secrets so the billing function modules boot
+          # (they throw on an empty STRIPE_SECRET_KEY). These never touch prod.
+          cat > supabase/.env <<'ENVEOF'
+          STRIPE_SECRET_KEY="sk_test_dummy_ci"
+          STRIPE_PRICE_BASIC="price_dummy_basic"
+          STRIPE_PRICE_FISCAL_AGENT="price_dummy_fiscal_agent"
+          STRIPE_WEBHOOK_SECRET="whsec_dummy"
+          APP_URL="http://localhost:3000"
+          ENVEOF
+          serve_functions_and_wait supabase/.env || exit 1
+          # FAST tier: local-stack-only tests (no Stripe forwarder, no live Stripe
+          # API). checkout-sessions.test.sh is deliberately NOT here — it makes
+          # real Stripe API calls (a dummy key 401s) and is owned by the
+          # stripe-edge-function-tests job via run-all.sh. Absent files are skipped.
+          mapfile -t FAST_TESTS < <(select_tests \
+            system-logs-failure.test.sh)
+          run_tests "${FAST_TESTS[@]}"
+          status=$?
+          stop_functions
+          exit $status
+
+  # DB-level trigger / function proof tests. These drive the local Supabase
+  # Postgres directly (docker exec psql, rolled-back transactions) — no edge
+  # functions, no Stripe — so they're fast (~1 min) and gate every PR/push.
+  # They assert the grant-lifecycle product rules (auto-approve, totals roll-up,
+  # subscription exemption, submit/resubmit notifications) that used to be
+  # checked through the browser by the LS1 e2e walkthroughs.
+  db-trigger-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf  # v2.1.1
+        with:
+          version: 2.106.0
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Start Supabase
+        run: supabase start
+
+      - name: Run DB trigger-behavior tests
+        run: bash supabase/tests/grant-trigger-behaviors.test.sh
+
+      - name: Run charity-directory RLS + paywall tests
+        run: bash supabase/tests/charity-directory-rls.test.sh
+
+  # STRIPE-ENABLED gate: edge-function tests that need the Stripe CLI, a live
+  # `stripe listen` forwarder, and test clocks (~3-4 min). The payment lane (Lane
+  # F) owns the orchestrator supabase/functions/tests/run-all.sh, which manages
+  # the forwarder lifecycle and exits non-zero on failure. We invoke it ONLY IF
+  # PRESENT so this workflow is valid before that lane merges; once it lands, the
+  # job runs and gates. Until then it's a green no-op.
+  stripe-edge-function-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # S5: this job carries `environment: ci` secrets (STRIPE_*_TEST). Never run it
+    # for a PR from a fork, so a malicious PR can't exfiltrate them. Same-repo PRs
+    # and pushes still run it.
+    if: github.event.pull_request.head.repo.fork == false || github.event_name == 'push'
+    environment: ci
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Skip if the Stripe orchestrator is not present yet
+        id: guard
+        run: |
+          if [ -f supabase/functions/tests/run-all.sh ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "run-all.sh not present on this branch — Stripe edge-function tests skipped."
+          fi
+
+      - name: Setup Supabase CLI
+        if: steps.guard.outputs.present == 'true'
+        uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf  # v2.1.1
+        with:
+          version: 2.106.0
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Stripe CLI
+        if: steps.guard.outputs.present == 'true'
+        env:
+          # Pinned for reproducibility + supply-chain safety. Bump deliberately:
+          # update STRIPE_CLI_SHA256 to the value in that release's
+          # stripe-linux-checksums.txt when you change the version.
+          STRIPE_CLI_VERSION: 1.21.8
+          STRIPE_CLI_SHA256: 143b3eb202731d9ffdd510350596ab668d006f440720e746cbaeb8bfa578678a
+        run: |
+          set -euo pipefail
+          # The Stripe CLI ships as a static binary in GitHub Releases; there is
+          # no cli.stripe.com installer host (the old URL fails DNS resolution).
+          echo "Installing Stripe CLI v${STRIPE_CLI_VERSION}"
+          curl -fsSL "https://github.com/stripe/stripe-cli/releases/download/v${STRIPE_CLI_VERSION}/stripe_${STRIPE_CLI_VERSION}_linux_x86_64.tar.gz" \
+            -o /tmp/stripe.tar.gz
+          # Verify the downloaded tarball against the pinned checksum BEFORE
+          # extracting/installing, so a tampered or swapped release is rejected.
+          echo "${STRIPE_CLI_SHA256}  /tmp/stripe.tar.gz" | sha256sum -c -
+          tar -xzf /tmp/stripe.tar.gz -C /tmp stripe
+          sudo install -m 0755 /tmp/stripe /usr/local/bin/stripe
+          stripe version
+
+      - name: Start Supabase
+        if: steps.guard.outputs.present == 'true'
+        run: supabase start
+
+      - name: Run Stripe-enabled edge-function tests
+        if: steps.guard.outputs.present == 'true'
+        env:
+          # TEST-mode Stripe secrets, sourced from CI secrets (never prod keys).
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY_TEST }}
+          STRIPE_PRICE_BASIC: ${{ secrets.STRIPE_PRICE_BASIC_TEST }}
+          STRIPE_PRICE_FISCAL_AGENT: ${{ secrets.STRIPE_PRICE_FISCAL_AGENT_TEST }}
+          STRIPE_API_KEY: ${{ secrets.STRIPE_SECRET_KEY_TEST }}
+          APP_URL: http://localhost:3000
+        run: |
+          set -uo pipefail
+          source .github/scripts/edge-fn-ci-lib.sh
+          # Start the forwarder and derive the signing secret it will use, so the
+          # served stripe-webhook verifies signatures against the live loop.
+          stripe listen --forward-to "${API_URL}/functions/v1/stripe-webhook" \
+            --skip-verify >/tmp/stripe-listen.log 2>&1 &
+          STRIPE_LISTEN_PID=$!
+          STRIPE_WEBHOOK_SECRET="$(stripe listen --print-secret)"
+          export STRIPE_WEBHOOK_SECRET
+          # Hand the (TEST-mode) secrets to the served functions.
+          cat > supabase/.env <<ENVEOF
+          STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+          STRIPE_PRICE_BASIC=${STRIPE_PRICE_BASIC}
+          STRIPE_PRICE_FISCAL_AGENT=${STRIPE_PRICE_FISCAL_AGENT}
+          STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
+          APP_URL=${APP_URL}
+          ENVEOF
+          serve_functions_and_wait supabase/.env || { kill "$STRIPE_LISTEN_PID" 2>/dev/null || true; exit 1; }
+          # run-all.sh owns the test-clock / event orchestration and exits
+          # non-zero on any failure, which gates this job.
+          bash supabase/functions/tests/run-all.sh
+          status=$?
+          stop_functions
+          kill "$STRIPE_LISTEN_PID" 2>/dev/null || true
+          exit $status
