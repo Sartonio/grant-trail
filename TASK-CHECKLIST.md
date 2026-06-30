@@ -30,6 +30,8 @@ remote exists again.
 
 - [ ] 🟠 Re-create a GitHub remote and push `main` (needed for CI + staging/prod deploys)
 - [ ] 🟢 Once a remote exists, document the branch-protection + required-checks setup in `docs/`
+- [ ] 🟢 Once a remote exists, wire CI to call `npm run verify` (the workflows PR never hooked it up)
+- [ ] 🟠 Once a remote exists, close stray PR #80 ("Add test.txt") — unrelated leftover
 
 ---
 
@@ -67,5 +69,28 @@ Prod Supabase project already exists (`danufmurtwqlmbiyfdih`). Stripe **live**, 
 - [ ] 🟠 End-to-end smoke test: one real purchase (live card, refund after) → paywall lifts **and** receipt email lands
 - [ ] 🟠 After upgrading the prod Supabase instance, re-run the load test (`tests/load/k6-load-test.js`) at expected concurrency
 - [ ] 🟢 Run security overview
+
+---
+
+## 4. Carried over from architecture-review (folder removed 2026-06-30)
+
+`docs/architecture-review/` (workflows.md, tests.md, modularity.md, security.md, FOLLOWUPS.md)
+was deleted once resolved/stale items were closed out. These were still open:
+
+- [ ] 🔴 **Storage IDOR (security audit F4, MED/LOW):** storage SELECT scopes by tenant but not
+      by grant owner → intra-tenant access to receipts/attachments via guessable sequential
+      paths. Needs an owner-scoped storage policy; deliberately left for human review (risky
+      RLS rewrite) rather than agent-authored.
+- [ ] 🟠 **CSP enforcing mode (security audit F6, LOW):** `vercel.json` ships
+      `Content-Security-Policy-Report-Only` but there's no `report-uri`/`report-to` configured
+      and the app isn't deployed (`deploymentEnabled.main: false`) — no telemetry exists to
+      confirm zero violations before flipping to enforcing. Revisit once there's a live
+      deployment with reporting wired up.
+- [ ] 🟢 **Modularity Phases 4/5 (untouched by design):** split `App.js`'s session-hook
+      responsibilities; split `supabase/functions/_shared/stripe.ts` (516 lines, 4 jobs) via
+      re-exports.
+- [ ] 🟢 **Widen typecheck scope:** `checkJs` is enforced only over `src/lib`, `src/hooks`,
+      `supabaseClient` (TODO in `frontend/tsconfig.json`); full-src has ~187 legacy errors.
+      Ratchet outward as files get annotated.
 
 
