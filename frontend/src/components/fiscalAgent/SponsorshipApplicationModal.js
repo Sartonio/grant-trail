@@ -115,12 +115,11 @@ export default function SponsorshipApplicationModal({ agent, onClose, onSubmit }
   const [project, setProject] = useState({
     name: '',
     mission: '',
-    focus: agent.focus && agent.focus[0] ? agent.focus[0] : FOCUS_AREAS[0],
+    focus: '',
     projectType: PROJECT_TYPES[0],
     estAnnualBudget: '',
     fundingSources: '',
     timeline: TIMELINES[0],
-    startDate: '',
   });
   const [contact, setContact] = useState({
     name: '',
@@ -161,7 +160,6 @@ export default function SponsorshipApplicationModal({ agent, onClose, onSubmit }
           estAnnualBudget: project.estAnnualBudget,
           fundingSources: project.fundingSources,
           timeline: project.timeline,
-          startDate: project.startDate,
         },
         contact: {
           name: contact.name,
@@ -297,23 +295,14 @@ export default function SponsorshipApplicationModal({ agent, onClose, onSubmit }
               </select>
             </Field>
           </div>
-          <div className="sapp-row">
-            <Field label="Current funding sources">
-              <input
-                type="text"
-                value={project.fundingSources}
-                onChange={(e) => setProject({ ...project, fundingSources: e.target.value })}
-                placeholder="e.g. Individual donors, a pending grant"
-              />
-            </Field>
-            <Field label="Target start date">
-              <input
-                type="date"
-                value={project.startDate}
-                onChange={(e) => setProject({ ...project, startDate: e.target.value })}
-              />
-            </Field>
-          </div>
+          <Field label="Current funding sources">
+            <input
+              type="text"
+              value={project.fundingSources}
+              onChange={(e) => setProject({ ...project, fundingSources: e.target.value })}
+              placeholder="e.g. Individual donors, a pending grant"
+            />
+          </Field>
         </div>
       )}
 
@@ -404,12 +393,6 @@ export default function SponsorshipApplicationModal({ agent, onClose, onSubmit }
               <div>
                 <dt>Funding sources</dt>
                 <dd>{project.fundingSources}</dd>
-              </div>
-            )}
-            {project.startDate && (
-              <div>
-                <dt>Start date</dt>
-                <dd>{project.startDate}</dd>
               </div>
             )}
           </dl>
