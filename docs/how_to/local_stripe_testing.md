@@ -1,35 +1,7 @@
 # Local Stripe / Billing Testing
 
-The billing flows (checkout, billing portal, subscription sync, webhooks) live in
-Supabase **Edge Functions** under `supabase/functions/`. To run them locally you
-need three things: Stripe **test-mode** credentials, an `.env` file the functions
-read, and a webhook forwarder. None of this touches real money — everything runs
-in a Stripe **sandbox** (test mode), using fake cards and fake events.
-
-## How the pieces fit together
-
-```
-frontend (lib/billing.js)
-        │  authenticated fetch (Supabase JWT)
-        ▼
-supabase functions serve  ──>  _shared/stripe.ts  ──>  Stripe API (sandbox)
-        ▲                                                     │
-        │  forwards signed events                             │ emits events
-        └──────────────  stripe listen  <────────────────────┘
-```
-
-- `supabase/functions/_shared/stripe.ts` reads `STRIPE_SECRET_KEY` and the price
-  IDs from the environment. If `STRIPE_SECRET_KEY` is missing the module throws on
-  import and **every** function returns an error — so a missing key shows up
-  immediately.
-- `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` are
-  **injected automatically** by `supabase functions serve`. Do not put them in the
-  `.env` file.
-- The `stripe-webhook` function is the only one Stripe calls directly. Stripe
-  authenticates with a `stripe-signature` header (verified against
-  `STRIPE_WEBHOOK_SECRET`), **not** a Supabase JWT — so it is already marked
-  `verify_jwt = false` in `supabase/config.toml`. The other functions keep JWT
-  verification on.
+None of this touches real money — everything runs in a Stripe **sandbox** (test
+mode), using fake cards and fake events.
 
 ## Prerequisites
 
@@ -123,6 +95,34 @@ checkout flows. To exercise the full subscription path end to end, sign in to th
 frontend and start a checkout — the `checkout.session.completed` event flows back
 through `stripe listen` into `upsertSubscriptionFromStripe`, which writes to
 `subscriptions` and `user_memberships`.
+
+## How the pieces fit together
+
+```
+frontend (lib/billing.js)
+        │  authenticated fetch (Supabase JWT)
+        ▼
+supabase functions serve  ──>  _shared/stripe.ts  ──>  Stripe API (sandbox)
+        ▲                                                     │
+        │  forwards signed events                             │ emits events
+        └──────────────  stripe listen  <────────────────────┘
+```
+
+- `supabase/functions/_shared/stripe.ts` reads `STRIPE_SECRET_KEY` and the price
+  IDs from the environment. If `STRIPE_SECRET_KEY` is missing the module throws on
+  import and **every** function returns an error — so a missing key shows up
+  immediately.
+- `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` are
+  **injected automatically** by `supabase functions serve`. Do not put them in the
+  `.env` file.
+- The `stripe-webhook` function is the only one Stripe calls directly. Stripe
+  authenticates with a `stripe-signature` header (verified against
+  `STRIPE_WEBHOOK_SECRET`), **not** a Supabase JWT — so it is already marked
+  `verify_jwt = false` in `supabase/config.toml`. The other functions keep JWT
+  verification on.
+- `stripe listen` doesn't register anything in the Stripe Dashboard — it's an
+  ephemeral, CLI-only forwarding subscription that exists only while the command
+  is running, which is why nothing shows up under Dashboard → Webhooks.
 
 ## Automated payment test suite
 
