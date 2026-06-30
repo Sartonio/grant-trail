@@ -32,7 +32,7 @@ export function filterSortGrants(
     } else if (sortBy === "status") {
       return a.status.localeCompare(b.status);
     } else {
-      return new Date(b.start_spend_period) - new Date(a.start_spend_period);
+      return new Date(b.start_spend_period).getTime() - new Date(a.start_spend_period).getTime();
     }
   });
 }
