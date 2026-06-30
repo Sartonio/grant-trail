@@ -93,6 +93,7 @@ test.describe('Admin walkthrough', () => {
     };
 
     ctx.gReject   = await mkGrant(`WT-Reject ${ts}`,   'pending');   // §4 reject + history + comment
+    ctx.gApprove  = await mkGrant(`WT-Approve ${ts}`,  'pending');   // §4b approve + grantee notification
     ctx.gExpenses = await mkGrant(`WT-Expenses ${ts}`, 'approved');  // §6 expense approve/reject + receipt
 
     // §6 — an approved budget item with two pending expenses; one has a receipt.
@@ -199,6 +200,41 @@ test.describe('Admin walkthrough', () => {
     const { data: rows } = await supabase
       .from('grant_comments').select('comment').eq('grant_id', ctx.gReject.id);
     expect(rows.some(r => r.comment === commentBody)).toBe(true);
+  });
+
+  // §4b — Grant review: APPROVE path + grantee receives a grant_approved notification
+  // (folded in from the former admin-review.spec.js: same admin/grantee already
+  // seeded above, so no need for a second standalone tenant just to click Approve).
+  test('§4b admin approves a grant and the grantee is notified', async ({ page, supabase }) => {
+    await loginAdmin(page);
+
+    const reviewPromise = page.waitForResponse(r =>
+      r.url().includes('grant_record') && r.status() === 200);
+    await page.goto(`/admin/grants/${ctx.gApprove.id}`);
+    await reviewPromise;
+    await expect(page.locator('.arh-title h2')).toContainText(ctx.gApprove.grant_name);
+
+    await page.locator('button.action-btn.approve').click();
+    await expect(page.locator('.action-form')).toBeVisible();
+
+    const approvePromise = page.waitForResponse(r =>
+      r.url().includes('grant_record') && r.request().method() === 'PATCH' &&
+      (r.status() === 200 || r.status() === 204));
+    await page.locator('button.action-submit-btn.approve').click();
+    await approvePromise;
+
+    await expect(page.locator('text=Grant approved.')).toBeVisible({ timeout: 10000 });
+
+    const { data: updated } = await supabase
+      .from('grant_record').select('status').eq('id', ctx.gApprove.id).single();
+    expect(updated.status).toBe('approved');
+
+    const { data: notifications } = await supabase
+      .from('notifications').select('*')
+      .eq('user_id', ctx.granteeUserId).eq('type', 'grant_approved');
+    const notif = notifications.find(n => n.link === `/grants/${ctx.gApprove.id}`);
+    expect(notif).toBeTruthy();
+    expect(notif.title).toBe('Grant Approved');
   });
 
   // §6 — Expenses: view receipt (signed URL), approve one, reject another

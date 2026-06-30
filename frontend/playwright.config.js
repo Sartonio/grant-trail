@@ -3,10 +3,10 @@ const { defineConfig, devices } = require('@playwright/test');
 
 module.exports = defineConfig({
   testDir: './tests/e2e',
-  fullyParallel: false,
+  fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  workers: 1, /* We run sequentially for now so we can pause and intervene */
+  workers: process.env.CI ? 4 : 1, /* parallel in CI; single worker locally so a dev can pause/intervene */
   reporter: 'html',
   use: {
     baseURL: 'http://localhost:3000',

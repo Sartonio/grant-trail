@@ -22,7 +22,7 @@ Playwright is configured to automatically start the local React development serv
 
 ## Test Flows
 
-The suite spans 12 spec files (26 test cases) covering onboarding, billing, the three
+The suite spans 11 spec files covering onboarding, billing, the three
 roles (grantee / admin / super-admin), and negative authorization / tenant-isolation
 checks. The core flows are described below.
 
@@ -72,16 +72,7 @@ checks. The core flows are described below.
 - Verifies the expense table renders the seeded expense row.
 - Clicks the "Export Excel" button (which is gated by premium access) and verifies that an `.xlsx` file download is successfully triggered.
 
-### 6. Admin Grant Review (`admin-review.spec.js`)
-**What it does:**
-- Seeds admin and grantee user records, a managed tenant, and a pending grant record in the database using the service-role client.
-- Bypasses subscription checks by setting `require_subscription: false` on the tenant's settings.
-- Logs in as the admin user and navigates to the admin review page for the pending grant (`/admin/grants/:id`).
-- Clicks the "Approve" button, completes the approval confirmation form, and waits for the API update response.
-- Verifies the UI success message is shown.
-- Directly queries the database to assert that the grant's status was changed to `approved` and a notification was sent to the grantee.
-
-### 7. Notifications & Audit Trail Flow (`notifications-audit.spec.js`)
+### 6. Notifications & Audit Trail Flow (`notifications-audit.spec.js`)
 **What it does:**
 - Seeds a grantee user, self-service tenant, active subscription, membership, and a new grant record in the database using the service-role client.
 - Updates the grant's status to `needs_changes` and then back to `approved` via direct Supabase client calls.
@@ -92,19 +83,19 @@ checks. The core flows are described below.
 - Directly queries the `audit_log` table via Supabase to verify that both `UPDATE` entries exist with the corresponding status change values.
 - Wipes all seeded data (grant, users, tenant, auth user) bottom-up in a `finally` block to prevent foreign key errors.
 
-### 8. Grantee Flows (`grantee-flows.spec.js`)
+### 7. Grantee Flows (`grantee-flows.spec.js`)
 **What it does:**
 - Exercises grantee-owned views: the grant detail status-history timeline, uploading an attachment and seeing it listed, and exporting the expense report as CSV.
 
-### 9. Admin Management Flows (`admin-flows.spec.js`)
+### 8. Admin Management Flows (`admin-flows.spec.js`)
 **What it does:**
 - Covers tenant-admin actions: requesting changes on a pending grant, generating an invite link from user management, promoting a grantee to admin, toggling an approval workflow in settings, filtering the audit log by table, and exporting the grant list as CSV.
 
-### 10. Super-Admin Platform Flows (`super-admin-flows.spec.js`)
+### 9. Super-Admin Platform Flows (`super-admin-flows.spec.js`)
 **What it does:**
 - Logs in as a super admin and verifies the platform surface at `/super/tenants`: landing on tenant management with cross-tenant data, disabling and re-enabling a tenant, and saving platform defaults.
 
-### 11. Authorization & Tenant Isolation (`authz-negative.spec.js`)
+### 10. Authorization & Tenant Isolation (`authz-negative.spec.js`)
 **What it does:**
 - Negative authz checks: a logged-out visitor is redirected to `/login` on protected routes; a grantee is bounced from admin/super routes; an admin is bounced from super-admin routes; and an admin in tenant A cannot see or directly open tenant B's grant (RLS-backed tenant isolation).
 
