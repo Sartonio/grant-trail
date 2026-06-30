@@ -106,15 +106,25 @@ wait_for_sql "SELECT is_active::text FROM user_memberships WHERE user_id=$DBUID;
 #    proving exemption is orthogonal to the Stripe-synced state.
 # =========================================================================
 info "[waiver] exemption overrides live subscription"
+# is_membership_exempt() is also true when the tenant has an active *premium*
+# member -- and by this point the user IS premium (the upgrade above). That
+# would mask the require_subscription signal we want to prove here. Park the
+# membership inactive so the false->true->false exemption transition is
+# attributable to the waiver flag ALONE, then restore it; the Stripe-synced
+# `subscriptions` row is never touched.
+dbx "UPDATE user_memberships SET is_active=false WHERE user_id=$DBUID;"
+dbx "UPDATE tenant_settings SET require_subscription=true WHERE tenant_id=(SELECT tenant_id FROM users WHERE id=$DBUID);"
 assert_eq "$(dbq "SELECT is_membership_exempt($DBUID)::text;")" "false" "[waiver] not exempt before"
 dbx "UPDATE tenant_settings SET require_subscription=false WHERE tenant_id=(SELECT tenant_id FROM users WHERE id=$DBUID);"
 assert_eq "$(dbq "SELECT is_membership_exempt($DBUID)::text;")" "true" "[waiver] exempt after require_subscription=false"
+# membership is parked inactive, so a true here is purely the exemption short-circuit
 assert_eq "$(dbq "SELECT has_premium_membership($DBUID)::text;")" "true" "[waiver] has_premium via exemption"
 # subscription projection itself is untouched by the waiver
 assert_eq "$(dbq "SELECT status FROM subscriptions WHERE stripe_subscription_id='$SUB';")" "active" "[waiver] live subscription row still active"
-# restore
+# restore tenant gating + membership for the steps that follow
 dbx "UPDATE tenant_settings SET require_subscription=true WHERE tenant_id=(SELECT tenant_id FROM users WHERE id=$DBUID);"
 assert_eq "$(dbq "SELECT is_membership_exempt($DBUID)::text;")" "false" "[waiver] exemption removed cleanly"
+dbx "UPDATE user_memberships SET is_active=true WHERE user_id=$DBUID;"
 
 # =========================================================================
 # 5. past_due (invoice.payment_failed) -- renewal fails via a test clock.

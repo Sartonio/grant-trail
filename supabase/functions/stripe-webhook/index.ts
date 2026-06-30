@@ -165,6 +165,15 @@ Deno.serve(async (request) => {
     });
 
     if (insertEventError) {
+      // Concurrent re-delivery: both passed the maybeSingle() check above, the
+      // loser hits the stripe_event_id unique constraint. Treat it as the
+      // duplicate it is rather than 400ing (which triggers a Stripe retry).
+      if (insertEventError.code === '23505') {
+        return new Response(JSON.stringify({ received: true, duplicate: true }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200,
+        });
+      }
       throw new Error(`Unable to persist webhook event: ${insertEventError.message}`);
     }
 

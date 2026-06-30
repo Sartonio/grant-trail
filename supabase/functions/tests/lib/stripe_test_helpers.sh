@@ -76,13 +76,21 @@ TEST_PASSWORD="password123"
 # public.users row.
 #
 # Tenant choice matters for billing: admins must live in a *managed* tenant that
-# is NOT exempt, so subscription gating actually applies. `bright-horizons` is a
-# managed, require_subscription=true, non-tfac tenant => its admins are billable
-# (is_membership_exempt = false). Grantees go in a self-service tenant.
+# is NOT exempt, so subscription gating actually applies. We mint a FRESH,
+# unique managed tenant (slug `lanef-<rand>`, require_subscription=true by
+# default) per admin/super_admin call rather than sharing one tenant. Sharing a
+# tenant cross-contaminates exemption: is_membership_exempt() returns true if
+# ANY sibling in the tenant holds an active premium membership, so one test's
+# premium subscriber would poison exemption-sensitive predicates for every other
+# test user. A private tenant keeps each admin billable (is_membership_exempt =
+# false). Grantees go in a shared self-service tenant.
 create_test_user() {
   local email="$1" role="${2:-admin}" slug
   if [ "$role" == "admin" ] || [ "$role" == "super_admin" ]; then
-    slug="bright-horizons"
+    slug="lanef-${RANDOM}${RANDOM}"
+    # Managed + require_subscription=true (the column default) => admins billable.
+    dbx "INSERT INTO tenants (name, slug, tenant_type) VALUES ('Lane F Test Tenant', '${slug}', 'managed');"
+    dbx "INSERT INTO tenant_settings (tenant_id) VALUES ((SELECT id FROM tenants WHERE slug='${slug}'));"
   else
     slug="lopez-consulting"
   fi
@@ -104,11 +112,14 @@ get_token() {
     -d "{\"email\":\"$1\",\"password\":\"${TEST_PASSWORD}\"}" | json_field access_token
 }
 
-# Remove all Lane-F test fixtures (DB rows + GoTrue users).
+# Remove all Lane-F test fixtures (DB rows + GoTrue users + per-test tenants).
 cleanup_test_users() {
   local ids
   ids=$(dbq "SELECT user_id FROM users WHERE email LIKE 'lanef-%@example.com';")
   dbx "DELETE FROM users WHERE email LIKE 'lanef-%@example.com';"
+  # Drop the per-admin tenants minted by create_test_user (tenant_settings
+  # cascades via FK). Safe only after their users are gone (above).
+  dbx "DELETE FROM tenants WHERE slug LIKE 'lanef-%';"
   local u
   for u in $ids; do
     curl -s -o /dev/null -X DELETE "${API_URL}/auth/v1/admin/users/${u}" \
