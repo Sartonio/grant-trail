@@ -44,7 +44,7 @@
     "e2e:install": "playwright install",
     "db:start": "supabase start",
     "db:stop": "supabase stop",
-    "db:reset": "supabase db reset",
+    "db:reset": "supabase db reset && npm run db:types",
     "db:types": "supabase gen types typescript --local | grep -v '\"_tag\":\"Error\"' > src/lib/database.types.ts"
   },
   "eslintConfig": {

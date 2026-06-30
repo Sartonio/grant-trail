@@ -51,11 +51,13 @@ entirely** — including all the DNS work.
    Copy the `whsec_…` from the output into `STRIPE_WEBHOOK_SECRET` in Part B's config.
    If the Supabase project ref ever changes, delete the old endpoint in the Stripe
    dashboard and repeat (the URL contains the ref).
-4. **Resend sending domain (email DNS)** — verify your domain in Resend so receipts can
-   deliver to any customer. Full step-by-step incl. the DNS records is in
-   [`EMAIL-DNS-SETUP.md`](../../EMAIL-DNS-SETUP.md). This is the only step with external
-   DNS propagation, so start it early. Outputs: a `RESEND_API_KEY` and a verified
-   `EMAIL_FROM` address.
+4. **Resend sending domain (email DNS)** — verify your domain in Resend so receipts deliver
+   to any customer. In [Resend → Domains](https://resend.com/domains): add your sending domain
+   (e.g. `send.example.org`), add the DNS records Resend gives you (SPF, DKIM, DMARC) at your
+   registrar, wait for propagation, then **Verify**. Create an API key in Resend → API Keys.
+   This is the only step with external DNS propagation, so start it early. Outputs: a
+   `RESEND_API_KEY` and a verified `EMAIL_FROM` address (`onboarding@resend.dev` only delivers
+   to the account owner — it won't work for prod).
 5. **Populate the `production` GitHub environment** — run Part B's
    [Fill & push config](#2-fill--push-config) once, including `RESEND_API_KEY` +
    `EMAIL_FROM`. After this the config lives in GitHub; developers never touch it again
@@ -103,30 +105,28 @@ npm run deploy:secrets        # first run scaffolds .deploy/production.env, then
 
 Fill the **MANDATORY** block (every key has a comment saying where its value comes from):
 Supabase access token + ref, `STRIPE_SECRET_KEY=sk_live_…`, the live `price_…` ids,
-`VERCEL_TOKEN`, `APP_URL`. If the email domain is verified, also set `RESEND_API_KEY`
-(secret) + `EMAIL_FROM` (variable, on the verified domain). Leave **AUTOFILLED** blank —
-the next run derives the Supabase URL/key, Vercel ids, and the Stripe webhook secret.
+`STRIPE_WEBHOOK_SECRET=whsec_…` (the value from Part A step 3 — Stripe reveals it only at
+creation, so the script can't fetch it), `VERCEL_TOKEN`, `APP_URL`, `RESEND_API_KEY` (secret) +
+`EMAIL_FROM` (variable, on the verified domain). Leave **AUTOFILLED** blank — the next run
+derives the Supabase URL/key and Vercel ids.
 
 ```bash
-npm run deploy:secrets        # pushes to GitHub `production`, creates the live Stripe webhook, shreds the file
+npm run deploy:secrets        # pushes to GitHub `production`, shreds the file
 ```
 
 `--dry-run` previews without changing anything; re-run any time you rotate a key (idempotent).
 
-> **Email is optional to deploy.** Leave `RESEND_API_KEY`/`EMAIL_FROM` blank and prod
-> stands up with receipts off (the send no-ops cleanly — no errors, no failure rows).
-> Turn them on later — see [Turning on email](#turning-on-email).
-
 ### 2. Trigger the deploy
 
-GitHub → [Actions → **Deploy to Production**](https://github.com/Programmer484/grant-trail/actions/workflows/deploy-prod.yml)
-→ Run workflow → approve the environment prompt. It pushes Supabase secrets, applies
-migrations, deploys edge functions, and builds + deploys the frontend (injecting the Vite
-vars from the `production` env). Confirm the run is green.
+GitHub → Actions → **Deploy to Production** → Run workflow → approve the environment prompt.
+It pushes Supabase secrets, applies migrations, deploys edge functions, and builds + deploys the
+frontend (injecting the Vite vars from the `production` env). Confirm the run is green.
 
-### 3. Seed Stripe product IDs (data, not config)
+### 3. Verify Stripe product IDs (optional)
 
-In the prod [Supabase SQL editor](https://supabase.com/dashboard/project/_/sql):
+`deploy.yml` already seeds `platform_settings` from the `STRIPE_PRODUCT_*` config, so this is a
+verify/repair step, not a required one. Only if the product IDs are wrong, in the prod
+[Supabase SQL editor](https://supabase.com/dashboard/project/_/sql):
 
 ```sql
 UPDATE platform_settings
@@ -144,21 +144,6 @@ with the right plan / amount / date. If the email doesn't arrive: check `system_
 
 ---
 
-## Turning on email
-
-Email is deploy-optional; turn it on once the sending domain is verified (Part A step 3):
-
-```bash
-gh secret   set RESEND_API_KEY --env production            # paste re_...
-gh variable set EMAIL_FROM     --env production --body 'GrantTrail <receipts@send.atkasolutions.org>'
-```
-
-Then re-run **Deploy to Production**. Confirm both appear in Supabase → Edge Functions →
-Secrets. `EMAIL_FROM` must be on the verified domain; `onboarding@resend.dev` only
-delivers to the Resend account owner.
-
----
-
 ## Clearing the database
 
 Reusing an existing Supabase project as the new prod? Wipe it first so migrations re-apply
@@ -172,6 +157,12 @@ grant all on schema public to postgres, service_role;
 delete from supabase_migrations.schema_migrations;   -- re-run every migration
 delete from auth.users;                              -- optional: drop test users
 ```
+
+> **Required after the migration squash.** The existing prod project's
+> `supabase_migrations.schema_migrations` ledger references the old (pre-squash) migration
+> versions. Because prod tracks migrations by version, the squashed baseline won't apply over
+> a stale ledger — clearing it (the `delete from … schema_migrations` line above) is mandatory
+> before the first deploy, not just when reusing a project for a different app.
 
 The next *Deploy to Production* rebuilds the schema from `supabase/migrations/`.
 

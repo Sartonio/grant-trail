@@ -43,7 +43,7 @@ Read by the Supabase CLI when serving Edge Functions locally (`supabase function
 | `STRIPE_BILLING_PORTAL_CONFIGURATION_ID` | ❌ Optional | ID of a custom Stripe Billing Portal configuration. If omitted, Stripe uses the default portal configuration. | [Stripe Dashboard → Billing → Customer Portal](https://dashboard.stripe.com/settings/billing/portal) → Configuration ID (`bpc_...`) |
 | `APP_URL` | ✅ | The frontend URL, used for Stripe redirect URLs after checkout/portal | Local: `http://localhost:3000`. Production: your Vercel URL |
 | `RESEND_API_KEY` | ❌ Optional (disables email) | API key for the [Resend](https://resend.com) HTTP API, used to send payment-confirmation emails after a successful Stripe checkout. Leave blank (with `EMAIL_FROM`) to skip email sending. | [Resend Dashboard → API Keys](https://resend.com/api-keys) (`re_...`) |
-| `EMAIL_FROM` | ❌ Optional (required to send) | The `From` address for outgoing emails. Must be on a Resend-**verified** domain (e.g. `GrantTrail <receipts@send.atkasolutions.org>`); `onboarding@resend.dev` only delivers to the Resend account owner. See `EMAIL-DNS-SETUP.md`. | Resend Dashboard → Domains |
+| `EMAIL_FROM` | ❌ Optional (required to send) | The `From` address for outgoing emails. Must be on a Resend-**verified** domain (e.g. `GrantTrail <receipts@send.atkasolutions.org>`); `onboarding@resend.dev` only delivers to the Resend account owner. See [Production Setup → Part A](../how_to/prod_setup.md#part-a--one-time-owner-bootstrap). | Resend Dashboard → Domains |
 
 > **Note:** `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` are automatically injected by the Supabase runtime into every Edge Function. You do not need to set these manually.
 

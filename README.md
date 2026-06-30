@@ -7,9 +7,9 @@ Built with **React** on the frontend and **Supabase** (Postgres, Auth, Storage, 
 > [!NOTE]
 > **Deployment:** production is deployed from this repo by the **Deploy to
 > Production** GitHub Actions workflow (manual trigger).
-> All prod config has one source of truth — `.deploy/prod.env`, synced to the
+> All prod config has one source of truth — `.deploy/production.env`, synced to the
 > GitHub `production` environment with `npm run deploy:secrets`. See the
-> [Production Setup Checklist](docs/how_to/prod_setup.md).
+> [Production Setup](docs/how_to/prod_setup.md).
 
 ---
 
@@ -69,7 +69,7 @@ npm run dev
 
 The local setup runs completely offline, uses pre-configured deterministic API keys, and seeds test auth users automatically. No manual account creation is needed.
 
-`npm run setup` also installs a git **pre-push hook** (via `core.hooksPath`) that blocks pushes containing local database changes not captured in a migration file. It uses the same Docker-based local stack as `npm run db:start`, so no extra tooling is required — just have Docker running and the local DB started. See [Making Schema Changes](docs/how_to/make_schema_changes.md).
+`npm run setup` also installs a git **pre-push hook** (via `core.hooksPath`) that blocks pushes containing local database changes not captured in a migration file. It uses the same Docker-based local stack as `npm run db:start`, so no extra tooling is required — just have Docker running and the local DB started. See [Dev Practices](docs/how_to/dev_practices.md).
 
 ### Test accounts
 
@@ -87,20 +87,23 @@ Password for all accounts: `password123`
 
 Documentation is organized under `docs/` using the [Diátaxis](https://diataxis.fr) framework.
 
-### Tutorials
-Step-by-step guides for learning by doing:
-- [Local Onboarding](docs/tutorials/local_onboarding.md) — full local setup walkthrough
-- [Grantee Walkthrough](docs/tutorials/Grantee-Walkthrough.md)
-- [Admin Walkthrough](docs/tutorials/Admin-Walkthrough.md)
-- [Super Admin Walkthrough](docs/tutorials/Super-Admin-Walkthrough.md)
+### Setup & deploy — the three flows
+- [Dev Setup](docs/how_to/dev_setup.md) — local environment from scratch
+- [Staging Setup](docs/how_to/staging_setup.md) — staging project + deploy
+- [Production Setup](docs/how_to/prod_setup.md) — production bootstrap + deploy
 
 ### How-To Guides
 Task-oriented guides for specific goals:
-- [Production Setup Checklist](docs/how_to/prod_setup.md)
-- [Making Schema Changes](docs/how_to/make_schema_changes.md)
-- [Resetting Test Data](docs/how_to/reset_test_data.md)
-- [Promoting a Super Admin](docs/how_to/promote_superadmin.md)
+- [Dev Practices](docs/how_to/dev_practices.md) — schema changes, resets, promote admin, troubleshooting
 - [Local Stripe / Billing Testing](docs/how_to/local_stripe_testing.md)
+- [Local Email Testing (Resend)](docs/how_to/local_email_testing.md)
+- [Load Testing](docs/how_to/load_testing.md)
+
+### Tutorials
+Step-by-step guides for learning by doing:
+- [Grantee Walkthrough](docs/tutorials/Grantee-Walkthrough.md)
+- [Admin Walkthrough](docs/tutorials/Admin-Walkthrough.md)
+- [Super Admin Walkthrough](docs/tutorials/Super-Admin-Walkthrough.md)
 
 ### Reference
 Lookup material:

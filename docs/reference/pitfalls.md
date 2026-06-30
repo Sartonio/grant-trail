@@ -35,7 +35,7 @@ A local **pre-push hook** additionally blocks pushes whose local schema has drif
 
 ### Schema changes are local-first
 
-Never modify the schema directly on a remote environment — author migrations locally; the **Deploy to Production** workflow applies them via `supabase db push` (see [Deployment model](#deployment-model) above). Full workflow: [Making Schema Changes](../how_to/make_schema_changes.md).
+Never modify the schema directly on a remote environment — author migrations locally; the **Deploy to Production** workflow applies them via `supabase db push` (see [Deployment model](#deployment-model) above). Full workflow: [Dev Practices → Schema changes](../how_to/dev_practices.md#schema-changes-local-first-migrations).
 
 1. Make the change in your local database via Supabase Studio (`http://127.0.0.1:54323`) or raw SQL
 2. Generate a migration file: `supabase db diff -f your_migration_name`

@@ -8,7 +8,7 @@ application handles high-concurrency traffic.
 
 ## 1. Add Performance Indexes
 
-The initial schema includes indexes on all foreign keys and tenant isolation columns:
+The schema baseline includes indexes on all foreign keys and tenant isolation columns:
 
 - `users(tenant_id, email, user_id)`
 - `grant_record(tenant_id, user_id, status)`

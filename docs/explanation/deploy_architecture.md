@@ -15,8 +15,8 @@ There are three environments:
 | Environment  | Purpose                              | Deploy trigger                              |
 |--------------|--------------------------------------|---------------------------------------------|
 | `ci`         | Test-only secrets used by CI checks  | Runs on PRs / CI; never deploys             |
-| `staging`    | Staging deploy target                | **Auto** on every push to `main`            |
-| `production` | Production deploy target             | **Manual** `workflow_dispatch`                  |
+| `staging`    | Staging deploy target                | **Manual** `workflow_dispatch`              |
+| `production` | Production deploy target             | **Manual** `workflow_dispatch`              |
 
 > GitHub environment names are case-insensitive. The live production
 > environment is named `Production`; `production` resolves to the same env.
@@ -39,9 +39,11 @@ There are three environments:
 
 Each stage has **exactly one** deploy path: the GitHub Actions workflows.
 
-- **Staging** deploys automatically when commits land on `main`.
-- **Production** deploys only via a manually dispatched workflow
-  (`workflow_dispatch`).
+- **Staging** and **production** both deploy **only** via a manually dispatched
+  workflow (`workflow_dispatch`) — manual-only is a deliberate policy, not a
+  temporary state. (To make staging auto-deploy on push to `main`, add a
+  `push: { branches: [main] }` trigger to `deploy-staging.yml`; `deploy.yml`
+  already serializes per-environment via its `concurrency` group.)
 
 Because the workflows are the single deploy path, the **Git auto-deploy
 integrations on Vercel and Supabase must be turned off** — otherwise a push to

@@ -83,10 +83,15 @@ supabase functions serve  ──>  _shared/stripe.ts  ──>  Stripe API (sandb
    STRIPE_PRICE_BASIC=price_…
    STRIPE_PRICE_FISCAL_AGENT=price_…
    APP_URL=http://localhost:3000
+
+   # Email (optional — unset = email is silently skipped)
+   # EMAIL_FROM must be on a domain verified in your Resend account.
+   RESEND_API_KEY=re_…
+   EMAIL_FROM=noreply@yourdomain.com
    ```
 
    `supabase/functions/.env` is **git-ignored** — never commit real keys. Only
-   `.env.example` is tracked.
+   `.env.example` is tracked. For Resend setup, see [Local Email Testing](local_email_testing.md).
 
 ## Running it
 

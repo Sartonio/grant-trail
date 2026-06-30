@@ -54,7 +54,7 @@ if [ -n "$(printf '%s' "$diff_out" | tr -d '[:space:]')" ]; then
   echo "    npx --prefix frontend supabase db diff -f <descriptive_name>"
   echo "    git add supabase/migrations/ && git commit"
   echo ""
-  echo "See docs/how_to/make_schema_changes.md. To bypass (not recommended): git push --no-verify"
+  echo "See docs/how_to/dev_practices.md. To bypass (not recommended): git push --no-verify"
   exit 1
 fi
 

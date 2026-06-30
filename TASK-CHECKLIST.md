@@ -13,8 +13,9 @@
 > - **Resend:** real API key in **all three** (local, staging, production).
 > - **Stripe:** **test** keys for **local + staging**; **live** keys for **production** only.
 >
-> **Detail docs:** local Stripe/email → `docs/how_to/local_stripe_testing.md` ·
-> prod deploy → `docs/how_to/prod_setup.md` · load test → `docs/how_to/load_testing.md`.
+> **The three flows (consolidated):** dev → `docs/how_to/dev_setup.md` · staging →
+> `docs/how_to/staging_setup.md` · prod → `docs/how_to/prod_setup.md`. Everyday ops →
+> `docs/how_to/dev_practices.md`. Integrations → `local_stripe_testing.md` / `local_email_testing.md`.
 >
 > **Legend:** 🟢 agent end-to-end (docs/code) · 🟠 owner action (secrets/deploy) · 🔴 owner decision
 
@@ -37,10 +38,10 @@ remote exists again.
 Goal: a clean machine → working local app with Stripe test billing **and** real Resend
 email, by following the docs verbatim. Instructions must omit nothing.
 
-- [ ] 🟢 Verify `npm run setup` → `db:start` → `db:reset` → `dev` works clean and the docs match (squashed-baseline migrations apply; see `supabase/migrations/README.md`)
-- [ ] 🟢 Document local **Stripe test** flow end-to-end (keys → `supabase/functions/.env` → `functions serve --env-file` → `stripe listen`); confirm `docs/how_to/local_stripe_testing.md` is complete
-- [ ] 🟢 Add local **email** to the dev flow — **audit gap #10:** `local_stripe_testing.md`'s dotenv block (lines ~80–86) lists only `STRIPE_*` + `APP_URL`; add real `RESEND_API_KEY=` + `EMAIL_FROM=` (verified-domain address) and a "trigger a checkout/inquiry → confirm the email in Resend → Emails" step. Without it `_shared/email.ts` silently no-ops.
-- [ ] 🟠 Supply the real Resend key + Stripe test keys locally and run the smoke test (purchase lifts paywall + receipt/inquiry email lands)
+- [x] 🟢 Consolidated dev flow into `docs/how_to/dev_setup.md` (setup steps, db:start/reset, squashed baseline, test accounts, four-terminal billing stack, gotchas); everyday ops split to `dev_practices.md`. Docs now match the squashed baseline.
+- [x] 🟢 Local **Stripe test** flow documented end-to-end (`local_stripe_testing.md`, linked from dev_setup).
+- [x] 🟢 **Audit gap #10:** Resend (`RESEND_API_KEY` + `EMAIL_FROM`) added to the dev dotenv block + new `local_email_testing.md`; removed the dead SMTP vars from `supabase/.env.example`.
+- [ ] 🟠 Run `npm run setup` → `db:start` → `db:reset` → `dev` on a clean machine + the billing/email smoke test (purchase lifts paywall + email lands). *(Runtime verification — needs Docker + keys; docs verified to match.)*
 
 ---
 
@@ -49,11 +50,11 @@ email, by following the docs verbatim. Instructions must omit nothing.
 Its own Supabase project + Vercel project + GitHub `staging` Environment. Stripe **test**,
 Resend **real**. Instructions live in the docs; owner fills `.deploy/staging.env` and deploys.
 
-- [ ] 🟢 Write `docs/how_to/staging_setup.md` (**audit gap #8 — none exists today; `ci.env.example` even points staging readers at `prod_setup.md`**). Must cover what prod's doesn't: separate staging **Supabase** project (own ref + token); separate **Vercel** project with a **distinct `VERCEL_PROJECT_ID`** (deploy.yml only *warns* — same ID → staging publishes into prod); the webhook-create command with the **test** key against `https://<staging-ref>.supabase.co/functions/v1/stripe-webhook`; test `price_`/`prod_` IDs; **real** Resend key + verified `EMAIL_FROM`; `APP_URL` = staging URL; note staging deploys as a Vercel **preview** (no `--prod`) and how to reach/alias it; point at prod_setup Part A step 6 (already loops the staging preview env vars).
-- [ ] 🟠 Fill `.deploy/staging.env`, then **`npm run deploy:secrets:staging`** (**audit gap #9 — do NOT run `node scripts/deploy_secrets.js staging`; the positional arg is ignored and it defaults to `--env production`, pushing to PROD**)
+- [x] 🟢 Wrote `docs/how_to/staging_setup.md` (**audit gap #8**): separate Supabase project (own ref+token); distinct `VERCEL_PROJECT_ID` warning; **test**-key webhook-create command; test price/product IDs; real Resend + verified `EMAIL_FROM`; staging-URL `APP_URL`; Vercel **preview** note; **gap #9** (`deploy:secrets:staging`, never the bare positional) called out.
+- [ ] 🟠 Fill `.deploy/staging.env`, then **`npm run deploy:secrets:staging`** (gap #9: do NOT run `node scripts/deploy_secrets.js staging` — defaults to PROD)
 - [ ] 🟠 Run **Deploy to Staging** (`workflow_dispatch`); verify migrations push, edge functions deploy, Vercel preview is live
-- [ ] 🟢 **Staging gets the fake seed data (accounts/grants/expenses); prod does NOT.** `supabase/seed.sql` is self-contained (creates its own `auth.users` + public rows), so seeding staging = load it against the staging DB — `seed_auth.mjs` is not needed remotely. Add a **guarded** `db:seed:staging` script + document it: it must refuse to run against the **production** project ref (seed.sql is **not idempotent** — plain INSERTs — so it's a fresh-DB-only operation; re-running errors on duplicate keys). `db push` never runs seed.sql, so prod stays clean automatically.
-- [ ] 🟠 Seed staging once (after the staging DB is fresh): run `npm run db:seed:staging`
+- [ ] 🟢 (deferred) Guarded `db:seed:staging` npm script that hard-refuses the prod ref — **not built**; staging_setup.md documents the manual fresh-DB seed for now (seed.sql is non-idempotent → fresh-DB-only). Build the script when the staging DB actually exists (blocked on the remote anyway).
+- [ ] 🟠 Seed staging once (after the staging DB is fresh) per `staging_setup.md` §3
 - [ ] 🟠 Staging smoke test: log in as a seeded account (`password123`), Stripe **test** purchase lifts paywall + Resend email lands
 
 ---
@@ -67,13 +68,13 @@ Prod Supabase project already exists (`danufmurtwqlmbiyfdih`). Stripe **live**, 
 > + the real `bootstrap_data.sql` rows (tenant, settings, buckets). Never run `seed.sql`
 > against prod; the `db:seed:staging` guard must hard-refuse the prod ref.
 
-- [ ] 🟢 Fix `prod_setup.md` blockers found by the audit (each hard-stops `deploy:secrets`):
-  - **#1** `STRIPE_WEBHOOK_SECRET` is documented as auto-derived but isn't — `deploy_secrets.js` only auto-fetches Supabase URL/key + Vercel org id. Move it from `=== AUTOFILLED ===` to **MANDATORY** in both `deploy/*.env.example`, and reword prod_setup lines 108/111 to "paste the `whsec_…` from Part A step 3."
-  - **#2** Drop the "email is optional / Turning on email later" framing (lines ~116–118) — `RESEND_API_KEY` + `EMAIL_FROM` are required by the script and by policy; treat both as mandatory.
-  - **#3** Broken link: prod_setup line 56 references `EMAIL-DNS-SETUP.md`, which **does not exist**. Create it (Resend domain + DNS records) or inline those steps into Part A step 4.
-  - **#4** Squash + existing prod project: prod ref `danufmurtwqlmbiyfdih` already exists; because history was squashed, its `supabase_migrations.schema_migrations` must be cleared before the first `db push` or it diverges/fails. Add this line to "Clearing the database."
-  - **#5** (cleanup) Step 3's manual `UPDATE platform_settings` is redundant — `deploy.yml` already seeds it from `STRIPE_PRODUCT_*`; relabel as optional verify/repair.
-  - **#6/#7** (cleanup) Stale `Programmer484/grant-trail` Actions URL (line 122) + README line 10 says `.deploy/prod.env` (real: `.deploy/production.env`).
+- [x] 🟢 Fixed all `prod_setup.md` audit blockers:
+  - **#1** `STRIPE_WEBHOOK_SECRET` moved to **MANDATORY** in both `deploy/*.env.example`; prod/staging docs reworded to "paste the `whsec_…` from Part A" (script confirmed not to auto-fetch it).
+  - **#2** Removed the "email optional / Turning on email" framing; Resend now mandatory in step 1.
+  - **#3** Inlined the Resend domain/DNS steps into Part A step 4; killed the broken `EMAIL-DNS-SETUP.md` link (also fixed the dangling ref in `environment_variables.md`).
+  - **#4** Added the squash note to "Clearing the database" (existing prod ref's `schema_migrations` must be cleared before first deploy).
+  - **#5** Relabelled the `platform_settings` UPDATE as optional verify/repair.
+  - **#6/#7** Removed the stale `Programmer484` Actions URL; fixed README `.deploy/prod.env` → `.deploy/production.env`.
 - [ ] 🔴 Confirm production uses **live** Stripe keys (vs. test in local/staging)
 - [ ] 🟠 Fill `.deploy/production.env`; create the **live** Stripe webhook + the Resend key; push via **`npm run deploy:secrets`** (defaults to production)
 - [ ] 🟠 Run **Deploy to Production** (`workflow_dispatch`)
@@ -86,7 +87,9 @@ Prod Supabase project already exists (`danufmurtwqlmbiyfdih`). Stripe **live**, 
 ## 4. Known issues / cleanup
 
 - [x] 🟢 Fix `supabase/tests/platform-root-config.test.sh` 5/1 failure — re-targeted the assertion at a greenleaf user with no exemption path (was the bright-horizons admin, who legitimately has premium). Now 6/6; other DB suites unaffected.
-- [ ] 🟢 **Audit gap #11** (low pri): `load_testing.md` references indexes on `audit_log`/`grant_record`/`expenses` "in the initial schema" — verify those table names still match the squashed baseline (e.g. `grant_record` vs `grants`).
+- [x] 🟢 **Audit gap #11:** verified `audit_log`/`grant_record`/`expenses` exist in the squashed baseline (table names correct); reworded `load_testing.md` "initial schema" → "schema baseline".
+- [x] 🟢 **Doc consolidation:** 33→fewer; merged 3 how-tos into `dev_practices.md`, folded the payment-and-deployment guide's dev half into `dev_setup.md` and deleted it (its prod half was wrong — claimed "no prod env / staging = yfkmoeuimqpegfuhplwr"); fixed `deploy_architecture.md` staging auto-deploy contradiction; retargeted all inbound links (README, pitfalls, authentication_flow, environment_variables, pre-push hook).
+- [x] 🟢 **Automation:** folded `db:types` into `db:reset` so generated types never go stale after a migration (the one footgun worth a hook/script; rest already covered by pre-push/post-merge/CI).
 
 ---
 

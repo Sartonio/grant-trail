@@ -80,7 +80,7 @@ session.membership.isExempt            // Boolean: bypass billing (super_admins,
 For local development, Supabase Auth accounts are seeded deterministically. During bootstrap:
 1. `supabase/seed.sql` populates the Auth schema and the application `users` table.
 2. The user UUIDs are matched automatically so test credentials (such as `maria.smith@example.com` / `password123`) work out-of-the-box.
-3. If you manually create a user in the local Supabase dashboard, you must run an SQL update to copy their Auth UUID into `users.user_id`. See the [Resetting Test Data Guide](../how_to/reset_test_data.md) for sql examples.
+3. If you manually create a user in the local Supabase dashboard, you must run an SQL update to copy their Auth UUID into `users.user_id`. See [Dev Practices → Troubleshooting](../how_to/dev_practices.md#troubleshooting) for sql examples.
 
 ---
 
