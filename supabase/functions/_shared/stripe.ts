@@ -1,5 +1,6 @@
 import Stripe from 'npm:stripe@18.1.1';
 import { createClient } from 'npm:@supabase/supabase-js@2.84.0';
+import { isSubscriptionActive } from './subscription-status.ts';
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
 const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
@@ -309,7 +310,7 @@ export async function upsertSubscriptionFromStripe(subscription: Stripe.Subscrip
     throw new Error(`Unable to upsert subscription: ${upsertError.message}`);
   }
 
-  const isActive = ['active', 'trialing', 'past_due'].includes(subscription.status);
+  const isActive = isSubscriptionActive(subscription.status);
 
   const membershipPayload = {
     user_id: billingCustomer.user_id,

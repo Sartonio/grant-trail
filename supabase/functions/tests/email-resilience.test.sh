@@ -15,6 +15,10 @@
 #     payment_confirmation_email_failure row (severity 'error') lands in
 #     system_logs tagged with the event id we sent.
 #
+#   CASE 3 — bad-signature rejection (negative): an event signed with the WRONG
+#     secret is rejected at signature verification (webhook 400) before any
+#     projection — no billing_webhook_events dedupe row is written for it.
+#
 # Why hand-signed events (not `stripe trigger` / `stripe listen`):
 #   * `stripe trigger checkout.session.completed` makes a synthetic session with
 #     mode=payment and no subscription, so it never enters the email branch.
@@ -290,6 +294,36 @@ wait_for_sql "SELECT status FROM subscriptions WHERE stripe_subscription_id='$SU
 wait_for_sql "SELECT is_active::text FROM user_memberships WHERE user_id=$DBUID;" "true" "[isolation] user_membership still active"
 wait_for_sql "SELECT count(*) FROM system_logs WHERE event_name='payment_confirmation_email_failure' AND severity='error' AND metadata->>'stripe_event_id'='${EVT2}';" \
   "1" "[isolation] exactly one payment_confirmation_email_failure (severity error) row tagged with the event id"
+
+# ===========================================================================
+# CASE 3 — bad-signature rejection (negative case): a forged event signed with
+# the WRONG secret must be rejected at signature verification
+# (constructEventAsync throws) BEFORE any projection. We assert the webhook
+# returns 400 AND that nothing was projected — no billing_webhook_events dedupe
+# row lands for the forged event id. (The handler does write a
+# stripe_webhook_failure audit log on rejection; that's expected — "nothing
+# written" means nothing reached the business/dedupe tables.)
+# Reuses the already-served function from CASE 2; signature verification runs
+# before the email branch, so the email env is irrelevant here.
+# ===========================================================================
+info "[badsig] a wrong-secret signature must be rejected with no projection"
+EVT3="evt_test_emailres_badsig_$(date +%s)_$RANDOM"
+dbx "DELETE FROM billing_webhook_events WHERE stripe_event_id='${EVT3}';"
+
+TS3="$(date +%s)"
+CS3="cs_test_emailres_badsig_$(date +%s)_$RANDOM"
+PAYLOAD3="$(build_payload "$EVT3" "$CS3" "$SUB" "$CUS" "$TEST_EMAIL" "$TS3")"
+# Sign with a secret the served function does NOT know -> v1 mismatch.
+BADSIG=$(python3 -c \
+  "import hmac,hashlib,sys;print(hmac.new(sys.argv[1].encode(),sys.argv[2].encode(),hashlib.sha256).hexdigest())" \
+  "whsec_this_is_the_wrong_secret" "${TS3}.${PAYLOAD3}")
+CODE3=$(curl -s -o /dev/null -w "%{http_code}" -X POST "${FUNCTIONS_URL}/stripe-webhook" \
+  -H "Stripe-Signature: t=${TS3},v1=${BADSIG}" \
+  -H "Content-Type: application/json" \
+  --data-raw "$PAYLOAD3")
+assert_http "$CODE3" "400" "[badsig] webhook rejects a wrong-secret signature with 400"
+assert_eq "$(dbq "SELECT count(*) FROM billing_webhook_events WHERE stripe_event_id='${EVT3}';")" \
+  "0" "[badsig] forged event was NOT recorded (nothing projected)"
 
 echo
 echo "email-resilience: ${PASS_COUNT} passed, ${FAIL_COUNT} failed"
