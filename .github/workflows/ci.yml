@@ -43,6 +43,9 @@ jobs:
       - name: Run ESLint
         run: npm run lint
 
+      - name: Typecheck (tsc --noEmit over the checkJs scope)
+        run: npm run typecheck
+
       - name: Run unit tests
         env:
           CI: true
