@@ -1,7 +1,14 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = 'http://127.0.0.1:54321';
-const supabaseKey = 'sb_secret_LOCAL_DEV_KEY'; // service_role key
+// Local-only seeding helper. The service_role key is NOT hardcoded — grab it from
+// your running stack: `supabase status` (service_role key) and export it first:
+//   SUPABASE_SERVICE_ROLE_KEY=$(supabase status -o env | grep SERVICE_ROLE_KEY | cut -d= -f2- | tr -d '"')
+const supabaseUrl = process.env.SUPABASE_URL || 'http://127.0.0.1:54321';
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+if (!supabaseKey) {
+  console.error('Set SUPABASE_SERVICE_ROLE_KEY (from `supabase status`) before running this seed.');
+  process.exit(1);
+}
 const supabase = createClient(supabaseUrl, supabaseKey, {
   auth: { autoRefreshToken: false, persistSession: false }
 });
