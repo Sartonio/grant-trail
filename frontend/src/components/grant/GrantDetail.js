@@ -77,7 +77,7 @@ function GrantDetail({ session }) {
         <div className="detail-nav-right">
           {(grant.status === 'needs_changes' || session?.tenantConfig?.type === 'self_service') && (
             <Link to={`/grants/${grant.id}/edit`} className="detail-edit-link">
-              <FaEdit /> Edit Application
+              <FaEdit /> Edit Grant
             </Link>
           )}
           <Link to={`/grants/${grant.id}/breakdown`} className="detail-expenses-link">

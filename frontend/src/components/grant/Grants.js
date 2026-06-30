@@ -100,7 +100,7 @@ function Grants({ session }) {
   return (
     <div className="grants-page">
       <div className="grants-page-header">
-        <h2 className="grants-page-title">My Grant Applications</h2>
+        <h2 className="grants-page-title">My Grants</h2>
       </div>
 
       {/* Summary strip */}

@@ -178,7 +178,7 @@ function CreateGrant({ session }) {
     } catch (err) {
       console.error('Error saving grant:', err);
       Sentry.captureException(err);
-      setError(err.message || 'Failed to save grant application');
+      setError(err.message || 'Failed to save grant');
     } finally {
       setLoading(false);
     }
@@ -196,15 +196,15 @@ function CreateGrant({ session }) {
     return (
       <div className="create-grant-success">
         <div className="success-icon"><FaCheckCircle /></div>
-        <h2>{isEditMode ? 'Application Updated!' : 'Grant Application Submitted!'}</h2>
+        <h2>{isEditMode ? 'Grant Updated!' : 'Grant Submitted!'}</h2>
         <p>
           {isEditMode
             ? session?.tenantConfig?.type === 'self_service'
               ? 'Your changes have been saved.'
-              : 'Your changes have been saved and the application resubmitted for review.'
+              : 'Your changes have been saved and the grant resubmitted for review.'
             : session?.tenantConfig?.require_grant_approval === false
-              ? 'Your grant application has been created and approved.'
-              : 'Your grant application has been successfully created and is pending review.'}
+              ? 'Your grant has been created and approved.'
+              : 'Your grant has been successfully submitted and is pending review.'}
         </p>
         <p className="redirect-message">
           {isEditMode ? 'Redirecting to grant details...' : 'Redirecting to your grants...'}
@@ -219,11 +219,11 @@ function CreateGrant({ session }) {
         <div className="form-header">
           <FaFileAlt className="header-icon" />
           <div>
-            <h2>{isEditMode ? 'Edit Grant Application' : 'Create New Grant Application'}</h2>
+            <h2>{isEditMode ? 'Edit Grant' : 'Create New Grant'}</h2>
             <p className="form-subtitle">
               {isEditMode
-                ? 'Update your application and resubmit for review'
-                : 'Submit a new grant application for review'}
+                ? 'Update your grant and resubmit for review'
+                : 'Submit a new grant for review'}
             </p>
           </div>
         </div>
@@ -366,8 +366,8 @@ function CreateGrant({ session }) {
               <div>
                 <strong>What happens next?</strong>
                 <p>{session?.tenantConfig?.require_grant_approval === false
-                  ? 'Your grant application will be automatically approved. You can then add budget items and expenses.'
-                  : 'Your grant application will be submitted with a "Pending" status. An administrator will review your application. You can add budget items and expenses while your application is being reviewed.'}</p>
+                  ? 'Your grant will be automatically approved. You can then add budget items and expenses.'
+                  : 'Your grant will be submitted with a "Pending" status. An administrator will review it. You can add budget items and expenses while it is being reviewed.'}</p>
               </div>
             </div>
           )}
@@ -406,7 +406,7 @@ function CreateGrant({ session }) {
                 </>
               ) : (
                 <>
-                  <FaSave /> {isEditMode ? (session?.tenantConfig?.type === 'self_service' ? 'Save Changes' : 'Save & Resubmit') : 'Submit Application'}
+                  <FaSave /> {isEditMode ? (session?.tenantConfig?.type === 'self_service' ? 'Save Changes' : 'Save & Resubmit') : 'Submit Grant'}
                 </>
               )}
             </button>
