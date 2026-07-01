@@ -91,9 +91,15 @@ jobs:
           set -euo pipefail
           supabase link --project-ref "$SUPABASE_PROJECT_REF"
 
+      # SUPABASE_DB_PASSWORD makes the CLI connect to the DB directly instead of
+      # minting a temporary "login role" via the Management API (which needs
+      # CREATEROLE + ADMIN on cli_login_postgres — privileges our connection
+      # identity doesn't have). Without it, db push fails at "Initialising login
+      # role" with a 42501 permission-denied.
       - name: Apply database migrations
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
         run: |
           set -euo pipefail
           supabase db push --linked
@@ -103,6 +109,7 @@ jobs:
       - name: Seed platform settings
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
           STRIPE_PRODUCT_BASIC: ${{ vars.STRIPE_PRODUCT_BASIC }}
           STRIPE_PRODUCT_FISCAL_AGENT: ${{ vars.STRIPE_PRODUCT_FISCAL_AGENT }}
         run: |

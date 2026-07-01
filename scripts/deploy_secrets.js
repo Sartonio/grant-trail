@@ -57,6 +57,7 @@ const STAGES = {
   staging: {
     secrets: [
       'SUPABASE_ACCESS_TOKEN',
+      'SUPABASE_DB_PASSWORD',
       'STRIPE_SECRET_KEY',
       'STRIPE_WEBHOOK_SECRET',
       'VERCEL_TOKEN',
@@ -78,6 +79,10 @@ const STAGES = {
       'EMAIL_FROM',
     ],
     optional: [
+      // Only needed where the deploy identity lacks CREATEROLE on the DB (i.e.
+      // projects you don't own at the postgres level, typically production).
+      // Blank → CLI falls back to the login-role path (staging's default).
+      'SUPABASE_DB_PASSWORD',
       'STRIPE_BILLING_PORTAL_CONFIGURATION_ID',
       'VITE_SENTRY_DSN',
     ],
