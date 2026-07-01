@@ -204,11 +204,23 @@ export async function startCheckoutSession({ membershipTier, returnPath = '/subs
     feature_key: featureKey,
     returnPath,
     return_path: returnPath,
+    returnOrigin: currentOrigin(),
   }));
 }
 
 export async function startBillingPortalSession({ returnPath = '/subscription' } = {}) {
-  return invokeFirstAvailable(PORTAL_FUNCTION_CANDIDATES, () => ({ returnPath }));
+  return invokeFirstAvailable(PORTAL_FUNCTION_CANDIDATES, () => ({
+    returnPath,
+    returnOrigin: currentOrigin(),
+  }));
+}
+
+// The origin Stripe should return to. The edge function only honours it if it's
+// on the server-side allowlist (else it falls back to APP_URL), so previews come
+// back to their own URL while unknown origins can't be used as open redirects.
+// Undefined in SSR/tests — JSON.stringify drops it, so the server uses APP_URL.
+function currentOrigin() {
+  return typeof window !== 'undefined' ? window.location.origin : undefined;
 }
 
 export async function syncMembershipFromStripe() {
