@@ -489,9 +489,9 @@ INSERT INTO user_memberships (user_id, subscription_id, membership_tier, is_acti
 
 -- One published+verified (appears in the public teaser view), one draft (owner
 -- only), one published-but-unverified (hidden from the public view until staff
--- verify). owner_user_id / tenant_id reuse the bright-horizons + tfac orgs.
+-- verify). managed_by_user_id / tenant_id reuse the bright-horizons + tfac orgs.
 INSERT INTO fiscal_agent_listings
-  (tenant_id, owner_user_id, name, location, region, ein, focus, blurb, about, services, projects,
+  (tenant_id, managed_by_user_id, name, location, region, ein, focus, blurb, about, services, projects,
    website, email, phone, response_time, accepting, fee_admin_pct, rating, reviews, sponsored,
    assets_managed, verified, status, verification)
 VALUES

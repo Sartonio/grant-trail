@@ -9,6 +9,7 @@ import {
 import * as Sentry from '@sentry/react';
 import { supabase } from '../../supabaseClient';
 import { canOwnListing } from '../../lib/policy';
+import { getTenantListing } from '../../lib/data/fiscalAgentListings';
 import { useWriteGuard } from '../../lib/useWriteGuard';
 import { mapFullListing, listingToRow } from './fiscalAgents.map';
 import { FOCUS_AREAS, RESPONSE_TIMES, Field, Toast } from './fiscalAgentsShared';
@@ -17,8 +18,9 @@ import './FiscalAgentDirectory.css';
 /*
   Listing editor (S10) — /fiscal-agents/listing/edit.
   ---------------------------------------------------
-  The charity owner edits their own `fiscal_agent_listings` row via the Supabase
-  client (RLS scopes writes to the owner + requires fiscal_agent entitlement).
+  A tenant admin edits the TENANT's `fiscal_agent_listings` row (listings are
+  tenant-owned; RLS scopes writes to tenant-admin membership + the fiscal_agent
+  entitlement).
   Route is guarded `requireRole="admin" billingMode="readOnly"`, so a lapsed
   Fiscal Agent reaches this page read-only; every save routes blocked writes to
   the billing nudge via useWriteGuard. "Publish" requires the owner entitlement,
@@ -44,12 +46,9 @@ export default function FiscalAgentListingEditor({ session, readOnly = false }) 
       setLoading(true);
       setLoadError(false);
       try {
-        // RLS returns the caller's own listing row; take the most recent.
-        const { data: rows, error } = await supabase
-          .from('fiscal_agent_listings')
-          .select('*')
-          .order('updated_at', { ascending: false })
-          .limit(1);
+        // Listings are tenant-owned: fetch the caller's TENANT listing (RLS
+        // additionally scopes access to tenant-admin membership).
+        const { data: rows, error } = await getTenantListing(session?.userRecord?.tenant_id);
         if (error) throw error;
         const row = (rows || [])[0];
         if (!cancelled) {
@@ -72,7 +71,7 @@ export default function FiscalAgentListingEditor({ session, readOnly = false }) 
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [session?.userRecord?.tenant_id]);
 
   function set(key, value) {
     setData((d) => ({ ...d, [key]: value }));

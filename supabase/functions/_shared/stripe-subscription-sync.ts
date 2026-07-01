@@ -29,8 +29,9 @@ const ACTIVE_STATUSES = ['active', 'trialing'];
  * status already reflects the subscription state. Never deletes data — only the
  * status toggles between 'published' and 'unlisted'.
  *
- * Scoped to the premium tier: only premium owns a listing (canOwnListing =
- * premium), so basic/directory_access subscription churn never touches listings.
+ * Scoped to the premium tier: only premium tenants publish a listing
+ * (canOwnListing = tenant admin + premium), so basic/directory_access
+ * subscription churn never touches listings.
  */
 async function syncListingPublicationFromSubscription(
   userId: number,
@@ -52,10 +53,22 @@ async function syncListingPublicationFromSubscription(
     return;
   }
 
+  // Listings are tenant-owned: resolve the subscriber's tenant and sync that
+  // tenant's listing rather than a per-user owner column.
+  const { data: user, error: userError } = await adminSupabase
+    .from('users')
+    .select('tenant_id')
+    .eq('id', userId)
+    .maybeSingle();
+  if (userError) {
+    throw new Error(`Unable to resolve tenant for user ${userId}: ${userError.message}`);
+  }
+  if (!user?.tenant_id) return;
+
   const { error } = await adminSupabase
     .from('fiscal_agent_listings')
     .update({ status: toStatus })
-    .eq('owner_user_id', userId)
+    .eq('tenant_id', user.tenant_id)
     .eq('status', fromStatus);
 
   if (error) {

@@ -40,7 +40,6 @@ export function mapFullListing(row) {
   return {
     id: String(row.id),
     tenantId: row.tenant_id,
-    ownerUserId: row.owner_user_id,
     name: row.name || '',
     location: row.location || '',
     region: row.region || '',
