@@ -119,17 +119,30 @@ describe('policy.canViewDirectory', () => {
   });
 });
 
+// A tenant-admin session with arbitrary entitlement booleans (listings are
+// tenant-owned; admins of the tenant manage them).
+function tenantAdmin({ basic = false, premium = false, exempt = false } = {}) {
+  return {
+    userRecord: { role: ROLES.ADMIN },
+    membership: { hasBasicAccess: basic, hasPremiumAccess: premium, isExempt: exempt },
+  };
+}
+
 describe('policy.canOwnListing', () => {
-  it('super_admin OR premium OR exempt may own a listing', () => {
+  it('super_admin OR premium/exempt TENANT ADMIN may manage a listing', () => {
     expect(canOwnListing(superAdmin())).toBe(true);
-    expect(canOwnListing(seeker({ premium: true }))).toBe(true);
-    expect(canOwnListing(seeker({ exempt: true }))).toBe(true);
+    expect(canOwnListing(tenantAdmin({ premium: true }))).toBe(true);
+    expect(canOwnListing(tenantAdmin({ exempt: true }))).toBe(true);
   });
-  it('basic ALONE does NOT confer ownership (strict, non-cross-granting)', () => {
-    expect(canOwnListing(seeker({ basic: true }))).toBe(false);
+  it('non-admin roles do NOT manage listings, even with premium (tenant authority)', () => {
+    expect(canOwnListing(seeker({ premium: true }))).toBe(false);
+    expect(canOwnListing(seeker({ exempt: true }))).toBe(false);
   });
-  it('no entitlement / logged-out cannot own', () => {
-    expect(canOwnListing(seeker())).toBe(false);
+  it('basic ALONE does NOT confer management (strict, non-cross-granting)', () => {
+    expect(canOwnListing(tenantAdmin({ basic: true }))).toBe(false);
+  });
+  it('no entitlement / logged-out cannot manage', () => {
+    expect(canOwnListing(tenantAdmin())).toBe(false);
     expect(canOwnListing(loggedOut)).toBe(false);
   });
 });

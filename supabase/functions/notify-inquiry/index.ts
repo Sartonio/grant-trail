@@ -96,19 +96,19 @@ Deno.serve(async (request) => {
 
     const { data: listing, error: listingError } = await adminSupabase
       .from('fiscal_agent_listings')
-      .select('id, name, email, owner_user_id')
+      .select('id, name, email, managed_by_user_id')
       .eq('id', inquiry.listing_id)
       .maybeSingle();
     if (listingError) throw listingError;
 
     // Recipient: the listing's published contact email, falling back to the
-    // owning account's email.
+    // managing contact's account email.
     let recipient = asString(listing?.email).trim();
-    if (!recipient && listing?.owner_user_id) {
+    if (!recipient && listing?.managed_by_user_id) {
       const { data: owner } = await adminSupabase
         .from('users')
         .select('email')
-        .eq('id', listing.owner_user_id)
+        .eq('id', listing.managed_by_user_id)
         .maybeSingle();
       recipient = asString(owner?.email).trim();
     }

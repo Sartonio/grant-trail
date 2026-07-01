@@ -6,6 +6,19 @@ import { supabase } from '../../supabaseClient';
 
 // Listings awaiting platform verification, oldest first. Super admins see all
 // rows via the is_super_admin() SELECT policy on fiscal_agent_listings.
+// The tenant's listing (listings are tenant-owned; any admin of the tenant
+// manages it). Most recent row wins if a tenant somehow has several.
+/**
+ * @param {number} tenantId
+ */
+export const getTenantListing = (tenantId) =>
+  supabase
+    .from('fiscal_agent_listings')
+    .select('*')
+    .eq('tenant_id', Number(tenantId))
+    .order('updated_at', { ascending: false })
+    .limit(1);
+
 export const listPendingListings = () =>
   supabase
     .from('fiscal_agent_listings')

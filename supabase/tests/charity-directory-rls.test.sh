@@ -19,10 +19,11 @@
 # Nothing persists. We deliberately use NON-exempt bright-horizons users so the
 # entitlement helpers are exercised, not short-circuited by is_membership_exempt.
 #
-# Seed fixture (see supabase/seed.sql §8):
-#   listing 1  Cedar Roots Foundation     tenant 2, owner user 8  published+verified
-#   listing 2  Bright Avenue Collective    tenant 2, owner user 8  draft+pending
-#   listing 3  Northwind Community Fund     tenant 1, owner user 4  published+pending
+# Seed fixture (see supabase/seed.sql §8). Listings are TENANT-owned; the
+# managing admin persona is noted for the write tests:
+#   listing 1  Cedar Roots Foundation     tenant 2 (admin user 8)  published+verified
+#   listing 2  Bright Avenue Collective    tenant 2 (admin user 8)  draft+pending
+#   listing 3  Northwind Community Fund     tenant 1 (admin user 4)  published+pending
 #   inquiry 1/2  -> listing 1 (Cedar Roots), tenant 2
 #
 # Prerequisites (local only — never touches production):
@@ -118,7 +119,7 @@ out=$(psql_raw "SELECT string_agg(column_name, ',' ORDER BY ordinal_position)
 view_cols=$(echo "$out" | tail -1)
 assert_eq "teaser view exposes exactly the teaser columns" \
   "id,name,location,region,verified,focus,blurb,accepting,rating,reviews,sponsored" "$view_cols"
-for forbidden in email phone website about services ein projects fee_admin_pct owner_user_id tenant_id; do
+for forbidden in email phone website about services ein projects fee_admin_pct managed_by_user_id tenant_id; do
   if [[ ",$view_cols," == *",$forbidden,"* ]]; then
     assert_eq "teaser view does NOT expose '$forbidden'" "absent" "present"
   else
@@ -188,19 +189,19 @@ assert_contains "(c) basic user CAN see contact email" "partnerships@cedarroots.
 out=$(psql_as "$GRANTEE_BRIGHT" "$(m_basic $UID6)" "SELECT has_basic_membership();")
 assert_eq "(c) has_basic_membership() true after granting tier" "t" "$(boolean "$out")"
 
-# (d) the listing OWNER (no basic membership) sees their OWN rows.
-# user 8 owns listings 1+2. Owner clause is OR'd, so even without basic
-# they should read their own (and via that clause, only their own unless they also
-# hold basic). Verify they see their two owned rows.
+# (d) a TENANT ADMIN (no basic membership) sees their tenant's rows.
+# user 8 is an admin of tenant 2, which owns listings 1+2. The tenant-admin
+# clause is OR'd, so even lapsed they read their tenant's listings (read-only
+# degrade) — and only those, unless they also hold basic.
 out=$(psql_as "$ADMIN_BRIGHT" "$(m_lapse $UID8)" "SELECT has_basic_membership();")
-assert_eq "(d) owner has_basic_membership() is false (owner clause carries them)" "f" "$(boolean "$out")"
-out=$(psql_as "$ADMIN_BRIGHT" "$(m_lapse $UID8)" "SELECT count(*) FROM fiscal_agent_listings WHERE owner_user_id=$UID8;")
-assert_eq "(d) owner reads their own 2 listings" "2" "$(scalar "$out")"
+assert_eq "(d) admin has_basic_membership() is false (tenant-admin clause carries them)" "f" "$(boolean "$out")"
+out=$(psql_as "$ADMIN_BRIGHT" "$(m_lapse $UID8)" "SELECT count(*) FROM fiscal_agent_listings WHERE tenant_id=2;")
+assert_eq "(d) tenant admin reads their tenant's 2 listings" "2" "$(scalar "$out")"
 out=$(psql_as "$ADMIN_BRIGHT" "$(m_lapse $UID8)" "SELECT email FROM fiscal_agent_listings WHERE id=1;")
-assert_contains "(d) owner CAN see contact email on own listing" "partnerships@cedarroots.org" "$out"
-# owner without basic must NOT see listing 3 (owned by user 4, tenant 1).
+assert_contains "(d) tenant admin CAN see contact email on own tenant's listing" "partnerships@cedarroots.org" "$out"
+# admin without basic must NOT see listing 3 (tenant 1's listing).
 out=$(psql_as "$ADMIN_BRIGHT" "$(m_lapse $UID8)" "SELECT count(*) FROM fiscal_agent_listings WHERE id=3;")
-assert_eq "(d) owner WITHOUT basic cannot read OTHER owners' listings" "0" "$(scalar "$out")"
+assert_eq "(d) tenant admin WITHOUT basic cannot read ANOTHER tenant's listings" "0" "$(scalar "$out")"
 
 # (e) super_admin sees everything.
 out=$(psql_as "$SUPER_TFAC" "" "SELECT count(*) FROM fiscal_agent_listings;")
@@ -293,48 +294,62 @@ assert_eq "(3e-FIXED) forged tenant_id is overwritten with listing's real tenant
 # ============================================================================
 # ITEM 4 — Listing publish/update gating (+ IDOR)
 # ============================================================================
-# (4a) owner WITH premium access CAN publish/update their own listing.
+# (4a) tenant admin WITH premium access CAN publish/update their tenant's listing.
 out=$(psql_as "$ADMIN_BRIGHT" "$(m_fa $UID8)" "
   UPDATE fiscal_agent_listings SET status='published' WHERE id=2;")
-assert_contains "(4a) premium owner CAN update own listing" "UPDATE 1" "$out"
+assert_contains "(4a) premium tenant admin CAN update own tenant's listing" "UPDATE 1" "$out"
 
-# (4b) owner WITHOUT premium access is BLOCKED (lapse => read-only). user 8 owns
-# the row; deactivate their premium so the lapse path is exercised.
+# (4b) tenant admin WITHOUT premium access is BLOCKED (lapse => read-only).
+# Deactivate user 8's premium so the lapse path is exercised.
 out=$(psql_as "$ADMIN_BRIGHT" "$(m_lapse $UID8)" "
   UPDATE fiscal_agent_listings SET blurb='hijack' WHERE id=1;")
-assert_contains "(4b) owner WITHOUT premium access CANNOT update (0 rows)" "UPDATE 0" "$out"
+assert_contains "(4b) admin WITHOUT premium access CANNOT update (0 rows)" "UPDATE 0" "$out"
 
-# (4c) IDOR: user A (with premium) cannot edit user B's listing. Grant user 6
-# premium and have them try to edit listing 1 (owned by user 8).
+# (4c) tenant is the ownership authority, not an individual user:
+#   - a NON-admin with premium (grantee user 6, same tenant 2) cannot edit;
+#   - an admin of ANOTHER tenant (exempt tfac admin, tenant 1) cannot edit;
+#   - ANY admin of the listing's tenant can edit — promote user 6 to admin
+#     (rolled back) and prove a second tenant-2 admin manages listing 1.
 out=$(psql_as "$GRANTEE_BRIGHT" "$(m_fa $UID6)" "
   UPDATE fiscal_agent_listings SET blurb='IDOR' WHERE id=1;")
-assert_contains "(4c) IDOR: non-owner with premium CANNOT edit another's listing (0 rows)" "UPDATE 0" "$out"
+assert_contains "(4c) non-admin with premium CANNOT edit their tenant's listing (0 rows)" "UPDATE 0" "$out"
+out=$(psql_as "$ADMIN_TFAC" "" "
+  UPDATE fiscal_agent_listings SET blurb='cross-tenant' WHERE id=1;")
+assert_contains "(4c) admin of ANOTHER tenant CANNOT edit the listing (0 rows)" "UPDATE 0" "$out"
+# (the promotion is performed under the existing tenant-2 admin's identity so
+# the users self-update guard sees a legitimate admin-managing-their-tenant edit)
+out=$(psql_as "$GRANTEE_BRIGHT" "$(m_fa $UID6)
+SELECT set_config('request.jwt.claims', json_build_object('sub','$ADMIN_BRIGHT','role','authenticated')::text, true);
+UPDATE users SET role='admin' WHERE id=$UID6;" "
+  UPDATE fiscal_agent_listings SET blurb='second admin' WHERE id=1;")
+assert_contains "(4c) a SECOND admin of the listing's tenant CAN edit it" "UPDATE 1" "$out"
 
-# (4d) ownership/tenant cannot be reassigned away (WITH CHECK on UPDATE). Owner
+# (4d) tenant cannot be reassigned away (WITH CHECK on UPDATE). The admin
 # tries to move their listing to a different tenant — must fail the WITH CHECK.
 out=$(psql_as "$ADMIN_BRIGHT" "$(m_fa $UID8)" "
   UPDATE fiscal_agent_listings SET tenant_id=1 WHERE id=1;")
-assert_contains "(4d) owner CANNOT reassign listing to another tenant (WITH CHECK)" "violates row-level security policy" "$out"
+assert_contains "(4d) admin CANNOT reassign listing to another tenant (WITH CHECK)" "violates row-level security policy" "$out"
 
-# (4e) INSERT gate: user with premium CAN insert their own listing in own tenant…
+# (4e) INSERT gate: a premium tenant ADMIN can insert a listing in their own tenant…
+out=$(psql_as "$ADMIN_BRIGHT" "$(m_fa $UID8)" "
+  INSERT INTO fiscal_agent_listings (tenant_id, name)
+  VALUES (2, 'New Tenant Listing');
+  SELECT count(*) FROM fiscal_agent_listings WHERE name='New Tenant Listing';")
+assert_eq "(4e) premium tenant admin CAN insert listing in own tenant" "1" "$(scalar "$out")"
+# …but CANNOT insert into a foreign tenant.
+out=$(psql_as "$ADMIN_BRIGHT" "$(m_fa $UID8)" "
+  INSERT INTO fiscal_agent_listings (tenant_id, name)
+  VALUES (1, 'Cross Tenant'); SELECT 'ins';")
+assert_contains "(4e) premium admin CANNOT insert into a foreign tenant" "violates row-level security policy" "$out"
+# …a premium NON-admin cannot insert at all (ownership keys on tenant-admin role).
 out=$(psql_as "$GRANTEE_BRIGHT" "$(m_fa $UID6)" "
-  INSERT INTO fiscal_agent_listings (tenant_id, owner_user_id, name)
-  VALUES (2, $UID6, 'New Owned Listing');
-  SELECT count(*) FROM fiscal_agent_listings WHERE name='New Owned Listing';")
-assert_eq "(4e) premium user CAN insert own listing in own tenant" "1" "$(scalar "$out")"
-# …but CANNOT insert into a foreign tenant, or with a forged owner.
-out=$(psql_as "$GRANTEE_BRIGHT" "$(m_fa $UID6)" "
-  INSERT INTO fiscal_agent_listings (tenant_id, owner_user_id, name)
-  VALUES (1, $UID6, 'Cross Tenant'); SELECT 'ins';")
-assert_contains "(4e) premium user CANNOT insert into a foreign tenant" "violates row-level security policy" "$out"
-out=$(psql_as "$GRANTEE_BRIGHT" "$(m_fa $UID6)" "
-  INSERT INTO fiscal_agent_listings (tenant_id, owner_user_id, name)
-  VALUES (2, $UID8, 'Forged Owner'); SELECT 'ins';")
-assert_contains "(4e) premium user CANNOT insert with a forged owner_user_id" "violates row-level security policy" "$out"
+  INSERT INTO fiscal_agent_listings (tenant_id, name)
+  VALUES (2, 'Grantee Listing'); SELECT 'ins';")
+assert_contains "(4e) premium NON-admin CANNOT insert a listing" "violates row-level security policy" "$out"
 # …and a user WITHOUT premium cannot insert a listing at all.
 out=$(psql_as "$GRANTEE_SELF" "" "
-  INSERT INTO fiscal_agent_listings (tenant_id, owner_user_id, name)
-  VALUES (3, $UID9, 'NoEntitlement'); SELECT 'ins';")
+  INSERT INTO fiscal_agent_listings (tenant_id, name)
+  VALUES (3, 'NoEntitlement'); SELECT 'ins';")
 assert_contains "(4e) user WITHOUT premium CANNOT insert a listing" "violates row-level security policy" "$out"
 
 # (4f) super_admin moderation: can flip verification on any listing.
@@ -347,14 +362,14 @@ assert_contains "(4f) super_admin CAN verify any listing" "UPDATE 1" "$out"
 # BEFORE INSERT for non-staff and forces verification/verified to their unverified
 # defaults — so an owner cannot create a row that is born published+verified and
 # slip into the public "verified" directory without super_admin review.
-out=$(psql_as "$GRANTEE_BRIGHT" "$(m_fa $UID6)" "
-  INSERT INTO fiscal_agent_listings (tenant_id, owner_user_id, name, status, verification, verified)
-  VALUES (2, $UID6, 'SelfVerify', 'published', 'verified', true);
+out=$(psql_as "$ADMIN_BRIGHT" "$(m_fa $UID8)" "
+  INSERT INTO fiscal_agent_listings (tenant_id, name, status, verification, verified)
+  VALUES (2, 'SelfVerify', 'published', 'verified', true);
   SELECT verification||'/'||verified FROM fiscal_agent_listings WHERE name='SelfVerify';")
-assert_contains "(4g) owner self-verify via INSERT is forced to pending/unverified" "pending/f" "$out"
-out=$(psql_as "$GRANTEE_BRIGHT" "$(m_fa $UID6)" "
-  INSERT INTO fiscal_agent_listings (tenant_id, owner_user_id, name, status, verification, verified)
-  VALUES (2, $UID6, 'SelfVerify2', 'published', 'verified', true);
+assert_contains "(4g) admin self-verify via INSERT is forced to pending/unverified" "pending/f" "$out"
+out=$(psql_as "$ADMIN_BRIGHT" "$(m_fa $UID8)" "
+  INSERT INTO fiscal_agent_listings (tenant_id, name, status, verification, verified)
+  VALUES (2, 'SelfVerify2', 'published', 'verified', true);
   SELECT count(*) FROM fiscal_agent_listings_public WHERE name='SelfVerify2';")
 assert_eq "(4g) self-'verified' INSERT does NOT appear in public directory" "0" "$(scalar "$out")"
 

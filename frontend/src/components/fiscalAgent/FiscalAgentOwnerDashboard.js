@@ -4,6 +4,7 @@ import { FaPen, FaInbox, FaIdCard } from 'react-icons/fa';
 import * as Sentry from '@sentry/react';
 import { supabase } from '../../supabaseClient';
 import { canOwnListing, isReadOnlyAdmin, BILLING_NUDGE_PATH } from '../../lib/policy';
+import { getTenantListing } from '../../lib/data/fiscalAgentListings';
 import { useWriteGuard } from '../../lib/useWriteGuard';
 import { mapFullListing, mapInquiry } from './fiscalAgents.map';
 import { OwnerListingPanel, listingCompleteness, Toast } from './fiscalAgentsShared';
@@ -13,8 +14,9 @@ import './FiscalAgentDirectory.css';
 /*
   Owner dashboard (S11) + Sponsorship inbox (S12) — /fiscal-agents/me[ /inbox ].
   -----------------------------------------------------------------------------
-  Reads the owner's `fiscal_agent_listings` row + their `sponsorship_inquiries`
-  via the Supabase client (RLS scopes both to the caller's owned listing). Route
+  Reads the TENANT's `fiscal_agent_listings` row + its `sponsorship_inquiries`
+  via the data layer (listings are tenant-owned; RLS scopes both to the caller's
+  tenant-admin membership). Route
   is guarded `requireRole="admin" billingMode="readOnly"`: a lapsed Fiscal Agent
   keeps READ access (view listing + inbox) but every mutation — accepting toggle,
   inquiry status change — routes to the billing nudge via useWriteGuard (#40).
@@ -47,11 +49,7 @@ export default function FiscalAgentOwnerDashboard({ session, readOnly: readOnlyP
       setLoading(true);
       setLoadError(false);
       try {
-        const { data: rows, error } = await supabase
-          .from('fiscal_agent_listings')
-          .select('*')
-          .order('updated_at', { ascending: false })
-          .limit(1);
+        const { data: rows, error } = await getTenantListing(session?.userRecord?.tenant_id);
         if (error) throw error;
         const row = (rows || [])[0];
         const model = row ? mapFullListing(row) : null;
@@ -77,7 +75,7 @@ export default function FiscalAgentOwnerDashboard({ session, readOnly: readOnlyP
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [session?.userRecord?.tenant_id]);
 
   const completeness = useMemo(
     () => (listing ? listingCompleteness(listing) : 0),

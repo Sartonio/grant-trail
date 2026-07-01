@@ -297,8 +297,8 @@ export type Database = {
           focus: string[] | null
           id: number
           location: string | null
+          managed_by_user_id: number | null
           name: string | null
-          owner_user_id: number | null
           phone: string | null
           projects: string[] | null
           rating: number
@@ -326,8 +326,8 @@ export type Database = {
           focus?: string[] | null
           id?: number
           location?: string | null
+          managed_by_user_id?: number | null
           name?: string | null
-          owner_user_id?: number | null
           phone?: string | null
           projects?: string[] | null
           rating?: number
@@ -355,8 +355,8 @@ export type Database = {
           focus?: string[] | null
           id?: number
           location?: string | null
+          managed_by_user_id?: number | null
           name?: string | null
-          owner_user_id?: number | null
           phone?: string | null
           projects?: string[] | null
           rating?: number
@@ -374,8 +374,8 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "fiscal_agent_listings_owner_user_id_fkey"
-            columns: ["owner_user_id"]
+            foreignKeyName: "fiscal_agent_listings_managed_by_user_id_fkey"
+            columns: ["managed_by_user_id"]
             isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]

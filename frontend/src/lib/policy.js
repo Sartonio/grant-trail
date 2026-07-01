@@ -137,8 +137,10 @@ export function canViewDirectory(session) {
   );
 }
 
-// Owner gate: can this session own/publish a listing? Folds into the premium
-// ("Fiscal Agents Plan") entitlement: true for premium OR super_admin OR exempt.
+// Manage gate: can this session manage their tenant's listing? Listings are
+// TENANT-owned; any admin of the tenant manages them, gated by the premium
+// ("Fiscal Agents Plan") entitlement: tenant admin AND (premium OR exempt), or
+// super_admin. Mirrors the tenant-admin RLS policies on fiscal_agent_listings.
 // Mutation rights on top of this still defer to the read-only-admin lapse policy
 // via `canMutate` / `useWriteGuard`.
 /**
@@ -146,7 +148,9 @@ export function canViewDirectory(session) {
  * @returns {boolean}
  */
 export function canOwnListing(session) {
-  if (getRole(session) === ROLES.SUPER_ADMIN) return true;
+  const role = getRole(session);
+  if (role === ROLES.SUPER_ADMIN) return true;
+  if (role !== ROLES.ADMIN) return false;
   const membership = session?.membership;
   if (!membership) return false;
   return !!membership.isExempt || !!membership.hasPremiumAccess;
