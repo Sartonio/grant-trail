@@ -25,13 +25,14 @@ serve_functions_and_wait() {
   SERVE_PID=$!
   local code
   for _ in $(seq 1 30); do
-    # A booted runtime returns 400 ("missing fields") for an empty body; any
-    # 4xx/5xx means the HTTP server is up. Connection-refused yields 000.
+    # A booted runtime rejects an empty-body anon request with a 4xx (400
+    # "missing fields", or 401 if auth is checked first); any 4xx/5xx means
+    # the HTTP server is up. Connection-refused yields 000.
     code=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
       "${API_URL}/functions/v1/create-checkout-session" \
       -H "Authorization: Bearer ${ANON_KEY}" -H "apikey: ${ANON_KEY}" \
       -H "Content-Type: application/json" -d '{}' || true)
-    if [ "$code" = "400" ]; then
+    if [ "${code:0:1}" = "4" ] || [ "${code:0:1}" = "5" ]; then
       return 0
     fi
     sleep 2
