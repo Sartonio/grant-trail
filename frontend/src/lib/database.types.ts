@@ -809,6 +809,7 @@ export type Database = {
           contact: Json
           created_at: string
           created_by: number | null
+          grant_id: number | null
           id: number
           listing_id: number
           message: string | null
@@ -822,6 +823,7 @@ export type Database = {
           contact: Json
           created_at?: string
           created_by?: number | null
+          grant_id?: number | null
           id?: number
           listing_id: number
           message?: string | null
@@ -835,6 +837,7 @@ export type Database = {
           contact?: Json
           created_at?: string
           created_by?: number | null
+          grant_id?: number | null
           id?: number
           listing_id?: number
           message?: string | null
@@ -850,6 +853,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sponsorship_inquiries_grant_id_fkey"
+            columns: ["grant_id"]
+            isOneToOne: false
+            referencedRelation: "grant_record"
             referencedColumns: ["id"]
           },
           {
@@ -1185,6 +1195,10 @@ export type Database = {
       }
     }
     Functions: {
+      accept_sponsorship_inquiry: {
+        Args: { p_inquiry_id: number }
+        Returns: Json
+      }
       calculate_grant_budget_totals: {
         Args: { g_id: number }
         Returns: {

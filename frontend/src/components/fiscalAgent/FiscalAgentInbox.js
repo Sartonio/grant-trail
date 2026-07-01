@@ -20,16 +20,17 @@ import { BILLING_NUDGE_PATH } from '../../lib/policy';
 import './FiscalAgentInbox.css';
 
 /*
-  MOCKUP — Fiscal Agent inbox
-  ---------------------------
+  Fiscal Agent inbox
+  ------------------
   The listing-owner side of the apply -> inbox loop. Structured sponsorship
   applications submitted from SponsorshipApplicationModal land here. Master/
   detail layout: a filterable list on the left, the full structured
-  application on the right. All actions are local-state only:
+  application on the right.
     - onUpdateStatus(inquiryId, nextStatus) moves an application through the
-      pipeline (new -> reviewing -> accepted/declined/waitlisted).
-    - onOnboard(inquiry) is the funnel-into-GrantTrail bridge stub, shown once
-      an application is accepted.
+      pipeline (new -> reviewing -> accepted/declined/waitlisted). Accepting
+      closes the loop server-side (accept_sponsorship_inquiry RPC): the seeker
+      becomes a grantee of this tenant with a pending grant_record, and the
+      inquiry's `grantId` links to it.
 */
 
 const STATUS_META = {
@@ -78,7 +79,7 @@ function DetailRow({ label, children }) {
   );
 }
 
-export default function FiscalAgentInbox({ inquiries, onUpdateStatus, onOnboard, readOnly = false }) {
+export default function FiscalAgentInbox({ inquiries, onUpdateStatus, readOnly = false }) {
   const [filter, setFilter] = useState('all');
   const [selectedId, setSelectedId] = useState(null);
 
@@ -253,7 +254,7 @@ export default function FiscalAgentInbox({ inquiries, onUpdateStatus, onOnboard,
                   <button
                     type="button"
                     className="inbox-action inbox-action-accept"
-                    disabled={readOnly || selected.status === 'accepted'}
+                    disabled={readOnly || (selected.status === 'accepted' && !!selected.grantId)}
                     onClick={() => onUpdateStatus(selected.id, 'accepted')}
                   >
                     <FaCheckCircle /> Accept
@@ -276,15 +277,13 @@ export default function FiscalAgentInbox({ inquiries, onUpdateStatus, onOnboard,
                   </button>
                 </div>
 
-                {selected.status === 'accepted' && (
-                  <button
-                    type="button"
-                    className="fad-btn fad-btn-primary fad-btn-block inbox-onboard"
-                    disabled={readOnly}
-                    onClick={() => onOnboard(selected)}
-                  >
-                    <FaSeedling /> Onboard as grantee <FaArrowRight />
-                  </button>
+                {selected.status === 'accepted' && selected.grantId && (
+                  <p className="inbox-onboard" role="status">
+                    <FaSeedling /> Onboarded as a grantee — their grant is pending your review.{' '}
+                    <Link to={`/admin/grants/${selected.grantId}`}>
+                      Review grant <FaArrowRight />
+                    </Link>
+                  </p>
                 )}
               </>
             )}

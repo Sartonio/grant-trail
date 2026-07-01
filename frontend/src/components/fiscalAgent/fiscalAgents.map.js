@@ -100,5 +100,8 @@ export function mapInquiry(row) {
     project: row.project || {},
     contact: row.contact || {},
     message: row.message || '',
+    // Set once the inquiry is accepted: the grant_record the acceptance created
+    // in the sponsor tenant (accept_sponsorship_inquiry RPC).
+    grantId: row.grant_id ?? null,
   };
 }

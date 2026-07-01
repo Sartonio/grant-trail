@@ -5,6 +5,7 @@ import * as Sentry from '@sentry/react';
 import { supabase } from '../../supabaseClient';
 import { canOwnListing, isReadOnlyAdmin, BILLING_NUDGE_PATH } from '../../lib/policy';
 import { useWriteGuard } from '../../lib/useWriteGuard';
+import { acceptSponsorshipInquiry, updateInquiryStatus } from '../../lib/data/inquiries';
 import { mapFullListing, mapInquiry } from './fiscalAgents.map';
 import { OwnerListingPanel, listingCompleteness, Toast } from './fiscalAgentsShared';
 import FiscalAgentInbox from './FiscalAgentInbox';
@@ -104,24 +105,38 @@ export default function FiscalAgentOwnerDashboard({ session, readOnly: readOnlyP
 
   async function handleUpdateStatus(inquiryId, nextStatus) {
     if (!guardWrite()) return;
+    if (nextStatus === 'accepted') {
+      // Accepting closes the sponsorship loop server-side: the RPC onboards the
+      // seeker as a grantee of this tenant and files a pending grant_record,
+      // atomically. Not an optimistic update — we need the returned grant id.
+      try {
+        const { data, error } = await acceptSponsorshipInquiry(inquiryId);
+        if (error) throw error;
+        setInquiries((list) =>
+          list.map((q) => (q.id === inquiryId ? { ...q, status: 'accepted', grantId: data.grant_id } : q)),
+        );
+        setToast({
+          kind: 'success',
+          msg: data.already_accepted
+            ? 'Already accepted — grantee onboarded.'
+            : 'Application accepted — seeker onboarded as a grantee and their grant is pending review.',
+        });
+      } catch (err) {
+        Sentry.captureException(err);
+        setToast({ kind: 'error', msg: err?.message || 'Could not accept the application. Please try again.' });
+      }
+      return;
+    }
     const prev = inquiries;
     setInquiries((list) => list.map((q) => (q.id === inquiryId ? { ...q, status: nextStatus } : q)));
     try {
-      const { error } = await supabase
-        .from('sponsorship_inquiries')
-        .update({ status: nextStatus })
-        .eq('id', Number(inquiryId));
+      const { error } = await updateInquiryStatus(inquiryId, nextStatus);
       if (error) throw error;
     } catch (err) {
       Sentry.captureException(err);
       setInquiries(prev);
       setToast({ kind: 'error', msg: 'Could not update the application. Please try again.' });
     }
-  }
-
-  function handleOnboard() {
-    // ponytail: backend onboarding not yet built; placeholder until invite flow ships
-    setToast({ kind: 'info', msg: 'Grantee onboarding coming soon — contact support to onboard this project manually.' });
   }
 
   if (loading) {
@@ -214,7 +229,6 @@ export default function FiscalAgentOwnerDashboard({ session, readOnly: readOnlyP
         <FiscalAgentInbox
           inquiries={inquiries}
           onUpdateStatus={handleUpdateStatus}
-          onOnboard={handleOnboard}
           readOnly={readOnly}
         />
       )}

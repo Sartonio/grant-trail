@@ -426,6 +426,68 @@ assert_eq "(6) existing membership keys (basic/premium/isExempt) retained" "t" "
 out2=$(psql_as "$ADMIN_TFAC" "" "SELECT (get_session_context()->'membership'->>'hasPremiumAccess')::boolean;")
 assert_eq "(6) exempt platform-root admin passes premium entitlements" "t" "$(boolean "$out2")"
 
+# ============================================================================
+# ITEM 7 — accept_sponsorship_inquiry RPC (fiscal-sponsorship loop closure)
+# ============================================================================
+# Seed inquiry 1 targets listing 1 (Cedar Roots, tenant 2), created_by maria
+# (tenant 1 grantee). Accepting must be limited to admins of the LISTING's
+# tenant, must onboard the seeker as a tenant-2 grantee with a pending
+# grant_record there, and must be idempotent on double-accept.
+
+# rpc_as <auth_uid> <sql-after-rpc> — call the RPC as a persona inside one
+# rolled-back txn, then verify post-state as postgres (RESET ROLE).
+rpc_as() {
+  local uid="$1" post="$2"
+  psql_raw "
+BEGIN;
+SELECT set_config('request.jwt.claims',
+  json_build_object('sub','${uid}','role','authenticated')::text, true);
+SET LOCAL ROLE authenticated;
+SELECT 'RPCOK:' || (accept_sponsorship_inquiry(1)->>'grant_id' IS NOT NULL);
+RESET ROLE;
+${post}
+ROLLBACK;"
+}
+
+# (7a) a grantee of the listing tenant (non-admin) CANNOT accept.
+out=$(rpc_as "$GRANTEE_BRIGHT" "")
+assert_contains "(7a) non-admin of listing tenant CANNOT accept inquiry" \
+  "Only an admin of the sponsoring tenant can accept this inquiry" "$out"
+
+# (7b) an admin of ANOTHER tenant (tenant 1) CANNOT accept a tenant-2 inquiry.
+out=$(rpc_as "$ADMIN_TFAC" "")
+assert_contains "(7b) admin of a different tenant CANNOT accept inquiry" \
+  "Only an admin of the sponsoring tenant can accept this inquiry" "$out"
+
+# (7c) an admin of the listing's tenant CAN accept: seeker re-homed into
+# tenant 2 as grantee, a pending grant_record filed there, inquiry accepted.
+out=$(rpc_as "$ADMIN_BRIGHT" "
+SELECT 'SEEKER:' || tenant_id || ':' || role FROM users WHERE email='maria.smith@example.com';
+SELECT 'GRANT:' || g.tenant_id || ':' || g.status
+  FROM grant_record g JOIN sponsorship_inquiries i ON i.grant_id = g.id WHERE i.id = 1;
+SELECT 'INQ:' || status FROM sponsorship_inquiries WHERE id = 1;")
+assert_contains "(7c) listing-tenant admin CAN accept (grant created)" "RPCOK:t" "$out"
+assert_contains "(7c) seeker onboarded as tenant-2 grantee" "SEEKER:2:grantee" "$out"
+assert_contains "(7c) pending grant_record filed in tenant 2" "GRANT:2:pending" "$out"
+assert_contains "(7c) inquiry marked accepted" "INQ:accepted" "$out"
+
+# (7d) idempotent: a double-accept returns the SAME grant, creates no second one.
+out=$(psql_raw "
+BEGIN;
+SELECT set_config('request.jwt.claims',
+  json_build_object('sub','${ADMIN_BRIGHT}','role','authenticated')::text, true);
+SET LOCAL ROLE authenticated;
+SELECT 'IDEM:' ||
+  ((accept_sponsorship_inquiry(1)->>'grant_id') = (accept_sponsorship_inquiry(1)->>'grant_id'));
+SELECT 'AGAIN:' || (accept_sponsorship_inquiry(1)->>'already_accepted');
+ROLLBACK;")
+assert_contains "(7d) double-accept returns the same grant_id" "IDEM:t" "$out"
+assert_contains "(7d) double-accept reports already_accepted" "AGAIN:true" "$out"
+
+# (7e) anon cannot execute the RPC at all.
+out=$(psql_anon "SELECT accept_sponsorship_inquiry(1);")
+assert_contains "(7e) anon BLOCKED from accept RPC" "permission denied" "$out"
+
 echo "=============================================================="
 echo " RESULTS: ${pass} passed, ${fail} failed"
 echo "=============================================================="

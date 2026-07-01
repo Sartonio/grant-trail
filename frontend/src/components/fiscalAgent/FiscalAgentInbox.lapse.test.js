@@ -27,15 +27,13 @@ const inquiry = {
 
 describe('FiscalAgentInbox — read-only when subscription lapsed (TASK A5)', () => {
   const onUpdateStatus = vi.fn();
-  const onOnboard = vi.fn();
-  beforeEach(() => { onUpdateStatus.mockClear(); onOnboard.mockClear(); });
+  beforeEach(() => { onUpdateStatus.mockClear(); });
 
   it('shows a Resubscribe-to-edit notice and disables triage actions when read-only', () => {
     render(
       <FiscalAgentInbox
         inquiries={[inquiry]}
         onUpdateStatus={onUpdateStatus}
-        onOnboard={onOnboard}
         readOnly
       />,
     );
@@ -60,7 +58,6 @@ describe('FiscalAgentInbox — read-only when subscription lapsed (TASK A5)', ()
       <FiscalAgentInbox
         inquiries={[inquiry]}
         onUpdateStatus={onUpdateStatus}
-        onOnboard={onOnboard}
       />,
     );
 
