@@ -4,9 +4,10 @@
 # public.system_logs (severity = 'critical') when it fails.
 #
 # Strategy: hitting a function with the anon key (instead of a real user token)
-# makes requireAuthenticatedProfile() throw "Unauthorized", which lands in the
-# catch block -- the exact failure-logging path we added. We then assert one
-# system_logs row exists per function with the expected distinct event_name.
+# makes requireAuthenticatedProfile() throw an AuthError, which lands in the
+# catch block -- the exact failure-logging path we added -- and maps to HTTP
+# 401. We then assert one system_logs row exists per function with the
+# expected distinct event_name.
 #
 # Prerequisites (local only -- never touches production):
 #   1. npm run db:start            # local Supabase stack
@@ -46,7 +47,7 @@ for fn in "${!CASES[@]}"; do
   count=$(docker exec "$DB_CONTAINER" psql -U postgres -d postgres -tA \
     -c "SELECT count(*) FROM system_logs WHERE event_name = '${event_name}' AND severity = 'critical';")
 
-  if [[ "$status" == "400" && "$count" -ge 1 ]]; then
+  if [[ "$status" == "401" && "$count" -ge 1 ]]; then
     echo "PASS  ${fn} -> HTTP ${status}, ${count} '${event_name}' row(s)"
   else
     echo "FAIL  ${fn} -> HTTP ${status}, ${count} '${event_name}' row(s)"
