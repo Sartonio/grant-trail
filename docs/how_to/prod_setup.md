@@ -1,43 +1,33 @@
 # Production Setup & Deploy
 
 Production config has **one source of truth**: a git-ignored `.deploy/production.env`.
-You fill it once, run `npm run deploy:secrets`, and every value lands in the GitHub
-`production` environment. The *Deploy to Production* workflow is the only thing that
-reads that environment — each run sets the Supabase secrets, injects the Vite build
-vars, applies migrations, deploys edge functions, and deploys the frontend. **You never
-set variables by hand in the GitHub, Vercel, or Supabase dashboards** — with one
-exception: the public Vite vars on Vercel's **preview** environment (Part A step 6),
-which the workflow can't reach.
+Fill it once, run `npm run deploy:secrets`, and every value lands in the GitHub
+`production` environment. The *Deploy to Production* workflow is the only thing that reads
+it — each run sets Supabase secrets, applies migrations, deploys edge functions, and builds
++ deploys the frontend (injecting the Vite vars). **Never set variables by hand in the
+GitHub, Vercel, or Supabase dashboards.**
 
-```
-.deploy/production.env ──(npm run deploy:secrets)──▶ GitHub `production` env
-                                                      │ (Deploy to Production workflow)
-                                                      ├─▶ Supabase secrets + migrations + edge functions
-                                                      └─▶ Vercel build + deploy
-```
+Both prod and staging deploy the **same Vercel project** (`grant-trail`,
+https://grant-trail.vercel.app): production is the `--prod` deploy, staging is a preview
+deploy. Staging has its own GitHub `staging` env pointing at a separate Supabase project —
+see [staging_setup.md](staging_setup.md).
 
-This guide has two parts:
-
-- **Part A — One-time owner bootstrap.** Create the external resources and verify the
-  email sending domain. Done **once** by the account owner.
-- **Part B — Deploying.** What anyone with access does to ship. **No DNS, no account
-  creation** — it assumes Part A is done.
+- **Part A — one-time owner bootstrap.** Create external resources + verify the email
+  domain. Done once by the account owner. **A developer given access to the existing
+  Supabase / Vercel / Resend / Stripe accounts skips Part A entirely (including all DNS).**
+- **Part B — deploying.** What anyone with access does to ship. No DNS, no account creation.
 
 ---
 
-## Part A — One-time owner bootstrap (done once)
-
-These create external resources the deploy can't make for you. **A developer who is
-given access to the existing Supabase / Vercel / Resend / Stripe accounts skips Part A
-entirely** — including all the DNS work.
+## Part A — one-time owner bootstrap
 
 1. **Supabase project** — [supabase.com](https://supabase.com) → New project. Note the
    **project ref**; mint an access token (Account → Access Tokens).
 2. **Stripe (live) products + prices** — in the Stripe **live** dashboard create the
    **Basic** and **Premium** ("Fiscal Agents Plan") products, each with a recurring price.
-   Copy the live `price_…` ids
-3. **Stripe webhook endpoint (once per project)** — Stripe reveals a webhook's signing
-   secret only at creation, so this is a one-time manual step. With your **live** key:
+   Copy the live `price_…` ids.
+3. **Stripe webhook endpoint** — Stripe reveals a webhook's signing secret only at creation,
+   so this is a one-time manual step. With your **live** key:
 
    ```bash
    stripe webhook_endpoints create \
@@ -49,54 +39,43 @@ entirely** — including all the DNS work.
      --enabled-events customer.subscription.deleted
    ```
 
-   Copy the `whsec_…` from the output into `STRIPE_WEBHOOK_SECRET` in Part B's config.
-   If the Supabase project ref ever changes, delete the old endpoint in the Stripe
-   dashboard and repeat (the URL contains the ref).
-4. **Resend sending domain (email DNS)** — verify your domain in Resend so receipts deliver
-   to any customer. In [Resend → Domains](https://resend.com/domains): add your sending domain
-   (e.g. `send.example.org`), add the DNS records Resend gives you (SPF, DKIM, DMARC) at your
-   registrar, wait for propagation, then **Verify**. Create an API key in Resend → API Keys.
-   This is the only step with external DNS propagation, so start it early. Outputs: a
-   `RESEND_API_KEY` and a verified `EMAIL_FROM` address (`onboarding@resend.dev` only delivers
-   to the account owner — it won't work for prod).
-5. **Populate the `production` GitHub environment** — run Part B's
-   [Fill & push config](#2-fill--push-config) once, including `RESEND_API_KEY` +
-   `EMAIL_FROM`. After this the config lives in GitHub; developers never touch it again
-   unless a value rotates.
-6. **Vercel preview env vars (one-time).** The `Vercel – grant-trail` /
-   `grant-trail-staging` checks on a PR are Vercel's **Git-integration preview builds** —
-   they build on Vercel's own infra and do **not** run through *Deploy to Production*, so
-   they can't read the GitHub `production`/`staging` env. The frontend's `prebuild` guard
-   (`frontend/scripts/check-env.mjs`) then fails the build with *"Missing required
-   environment variable(s): VITE_SUPABASE_URL, VITE_SUPABASE_KEY"*. Set those two **public**
-   client vars once per Vercel project so preview builds pass — both are safe to store
-   (the publishable/anon key is inlined into the browser bundle either way):
+   Copy the `whsec_…` into `STRIPE_WEBHOOK_SECRET` (Part B). If the project ref changes,
+   delete the old endpoint in the Stripe dashboard and repeat (the URL contains the ref).
+4. **Resend sending domain (email DNS)** — the only step with external DNS propagation, so
+   start it early. In [Resend → Domains](https://resend.com/domains): add your sending domain
+   (e.g. `send.example.org`), add the SPF/DKIM/DMARC records at your registrar, wait for
+   propagation, then **Verify**. Create an API key. Outputs: `RESEND_API_KEY` and a verified
+   `EMAIL_FROM` (`onboarding@resend.dev` only delivers to the account owner — no good for prod).
+5. **Populate the `production` GitHub env** — run Part B's [Fill & push config](#1-fill--push-config)
+   once, including `RESEND_API_KEY` + `EMAIL_FROM`. After this the config lives in GitHub;
+   developers never touch it unless a value rotates.
 
-   ```bash
-   # repeat for each project: grant-trail, grant-trail-staging
-   npx vercel link --project grant-trail
-   for scope in preview production; do
-     printf '%s' "https://<project-ref>.supabase.co" \
-       | npx vercel env add VITE_SUPABASE_URL "$scope" --token="$VERCEL_TOKEN"
-     printf '%s' "sb_publishable_…" \
-       | npx vercel env add VITE_SUPABASE_KEY "$scope" --token="$VERCEL_TOKEN"
-   done
-   ```
+> **Optional — green Vercel PR check.** The real prod/staging deploys go through the
+> *Deploy to Production* workflow, which injects `VITE_SUPABASE_URL`/`VITE_SUPABASE_KEY`
+> itself, so nothing below is needed for the site to ship. The two vars only make Vercel's
+> Git-integration **preview build** (the `Vercel – grant-trail` status check on a PR) pass
+> instead of failing the `prebuild` guard (`frontend/scripts/check-env.mjs`). Skip this
+> unless you want that PR check green. To set them (both public — the anon key ships in the
+> browser bundle anyway):
+>
+> ```bash
+> npx vercel link --project grant-trail
+> for scope in preview production; do
+>   printf '%s' "https://<project-ref>.supabase.co" \
+>     | npx vercel env add VITE_SUPABASE_URL "$scope" --token="$VERCEL_TOKEN"
+>   printf '%s' "sb_publishable_…" \
+>     | npx vercel env add VITE_SUPABASE_KEY "$scope" --token="$VERCEL_TOKEN"
+> done
+> ```
 
-   `<project-ref>` is the Supabase project ref; the publishable key is in **Supabase →
-   Project Settings → API**. Equivalent to typing them into **Vercel → Settings →
-   Environment Variables** (Preview + Production) by hand. The prod/staging *workflow*
-   deploys still inject their own copies from the GitHub env (`deploy.yml`), so this only
-   affects the Git-integration preview builds.
-
-> **Reusing an existing Supabase project as prod?** Clear it first so migrations apply
-> onto a clean schema — see [Clearing the database](#clearing-the-database).
+> **Reusing an existing Supabase project as prod?** Clear it first — see
+> [Clearing the database](#clearing-the-database).
 
 ---
 
-## Part B — Deploying to production
+## Part B — deploying
 
-Assumes Part A is done (resources exist, domain verified, you have access). **No DNS here.**
+Assumes Part A is done (resources exist, domain verified, you have access). No DNS here.
 
 ### 1. Fill & push config
 
@@ -104,12 +83,11 @@ Assumes Part A is done (resources exist, domain verified, you have access). **No
 npm run deploy:secrets        # first run scaffolds .deploy/production.env, then exits
 ```
 
-Fill the **MANDATORY** block (every key has a comment saying where its value comes from):
+Fill the **MANDATORY** block (each key has a comment saying where its value comes from):
 Supabase access token + ref, `STRIPE_SECRET_KEY=sk_live_…`, the live `price_…` ids,
-`STRIPE_WEBHOOK_SECRET=whsec_…` (the value from Part A step 3 — Stripe reveals it only at
-creation, so the script can't fetch it), `VERCEL_TOKEN`, `APP_URL`, `RESEND_API_KEY` (secret) +
-`EMAIL_FROM` (variable, on the verified domain). Leave **AUTOFILLED** blank — the next run
-derives the Supabase URL/key and Vercel ids.
+`STRIPE_WEBHOOK_SECRET=whsec_…` (from Part A step 3), `VERCEL_TOKEN`, `APP_URL`,
+`RESEND_API_KEY` + `EMAIL_FROM` (on the verified domain). Leave **AUTOFILLED** blank — the
+next run derives the Supabase URL/key and Vercel ids.
 
 ```bash
 npm run deploy:secrets        # pushes to GitHub `production`, shreds the file
@@ -120,13 +98,12 @@ npm run deploy:secrets        # pushes to GitHub `production`, shreds the file
 ### 2. Trigger the deploy
 
 GitHub → Actions → **Deploy to Production** → Run workflow → approve the environment prompt.
-It pushes Supabase secrets, applies migrations, deploys edge functions, and builds + deploys the
-frontend (injecting the Vite vars from the `production` env). Confirm the run is green.
+Confirm the run is green.
 
 ### 3. Verify Stripe product IDs (optional)
 
-`deploy.yml` already seeds `platform_settings` from the `STRIPE_PRODUCT_*` config, so this is a
-verify/repair step, not a required one. Only if the product IDs are wrong, in the prod
+`deploy.yml` already seeds `platform_settings` from the `STRIPE_PRODUCT_*` config. Only if
+the product IDs are wrong, in the prod
 [Supabase SQL editor](https://supabase.com/dashboard/project/_/sql):
 
 ```sql
@@ -138,10 +115,10 @@ WHERE id = 1;
 
 ### 4. Smoke test
 
-Sign up as a new user on the prod URL → hit the paywall → purchase (live card, **refund
-after** in Stripe) → confirm the paywall lifts, and — if email is on — the receipt lands
-with the right plan / amount / date. If the email doesn't arrive: check `system_logs` for
-`payment_confirmation_email_failure` and the Resend → **Emails** dashboard.
+Sign up as a new user on https://grant-trail.vercel.app → hit the paywall → purchase (live
+card, **refund after** in Stripe) → confirm the paywall lifts, and — if email is on — the
+receipt lands with the right plan / amount / date. If the email doesn't arrive: check
+`system_logs` for `payment_confirmation_email_failure` and the Resend → **Emails** dashboard.
 
 ---
 
@@ -159,11 +136,10 @@ delete from supabase_migrations.schema_migrations;   -- re-run every migration
 delete from auth.users;                              -- optional: drop test users
 ```
 
-> **Required after the migration squash.** The existing prod project's
-> `supabase_migrations.schema_migrations` ledger references the old (pre-squash) migration
-> versions. Because prod tracks migrations by version, the squashed baseline won't apply over
-> a stale ledger — clearing it (the `delete from … schema_migrations` line above) is mandatory
-> before the first deploy, not just when reusing a project for a different app.
+> **Required after the migration squash.** The old prod project's `schema_migrations` ledger
+> references pre-squash versions; because prod tracks migrations by version, the squashed
+> baseline won't apply over a stale ledger. Clearing it is mandatory before the first deploy,
+> not just when reusing a project for a different app.
 
 The next *Deploy to Production* rebuilds the schema from `supabase/migrations/`.
 
@@ -173,5 +149,4 @@ The next *Deploy to Production* rebuilds the schema from `supabase/migrations/`.
 
 - **Config change** (rotated key, new price id)? Edit `.deploy/production.env` →
   `npm run deploy:secrets`.
-- **Code / schema only?** Actions → Deploy to Production → Run workflow → approve. No
-  dashboard steps.
+- **Code / schema only?** Actions → Deploy to Production → Run workflow → approve.
