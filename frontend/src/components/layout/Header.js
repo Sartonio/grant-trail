@@ -137,6 +137,13 @@ function Header({ session, onLogout, notifications, onMarkRead, onMarkAllRead, o
               </NavLink>
             </li>
           )}
+          {session && isSuperAdmin && (
+            <li>
+              <NavLink to="/super/listings" className={({ isActive }) => isActive ? "active" : ""}>
+                Listings
+              </NavLink>
+            </li>
+          )}
           {showSubscriptionNav && !isAdmin && (
             <>
               <li>

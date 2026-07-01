@@ -24,6 +24,7 @@ import AdminGrantReview from './components/admin/AdminGrantReview';
 import AdminAuditLog from './components/admin/AdminAuditLog';
 import AdminUserList from './components/admin/AdminUserList';
 import TenantManagement from './components/admin/TenantManagement';
+import AdminListingVerification from './components/admin/AdminListingVerification';
 import AdminSettings from './components/admin/AdminSettings';
 import CompleteProfile from './components/auth/CompleteProfile';
 import LandingPage from './components/landing/LandingPage';
@@ -316,6 +317,11 @@ function App() {
           <Route path="/super/tenants" element={
             <Guard session={session} requireRole={ROLES.SUPER_ADMIN} roleRedirect="/" billingMode="none">
               <TenantManagement session={session} />
+            </Guard>
+          } />
+          <Route path="/super/listings" element={
+            <Guard session={session} requireRole={ROLES.SUPER_ADMIN} roleRedirect="/" billingMode="none">
+              <AdminListingVerification />
             </Guard>
           } />
         </Routes>
