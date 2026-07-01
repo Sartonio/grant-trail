@@ -68,7 +68,7 @@ jobs:
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf  # v2.1.1
         with:
-          version: 2.106.0
+          version: 2.109.0
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Start Supabase
@@ -118,7 +118,7 @@ jobs:
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf  # v2.1.1
         with:
-          version: 2.106.0
+          version: 2.109.0
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Replay pending migrations on the base-branch baseline
@@ -157,7 +157,7 @@ jobs:
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf  # v2.1.1
         with:
-          version: 2.106.0
+          version: 2.109.0
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Start Supabase
@@ -204,7 +204,7 @@ jobs:
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf  # v2.1.1
         with:
-          version: 2.106.0
+          version: 2.109.0
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Start Supabase
@@ -248,7 +248,7 @@ jobs:
         if: steps.guard.outputs.present == 'true'
         uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf  # v2.1.1
         with:
-          version: 2.106.0
+          version: 2.109.0
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Stripe CLI
