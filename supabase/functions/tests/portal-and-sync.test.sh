@@ -45,7 +45,7 @@ esac
 
 STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$FUNCTIONS_URL/create-billing-portal-session" \
   -H "apikey: $ANON_KEY" -H "Content-Type: application/json" -d '{}')
-assert_http "$STATUS" "400" "unauthenticated billing portal rejected"
+assert_http "$STATUS" "401" "unauthenticated billing portal rejected"
 
 # =========================================================================
 # sync: brings a brand-new Stripe subscription into the DB (webhook-independent)

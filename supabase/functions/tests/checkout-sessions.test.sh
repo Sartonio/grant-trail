@@ -6,8 +6,8 @@
 # Session URL and wire the success/cancel return paths correctly; that the
 # session is created in `subscription` mode against the correct price; and that a
 # `billing_customers` row is created/reused for the authenticated user. Auth and
-# input-validation guards are checked too (no token => 401-style Unauthorized;
-# wrong feature key => 400).
+# input-validation guards are checked too (no token => 401 Unauthorized from the
+# platform-root auth guard, before the function's own 400; wrong feature key => 400).
 #
 # Functions exercised:
 #   create-basic-membership-checkout-session  (basic tier)
@@ -83,7 +83,7 @@ assert_eq "$(dbq "SELECT count(*) FROM billing_customers WHERE user_id=$ADMIN_ID
 info "guards: unauthenticated + invalid input"
 STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$FUNCTIONS_URL/create-checkout-session" \
   -H "apikey: $ANON_KEY" -H "Content-Type: application/json" -d '{}')
-assert_http "$STATUS" "400" "unauthenticated checkout rejected"
+assert_http "$STATUS" "401" "unauthenticated checkout rejected"
 
 # Invalid feature key for the fiscal function => 400 ValidationError.
 STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$FUNCTIONS_URL/create-checkout-session" \
