@@ -322,7 +322,7 @@
 .fad-clearlink:hover { text-decoration: underline; }
 
 /* ---- Results grid + paywall gate ---- */
-.fad-results-wrap { position: relative; }
+.fad-results-wrap { position: relative; min-height: 36rem; }
 
 .fad-grid {
   display: grid;

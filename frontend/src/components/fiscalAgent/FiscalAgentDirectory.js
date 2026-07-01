@@ -615,9 +615,30 @@ export default function FiscalAgentDirectory({ session }) {
         )}
       </div>
 
+      {/* Trust strip */}
+      <section className="fad-trust">
+        <div>
+          <FaShieldAlt />
+          <h3>Verified 501(c)(3)s</h3>
+          <p>Every verified badge means we confirmed tax-exempt status.</p>
+        </div>
+        <div>
+          <FaUsers />
+          <h3>Real track records</h3>
+          <p>Projects sponsored and assets managed are shown up front.</p>
+        </div>
+        <div>
+          <FaHandshake />
+          <h3>Direct partnerships</h3>
+          <p>Message fiscal agents and start a sponsorship conversation.</p>
+        </div>
+      </section>
+
       {/* Charity acquisition CTA — pay-first Fiscal Agent intake. Logged-out only:
           onboarding provisions a fresh tenant + admin, so it's broken for any
-          signed-in user (grantee pays for nothing; admin double-creates an org). */}
+          signed-in user (grantee pays for nothing; admin double-creates an org).
+          Placed below the trust strip so it doesn't compete with the subscribe
+          paywall as a second "primary" ask right above it. */}
       {!isAuthenticated(session) && (
       <section className="fad-list-cta">
         <div className="fad-list-cta-inner">
@@ -640,25 +661,6 @@ export default function FiscalAgentDirectory({ session }) {
         </div>
       </section>
       )}
-
-      {/* Trust strip */}
-      <section className="fad-trust">
-        <div>
-          <FaShieldAlt />
-          <h3>Verified 501(c)(3)s</h3>
-          <p>Every verified badge means we confirmed tax-exempt status.</p>
-        </div>
-        <div>
-          <FaUsers />
-          <h3>Real track records</h3>
-          <p>Projects sponsored and assets managed are shown up front.</p>
-        </div>
-        <div>
-          <FaHandshake />
-          <h3>Direct partnerships</h3>
-          <p>Message fiscal agents and start a sponsorship conversation.</p>
-        </div>
-      </section>
 
       {/* Modals */}
       {profileAgent && (

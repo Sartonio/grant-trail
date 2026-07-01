@@ -29,7 +29,7 @@ if (!data) {
 }
 setGrant(data);
 ```
-*Reference files:* [GrantDetail.js](../../frontend/src/components/GrantDetail.js), [GrantBreakdown.js](../../frontend/src/components/GrantBreakdown.js)
+*Reference files:* [GrantDetail.js](../../frontend/src/components/grant/GrantDetail.js), [GrantBreakdown.js](../../frontend/src/components/grant/GrantBreakdown.js)
 
 ---
 
@@ -55,7 +55,7 @@ if (data?.signedUrl) {
   window.open(data.signedUrl, '_blank'); // Open file in a new tab
 }
 ```
-*Reference file:* [GrantAttachments.js](../../frontend/src/components/GrantAttachments.js) (the `handleView` function)
+*Reference file:* [GrantAttachments.js](../../frontend/src/components/grant/GrantAttachments.js) (the `handleView` function)
 
 ---
 
@@ -79,7 +79,7 @@ if (dbErr) {
   throw dbErr;
 }
 ```
-*Reference files:* [GrantAttachments.js](../../frontend/src/components/GrantAttachments.js), [AddExpenseModal.js](../../frontend/src/components/AddExpenseModal.js)
+*Reference files:* [GrantAttachments.js](../../frontend/src/components/grant/GrantAttachments.js), [AddExpenseModal.js](../../frontend/src/components/grant/AddExpenseModal.js)
 
 ---
 
@@ -98,7 +98,7 @@ useEffect(() => {
   load();
 }, [load]);  // safe to run when load reference changes
 ```
-*Reference file:* [AdminGrantReview.js](../../frontend/src/components/AdminGrantReview.js)
+*Reference file:* [AdminGrantReview.js](../../frontend/src/components/admin/AdminGrantReview.js)
 
 ---
 
@@ -119,7 +119,7 @@ For rendering derived charts or calculations from state arrays without creating 
   );
 })()}
 ```
-*Reference files:* [ExpenseReports.js](../../frontend/src/components/ExpenseReports.js), [GrantDetail.js](../../frontend/src/components/GrantDetail.js)
+*Reference files:* [ExpenseReports.js](../../frontend/src/components/grant/ExpenseReports.js), [GrantDetail.js](../../frontend/src/components/grant/GrantDetail.js)
 
 ---
 
@@ -154,7 +154,7 @@ And render conditionally:
   <button onClick={() => handleDelete(att)}>Delete</button>
 )}
 ```
-*Reference file:* [GrantAttachments.js](../../frontend/src/components/GrantAttachments.js)
+*Reference file:* [GrantAttachments.js](../../frontend/src/components/grant/GrantAttachments.js)
 
 ---
 
@@ -171,7 +171,7 @@ const [grantsWithPendingItems, setGrantsWithPendingItems] = useState(new Set());
   <span className="grant-pending-flag">Pending...</span>
 )}
 ```
-*Reference file:* [Grants.js](../../frontend/src/components/Grants.js)
+*Reference file:* [Grants.js](../../frontend/src/components/grant/Grants.js)
 
 ---
 
@@ -188,7 +188,7 @@ const { data: expenses } = await supabase
   .select('*')
   .in('grant_id', grants.map(g => g.id));
 ```
-*Reference file:* [ExpenseReports.js](../../frontend/src/components/ExpenseReports.js)
+*Reference file:* [ExpenseReports.js](../../frontend/src/components/grant/ExpenseReports.js)
 
 ---
 
@@ -199,7 +199,7 @@ By default, Supabase returns queries as arrays. For queries that must return exa
 const { data } = await supabase.from('grant_record').select('*').eq('id', id).single();
 // returns data = { id: 1, ... } instead of data = [ { id: 1, ... } ]
 ```
-*Reference files:* [App.js](../../frontend/src/App.js), [GrantDetail.js](../../frontend/src/components/GrantDetail.js)
+*Reference files:* [App.js](../../frontend/src/App.js), [GrantDetail.js](../../frontend/src/components/grant/GrantDetail.js)
 
 ---
 
@@ -211,7 +211,7 @@ useEffect(() => {
   if (grantId) fetchAttachments();
 }, [grantId]); // eslint-disable-line react-hooks/exhaustive-deps
 ```
-*Reference file:* [GrantAttachments.js](../../frontend/src/components/GrantAttachments.js)
+*Reference file:* [GrantAttachments.js](../../frontend/src/components/grant/GrantAttachments.js)
 
 ---
 
@@ -225,7 +225,7 @@ const handleBackdropClick = (e) => {
   }
 };
 ```
-*Reference file:* [AddExpenseModal.js](../../frontend/src/components/AddExpenseModal.js)
+*Reference file:* [AddExpenseModal.js](../../frontend/src/components/grant/AddExpenseModal.js)
 
 ---
 
@@ -267,6 +267,6 @@ async function handleApprove() {
 }
 ```
 
-Render a [`ReadOnlyBanner`](../../frontend/src/components/ReadOnlyBanner.js) at the top of degraded admin views and disable mutation controls. (Grantees without basic membership are still redirected to `/home` — the read-only degrade is admin-only.)
+Render a [`ReadOnlyBanner`](../../frontend/src/components/common/ReadOnlyBanner.js) at the top of degraded admin views and disable mutation controls. (Grantees without basic membership are still redirected to `/home` — the read-only degrade is admin-only.)
 
-*Reference files:* [useWriteGuard.js](../../frontend/src/lib/useWriteGuard.js), [policy.js](../../frontend/src/lib/policy.js) (`canMutate` / `isReadOnlyAdmin`), [ReadOnlyBanner.js](../../frontend/src/components/ReadOnlyBanner.js)
+*Reference files:* [useWriteGuard.js](../../frontend/src/lib/useWriteGuard.js), [policy.js](../../frontend/src/lib/policy.js) (`canMutate` / `isReadOnlyAdmin`), [ReadOnlyBanner.js](../../frontend/src/components/common/ReadOnlyBanner.js)
