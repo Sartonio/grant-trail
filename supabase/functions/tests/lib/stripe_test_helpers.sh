@@ -29,7 +29,6 @@ DB_CONTAINER="supabase_db_${PROJECT_ID}"
 # Local Supabase ships fixed demo keys (see `npx supabase status`).
 ANON_KEY="${ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0}"
 SERVICE_ROLE_KEY="${SERVICE_ROLE_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU}"
-JWT_SECRET="${JWT_SECRET:-super-secret-jwt-token-with-at-least-32-characters-long}"
 
 # How long to wait for an async webhook to land (seconds).
 WAIT_TIMEOUT="${WAIT_TIMEOUT:-40}"
@@ -53,6 +52,11 @@ sapi() { stripe "$@" --api-key "$STRIPE_SECRET_KEY" 2>/dev/null | _strip_ansi; }
 
 # Extract a top-level JSON string field from stdin.
 json_field() { python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('$1',''))"; }
+
+# Pull a checkout-session id (cs_test_…) out of a returned checkout URL on stdin.
+session_id_from_resp() {
+  python3 -c "import sys,json,re; u=json.load(sys.stdin).get('url','') or ''; m=re.search(r'(cs_test_[A-Za-z0-9]+)',u); print(m.group(1) if m else '')"
+}
 
 # ---- database helpers ----------------------------------------------------
 
@@ -147,15 +151,6 @@ new_stripe_customer() {
   sapi payment_methods attach "$pm" -d customer="$cus" >/dev/null
   sapi customers update "$cus" -d "invoice_settings[default_payment_method]=$pm" >/dev/null
   echo "$cus"
-}
-
-# Attach a card that fails on renewal (so we can drive past_due / payment_failed).
-attach_failing_card() {
-  local cus="$1" pm
-  # tok_chargeCustomerFail: charges decline at invoice time.
-  pm=$(sapi payment_methods create --type card -d "card[token]=tok_chargeCustomerFail" | json_field id)
-  sapi payment_methods attach "$pm" -d customer="$cus" >/dev/null
-  sapi customers update "$cus" -d "invoice_settings[default_payment_method]=$pm" >/dev/null
 }
 
 # create_subscription <cus> <price> <tier> -> echoes sub_xxx

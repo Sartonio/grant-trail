@@ -54,16 +54,18 @@ ROLLBACK;
 SQL
 }
 
-# psql_anon <sql> — run <sql> as the unauthenticated `anon` role (RLS on),
-# inside a rolled-back transaction. No auth.uid() claim is set.
-psql_anon() {
-  local sql="$1"
+# psql_setup_anon <setup_sql> <assert_sql> — plant <setup_sql> as postgres, then
+# run <assert_sql> as the unauthenticated `anon` role (RLS on), all in ONE
+# rolled-back transaction. No auth.uid() claim is set. Prints the assert result.
+psql_setup_anon() {
+  local setup="$1" assert="$2"
   docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -tA -v ON_ERROR_STOP=0 <<SQL 2>&1
 BEGIN;
+${setup}
 SELECT set_config('request.jwt.claims',
   json_build_object('role','anon')::text, true);
 SET LOCAL ROLE anon;
-${sql}
+${assert}
 ROLLBACK;
 SQL
 }
@@ -174,15 +176,7 @@ VALUES (1, '11111111-1111-1111-1111-111111111111', 'grantee', 'a@tfac.test'),
 "
 
 # anon cannot enumerate the table (either denied by privilege => error, or 0 rows).
-out=$(docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -tA -v ON_ERROR_STOP=0 <<SQL 2>&1
-BEGIN;
-${INV_SETUP}
-SELECT set_config('request.jwt.claims', json_build_object('role','anon')::text, true);
-SET LOCAL ROLE anon;
-SELECT count(*) FROM invites;
-ROLLBACK;
-SQL
-)
+out=$(psql_setup_anon "$INV_SETUP" "SELECT count(*) FROM invites;")
 # Accept either a permission-denied error or a hard 0 — both mean "no enumeration".
 if [[ "$out" == *"permission denied"* ]]; then
   assert_contains "anon CANNOT enumerate invites (privilege revoked)" "permission denied" "$out"
@@ -191,87 +185,39 @@ else
 fi
 
 # anon CAN fetch exactly one invite by a valid token via the RPC.
-out=$(docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -tA -v ON_ERROR_STOP=0 <<SQL 2>&1
-BEGIN;
-${INV_SETUP}
-SELECT set_config('request.jwt.claims', json_build_object('role','anon')::text, true);
-SET LOCAL ROLE anon;
-SELECT count(*) FROM get_invite_by_token('11111111-1111-1111-1111-111111111111');
-ROLLBACK;
-SQL
-)
+out=$(psql_setup_anon "$INV_SETUP" "SELECT count(*) FROM get_invite_by_token('11111111-1111-1111-1111-111111111111');")
 assert_eq "anon CAN fetch exactly one invite by valid token via RPC" "1" "$(echo "$out" | grep -E '^[0-9]+$' | head -1)"
 
 # The RPC returns the RIGHT invite (tenant 1's email, not tenant 2's).
-out=$(docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -tA -v ON_ERROR_STOP=0 <<SQL 2>&1
-BEGIN;
-${INV_SETUP}
-SELECT set_config('request.jwt.claims', json_build_object('role','anon')::text, true);
-SET LOCAL ROLE anon;
-SELECT email FROM get_invite_by_token('11111111-1111-1111-1111-111111111111');
-ROLLBACK;
-SQL
-)
+out=$(psql_setup_anon "$INV_SETUP" "SELECT email FROM get_invite_by_token('11111111-1111-1111-1111-111111111111');")
 assert_contains "RPC returns the matching invite's fields (tenant 1)" "a@tfac.test" "$out"
 
 # A bogus token yields zero rows (no leak).
-out=$(docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -tA -v ON_ERROR_STOP=0 <<SQL 2>&1
-BEGIN;
-${INV_SETUP}
-SELECT set_config('request.jwt.claims', json_build_object('role','anon')::text, true);
-SET LOCAL ROLE anon;
-SELECT count(*) FROM get_invite_by_token('99999999-9999-9999-9999-999999999999');
-ROLLBACK;
-SQL
-)
+out=$(psql_setup_anon "$INV_SETUP" "SELECT count(*) FROM get_invite_by_token('99999999-9999-9999-9999-999999999999');")
 assert_eq "anon gets zero rows for an unknown token" "0" "$(echo "$out" | grep -E '^[0-9]+$' | head -1)"
 
 # --- consume_invite RPC: token-scoped, idempotent, on-behalf-of guard ----------
 # A user holding a VALID token CAN consume that invite, stamping used_by=auth.uid.
-out=$(docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -tA -v ON_ERROR_STOP=0 <<SQL 2>&1
-BEGIN;
-${INV_SETUP}
-SELECT set_config('request.jwt.claims',
-  json_build_object('sub','${GRANTEE_TFAC}','role','authenticated')::text, true);
-SET LOCAL ROLE authenticated;
+out=$(psql_setup_as "$GRANTEE_TFAC" "$INV_SETUP" "
 SELECT consume_invite('11111111-1111-1111-1111-111111111111', '${GRANTEE_TFAC}'::uuid);
 RESET ROLE;
 SELECT (used_by = '${GRANTEE_TFAC}'::uuid AND used_at IS NOT NULL)
-  FROM invites WHERE token='11111111-1111-1111-1111-111111111111';
-ROLLBACK;
-SQL
-)
+  FROM invites WHERE token='11111111-1111-1111-1111-111111111111';")
 assert_contains "user CAN consume their own invite via consume_invite RPC" "t" "$out"
 
 # A caller CANNOT consume an invite on behalf of a DIFFERENT user (p_user_id != auth.uid()).
-out=$(docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -tA -v ON_ERROR_STOP=0 <<SQL 2>&1
-BEGIN;
-${INV_SETUP}
-SELECT set_config('request.jwt.claims',
-  json_build_object('sub','${GRANTEE_BRIGHT}','role','authenticated')::text, true);
-SET LOCAL ROLE authenticated;
+out=$(psql_setup_as "$GRANTEE_BRIGHT" "$INV_SETUP" "
 SELECT consume_invite('22222222-2222-2222-2222-222222222222', '${GRANTEE_TFAC}'::uuid);
 RESET ROLE;
-SELECT used_at IS NULL FROM invites WHERE token='22222222-2222-2222-2222-222222222222';
-ROLLBACK;
-SQL
-)
+SELECT used_at IS NULL FROM invites WHERE token='22222222-2222-2222-2222-222222222222';")
 assert_contains "user CANNOT consume an invite on behalf of another user" "Not allowed to consume an invite on behalf of another user" "$out"
 # …and the invite remains unconsumed.
 assert_contains "invite stays unconsumed after on-behalf-of attempt" "t" "$out"
 
 # consume_invite is idempotent: a second call on an already-used invite consumes nothing.
-out=$(docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -tA -v ON_ERROR_STOP=0 <<SQL 2>&1
-BEGIN;
-${INV_SETUP}
-SELECT set_config('request.jwt.claims',
-  json_build_object('sub','${GRANTEE_TFAC}','role','authenticated')::text, true);
-SET LOCAL ROLE authenticated;
+out=$(psql_setup_as "$GRANTEE_TFAC" "$INV_SETUP" "
 SELECT consume_invite('11111111-1111-1111-1111-111111111111', '${GRANTEE_TFAC}'::uuid);
-SELECT consume_invite('11111111-1111-1111-1111-111111111111', '${GRANTEE_TFAC}'::uuid);
-ROLLBACK;
-SQL
-)
+SELECT consume_invite('11111111-1111-1111-1111-111111111111', '${GRANTEE_TFAC}'::uuid);")
 # First call -> t, second call (already used) -> f.
 assert_contains "consume_invite is idempotent (re-consume returns false)" "f" "$out"
 

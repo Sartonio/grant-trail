@@ -29,10 +29,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/stripe_test_helpers.sh
 source "${HERE}/lib/stripe_test_helpers.sh"
 
-# Pull a checkout-session id out of a returned checkout URL.
-session_id_from_resp() {
-  python3 -c "import sys,json,re; u=json.load(sys.stdin).get('url','') or ''; m=re.search(r'(cs_test_[A-Za-z0-9]+)',u); print(m.group(1) if m else '')"
-}
+# session_id_from_resp lives in lib/stripe_test_helpers.sh (sourced above).
 
 # An unauthenticated/invalid request must be REJECTED. With verify_jwt=true the
 # Supabase gateway rejects an invalid bearer with 401 *before* the function runs,
