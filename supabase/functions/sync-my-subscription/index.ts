@@ -1,4 +1,5 @@
-import { adminSupabase, corsHeaders, getOrCreateStripeCustomer, requireAuthenticatedProfile, stripe, upsertSubscriptionFromStripe } from '../_shared/stripe.ts';
+import { adminSupabase, corsHeaders, getOrCreateStripeCustomer, requireAuthenticatedProfile, stripe } from '../_shared/stripe-client.ts';
+import { upsertSubscriptionFromStripe } from '../_shared/stripe-subscription-sync.ts';
 import { assertPostRequest, ValidationError } from '../_shared/validation.ts';
 
 Deno.serve(async (request) => {

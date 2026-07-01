@@ -1,4 +1,4 @@
-import { adminSupabase, buildRedirectUrl, corsHeaders, getOrCreateStripeCustomer, requireAuthenticatedProfile, stripe } from '../_shared/stripe.ts';
+import { adminSupabase, buildRedirectUrl, corsHeaders, getOrCreateStripeCustomer, requireAuthenticatedProfile, stripe } from '../_shared/stripe-client.ts';
 import { assertPostRequest, parseJsonBody, validateReturnPath, ValidationError } from '../_shared/validation.ts';
 
 Deno.serve(async (request) => {

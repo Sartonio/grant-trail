@@ -1,4 +1,4 @@
-import { adminSupabase, corsHeaders } from '../_shared/stripe.ts';
+import { adminSupabase, corsHeaders } from '../_shared/stripe-client.ts';
 import { assertPostRequest, parseJsonBody, ValidationError } from '../_shared/validation.ts';
 import { sendInquiryNotificationEmail } from '../_shared/email.ts';
 

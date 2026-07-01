@@ -1,4 +1,5 @@
-import { adminSupabase, corsHeaders, stripe, upsertSubscriptionFromStripe } from '../_shared/stripe.ts';
+import { adminSupabase, corsHeaders, stripe } from '../_shared/stripe-client.ts';
+import { upsertSubscriptionFromStripe } from '../_shared/stripe-subscription-sync.ts';
 import { assertPostRequest, ValidationError } from '../_shared/validation.ts';
 import { sendPaymentConfirmationEmail } from '../_shared/email.ts';
 

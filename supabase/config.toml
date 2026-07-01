@@ -390,10 +390,6 @@ deno_version = 2
 # here are deployed. Authenticated functions keep JWT verification on; the Stripe
 # webhook is called by Stripe (no user JWT) and verifies Stripe's signature
 # instead, so verify_jwt is disabled for it.
-[functions.create-basic-membership-checkout-session]
-enabled = true
-verify_jwt = true
-
 [functions.create-billing-portal-session]
 enabled = true
 verify_jwt = true
@@ -401,13 +397,6 @@ verify_jwt = true
 [functions.create-checkout-session]
 enabled = true
 verify_jwt = true
-
-# Pay-first: a charity checks out BEFORE any account exists, so no user JWT is
-# available. The handler accepts only intake fields it stamps into Stripe
-# metadata (no privileged data access), and the webhook does the provisioning.
-[functions.create-fiscal-agent-checkout-session]
-enabled = true
-verify_jwt = false
 
 [functions.sync-my-subscription]
 enabled = true

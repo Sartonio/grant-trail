@@ -132,7 +132,6 @@ Run from repo root:
 ```bash
 cd <repo-root>
 supabase functions deploy create-checkout-session --no-verify-jwt
-supabase functions deploy create-basic-membership-checkout-session --no-verify-jwt
 supabase functions deploy create-billing-portal-session --no-verify-jwt
 supabase functions deploy sync-my-subscription --no-verify-jwt
 supabase functions deploy stripe-webhook --no-verify-jwt

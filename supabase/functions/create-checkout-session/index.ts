@@ -1,9 +1,17 @@
-import { adminSupabase, corsHeaders, buildRedirectUrl, ensurePlatformMembershipProductIds, getOrCreateStripeCustomer, requireAuthenticatedProfile, stripe } from '../_shared/stripe.ts';
+import { adminSupabase, corsHeaders, buildRedirectUrl, ensurePlatformMembershipProductIds, getOrCreateStripeCustomer, requireAuthenticatedProfile, stripe } from '../_shared/stripe-client.ts';
 import { assertPostRequest, parseJsonBody, validateFeatureKey, validateReturnPath, ValidationError } from '../_shared/validation.ts';
 
-// `basic_membership` is included because the frontend falls back to this function
-// (with that key) when the dedicated basic-checkout function is unavailable.
-const ALLOWED_FEATURE_KEYS = ['admin_membership', 'premium_membership', 'excel_export', 'basic_membership'];
+// Feature key → (Stripe price env var, membership tier). `basic_membership` buys
+// the basic plan; every other key folds into the premium "Fiscal Agents Plan".
+// This is the single checkout entry point for both tiers — the price and the
+// metadata tier are chosen from the validated feature key, never the client.
+const TIER_BY_FEATURE_KEY = {
+  basic_membership: { tier: 'basic', priceEnv: 'STRIPE_PRICE_BASIC' },
+  admin_membership: { tier: 'premium', priceEnv: 'STRIPE_PRICE_FISCAL_AGENT' },
+  premium_membership: { tier: 'premium', priceEnv: 'STRIPE_PRICE_FISCAL_AGENT' },
+  excel_export: { tier: 'premium', priceEnv: 'STRIPE_PRICE_FISCAL_AGENT' },
+};
+const ALLOWED_FEATURE_KEYS = Object.keys(TIER_BY_FEATURE_KEY);
 
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') {
@@ -16,10 +24,11 @@ Deno.serve(async (request) => {
     const body = await parseJsonBody(request);
     const returnPath = validateReturnPath(body.returnPath);
     const featureKey = validateFeatureKey(body.featureKey, ALLOWED_FEATURE_KEYS, 'admin_membership');
-    const stripePriceId = Deno.env.get('STRIPE_PRICE_FISCAL_AGENT');
+    const { tier, priceEnv } = TIER_BY_FEATURE_KEY[featureKey];
+    const stripePriceId = Deno.env.get(priceEnv);
 
     if (!stripePriceId) {
-      throw new Error('Missing STRIPE_PRICE_FISCAL_AGENT environment variable.');
+      throw new Error(`Missing ${priceEnv} environment variable.`);
     }
 
     await ensurePlatformMembershipProductIds();
@@ -36,13 +45,13 @@ Deno.serve(async (request) => {
       metadata: {
         user_id: String(profile.profileId),
         feature_key: featureKey,
-        membership_tier: 'premium',
+        membership_tier: tier,
       },
       subscription_data: {
         metadata: {
           user_id: String(profile.profileId),
           feature_key: featureKey,
-          membership_tier: 'premium',
+          membership_tier: tier,
         },
       },
     });

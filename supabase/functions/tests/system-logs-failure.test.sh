@@ -28,7 +28,6 @@ ANON_KEY="${ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 declare -A CASES=(
   [create-checkout-session]=create_checkout_session_failure
   [create-billing-portal-session]=create_billing_portal_session_failure
-  [create-basic-membership-checkout-session]=create_basic_membership_checkout_session_failure
   [sync-my-subscription]=sync_my_subscription_failure
 )
 

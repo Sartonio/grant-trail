@@ -3,8 +3,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2.84.0';
 
 // Stripe/Supabase client construction + the auth/customer helpers shared by
 // every checkout/portal-session edge function (create-checkout-session,
-// create-basic-membership-checkout-session, create-billing-portal-session,
-// sync-my-subscription).
+// create-billing-portal-session, sync-my-subscription).
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
 const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';

@@ -15,12 +15,9 @@ export const FEATURE_KEYS = {
   EXCEL_EXPORT: 'excel_export',
 };
 
-const BASIC_CHECKOUT_FUNCTION_CANDIDATES = [
-  'create-basic-membership-checkout-session',
-  'create-checkout-session',
-];
-
-const ORG_ADMIN_CHECKOUT_FUNCTION_CANDIDATES = [
+// Single checkout function for both tiers; it derives price + tier from the
+// feature key (basic_membership -> basic, everything else -> premium).
+const CHECKOUT_FUNCTION_CANDIDATES = [
   'create-checkout-session',
 ];
 
@@ -194,11 +191,8 @@ export async function startCheckoutSession({ membershipTier, returnPath = '/subs
     membershipTier === MEMBERSHIP_TIERS.ORG_ADMIN || membershipTier === MEMBERSHIP_TIERS.FISCAL_AGENT;
   const stripeProductId = isOrgAdminPlan ? productIds.premium : productIds.basic;
   const featureKey = isOrgAdminPlan ? FEATURE_KEYS.ADMIN_MEMBERSHIP : FEATURE_KEYS.BASIC_MEMBERSHIP;
-  const checkoutFunctions = isOrgAdminPlan
-    ? ORG_ADMIN_CHECKOUT_FUNCTION_CANDIDATES
-    : BASIC_CHECKOUT_FUNCTION_CANDIDATES;
 
-  return invokeFirstAvailable(checkoutFunctions, () => ({
+  return invokeFirstAvailable(CHECKOUT_FUNCTION_CANDIDATES, () => ({
     membershipTier,
     membership_tier: membershipTier,
     tier: membershipTier,

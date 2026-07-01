@@ -19,8 +19,7 @@
 #
 # Functions exercised: create-checkout-session, create-billing-portal-session.
 # (Both flow through the same shared identity/customer-resolution helpers, so a
-# pass here covers create-basic-membership-checkout-session and
-# sync-my-subscription, which resolve identity identically.)
+# pass here covers sync-my-subscription, which resolves identity identically.)
 #
 # Prereqs: local Supabase up + functions served with supabase/functions/.env.
 # Stripe TEST mode only. No webhook forwarder needed.
