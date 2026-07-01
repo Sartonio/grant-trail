@@ -167,6 +167,8 @@ export default function FiscalAgentOwnerDashboard({ session, readOnly: readOnlyP
               dashboard is read-only.{' '}
               <Link to={BILLING_NUDGE_PATH} className="fad-link">Resubscribe to edit</Link>.
             </>
+          ) : listing.status === 'published' && listing.verification !== 'verified' ? (
+            <> is pending 501(c)(3) verification — it goes live in the directory once verified. Keep your profile complete to rank higher.</>
           ) : (
             <> is {listing.status === 'published' ? 'live' : 'in draft'}. Keep your profile complete to rank higher.</>
           )}

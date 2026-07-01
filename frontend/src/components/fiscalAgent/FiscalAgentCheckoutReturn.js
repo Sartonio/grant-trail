@@ -57,10 +57,10 @@ export default function FiscalAgentCheckoutReturn() {
           <h2>Checkout canceled</h2>
           <p>No charge was made. You can pick up your subscription whenever you’re ready.</p>
           <Link
-            to={isFiscalAgent ? '/fiscal-agents/me' : '/fiscal-agents'}
+            to={isFiscalAgent ? '/subscription' : '/fiscal-agents'}
             className="fad-btn fad-btn-primary fad-btn-block"
           >
-            {isFiscalAgent ? 'Go to your dashboard' : 'Back to the directory'} <FaArrowRight />
+            {isFiscalAgent ? 'Continue to payment' : 'Back to the directory'} <FaArrowRight />
           </Link>
         </div>
       </div>

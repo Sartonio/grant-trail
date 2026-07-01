@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { NavLink, Link, useNavigate } from 'react-router-dom';
-import { FiUser, FiChevronDown, FiLogOut, FiActivity, FiUsers, FiSettings } from 'react-icons/fi';
+import { FiUser, FiChevronDown, FiLogOut, FiActivity, FiUsers, FiSettings, FiBriefcase } from 'react-icons/fi';
 import NotificationBell from './NotificationBell';
 import { useClickOutside } from './useClickOutside';
 import './Header.css';
@@ -214,6 +214,14 @@ function Header({ session, onLogout, notifications, onMarkRead, onMarkAllRead, o
 
                   {isAdmin && (
                     <>
+                      <Link
+                        to="/fiscal-agents/me"
+                        className="profile-dropdown-item"
+                        onClick={() => setDropdownOpen(false)}
+                      >
+                        <FiBriefcase size={15} />
+                        Fiscal Agent dashboard
+                      </Link>
                       <Link
                         to="/admin/users"
                         className="profile-dropdown-item"

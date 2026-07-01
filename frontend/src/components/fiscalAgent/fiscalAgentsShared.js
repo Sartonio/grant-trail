@@ -218,7 +218,11 @@ export function Toast({ toast, onDone }) {
 // Owner's public-preview + completeness panel (S11). `readOnly` disables the
 // mutating affordances for a lapsed Fiscal Agent (#40 read-only degrade).
 export function OwnerListingPanel({ listing, completeness, status, onEdit, onToggleAccepting, readOnly }) {
-  const isLive = status === 'published';
+  // A listing is only publicly live when published AND 501(c)(3)-verified — the
+  // public directory view gates on both (status='published' AND verification='verified').
+  // Published-but-unverified is verification-pending, not live.
+  const isLive = status === 'published' && listing.verification === 'verified';
+  const isPendingVerification = status === 'published' && listing.verification !== 'verified';
   return (
     <section className="fad-owner-panel">
       <div className="fad-owner-panel-head">
@@ -229,7 +233,9 @@ export function OwnerListingPanel({ listing, completeness, status, onEdit, onTog
           </span>
         ) : (
           <span className="fad-badge fad-badge-muted">
-            {status === 'hidden' ? 'Hidden' : status === 'unlisted' ? 'Unlisted' : 'Draft'}
+            {isPendingVerification
+              ? (listing.verification === 'rejected' ? 'Verification rejected' : 'Verification pending')
+              : status === 'hidden' ? 'Hidden' : status === 'unlisted' ? 'Unlisted' : 'Draft'}
           </span>
         )}
         <button
