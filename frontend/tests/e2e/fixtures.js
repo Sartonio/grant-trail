@@ -451,6 +451,19 @@ async function mockSignupCheckout(page, returnUrl = 'http://localhost:3000/subsc
   });
 }
 
+// Shared /login helper. Every role spec used to carry its own near-identical
+// copy; they differ only in the post-login landing they wait for, so that's a
+// parameter. The login page accepts either the id or the type selector for the
+// fields — we use the ids.
+async function loginAs(page, email, expectedUrl, password = 'TestPassword123!') {
+  await page.goto('/login');
+  await page.fill('#email', email);
+  await page.fill('#password', password);
+  await page.locator('button[type="submit"]').click();
+  if (expectedUrl) await page.waitForURL(expectedUrl, { timeout: 20000 });
+}
+
+module.exports.loginAs = loginAs;
 module.exports.mockSignupCheckout = mockSignupCheckout;
 module.exports.createServiceClient = createServiceClient;
 module.exports.createCrossRoleRegistry = createCrossRoleRegistry;

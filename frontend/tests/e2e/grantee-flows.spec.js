@@ -1,4 +1,4 @@
-const { test, expect } = require('./fixtures');
+const { test, expect, loginAs, seedMembership } = require('./fixtures');
 
 // Grantee-facing flows not already covered by workspace.spec.js / reporting.spec.js:
 //   - Grant detail status-history timeline
@@ -41,21 +41,9 @@ test.describe('Grantee detail, attachments & exports', () => {
     ctx.ids.tenantIds.push(userRec.tenant_id);
 
     // Active basic subscription so the grantee passes the membership gate.
-    const { data: sub } = await supabase.from('subscriptions').insert({
-      user_id: ctx.userId,
-      stripe_customer_id: `cus_${ts}`,
-      stripe_subscription_id: `sub_${ts}`,
-      stripe_product_id: 'prod_UPriYIVgR8sgXz',
-      stripe_price_id: `price_${ts}`,
-      membership_tier: 'basic',
-      status: 'active',
-      current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-    }).select().single();
-    ctx.ids.subscriptionIds.push(sub.id);
-    await supabase.from('user_memberships').insert({
-      user_id: ctx.userId, subscription_id: sub.id, membership_tier: 'basic',
-      is_active: true, source: 'stripe', starts_at: new Date().toISOString(),
-    });
+    // seedMembership reads the live product id, so this stays valid regardless
+    // of which seed the stack is running.
+    await seedMembership(supabase, ctx.ids, ctx.userId, 'basic');
 
     // A grant with a status history (pending -> needs_changes -> approved) and an
     // expense so the CSV export has a row.
@@ -99,13 +87,7 @@ test.describe('Grantee detail, attachments & exports', () => {
     for (const uid of ids.authUids) await supabase.auth.admin.deleteUser(uid);
   });
 
-  async function login(page) {
-    await page.goto('/login');
-    await page.fill('#email', ctx.email);
-    await page.fill('#password', ctx.password);
-    await page.locator('button[type="submit"]').click();
-    await page.waitForURL(url => url.pathname === '/' || url.pathname === '/home', { timeout: 15000 });
-  }
+  const login = (page) => loginAs(page, ctx.email, url => url.pathname === '/' || url.pathname === '/home');
 
   test('grant detail shows the status-history timeline', async ({ page }) => {
     await login(page);

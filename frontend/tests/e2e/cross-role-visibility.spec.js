@@ -1,4 +1,4 @@
-const { test, expect } = require('./fixtures');
+const { test, expect, loginAs } = require('./fixtures');
 const {
   createCrossRoleRegistry,
   seedAuthUser,
@@ -41,14 +41,8 @@ test.describe('Cross-role visibility', () => {
     contexts: [],
   };
 
-  // --- login helper: fill /login and wait for the role/access-specific landing.
-  async function login(page, email, expectedUrl) {
-    await page.goto('/login');
-    await page.fill('#email', email);
-    await page.fill('#password', ctx.pass);
-    await page.locator('button[type="submit"]').click();
-    await page.waitForURL(expectedUrl, { timeout: 20000 });
-  }
+  // --- login helper: shared /login, wait for the role/access-specific landing.
+  const login = (page, email, expectedUrl) => loginAs(page, email, expectedUrl, ctx.pass);
 
   // Open the grantee's notification bell on a stable logged-in page and assert a
   // notification whose text matches `needle` is present. A fresh page load

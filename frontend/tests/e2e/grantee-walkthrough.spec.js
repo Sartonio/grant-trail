@@ -1,4 +1,4 @@
-const { test, expect } = require('./fixtures');
+const { test, expect, loginAs, seedMembership } = require('./fixtures');
 
 // LS1 Lane G — grantee happy-path journeys (trimmed).
 //
@@ -23,49 +23,7 @@ const { test, expect } = require('./fixtures');
 
 const PASSWORD = 'TestPassword123!';
 
-async function login(page, email) {
-  await page.goto('/login');
-  await page.fill('#email', email);
-  await page.fill('#password', PASSWORD);
-  await page.locator('button[type="submit"]').click();
-  await page.waitForURL(url => url.pathname === '/' || url.pathname === '/home', { timeout: 15000 });
-}
-
-// Service-role helper: the configured Stripe product id for a tier (the DB
-// enforces subscription.stripe_product_id matches platform_settings for the tier).
-async function productIdForTier(supabase, tier) {
-  const { data, error } = await supabase
-    .from('platform_settings')
-    .select('basic_membership_product_id, premium_membership_product_id')
-    .eq('id', 1)
-    .single();
-  if (error) throw error;
-  return tier === 'premium' ? data.premium_membership_product_id : data.basic_membership_product_id;
-}
-
-// Give a seeded user an active Stripe-style subscription + membership so they
-// pass the billing gate (same shape as grantee-flows.spec.js / fixtures.js).
-async function grantActiveSubscription(supabase, ids, userId, tier = 'basic') {
-  const ts = Date.now();
-  const productId = await productIdForTier(supabase, tier);
-  const { data: sub, error } = await supabase.from('subscriptions').insert({
-    user_id: userId,
-    stripe_customer_id: `cus_${ts}_${userId}`,
-    stripe_subscription_id: `sub_${ts}_${userId}`,
-    stripe_product_id: productId,
-    stripe_price_id: `price_${ts}_${userId}`,
-    membership_tier: tier,
-    status: 'active',
-    current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-  }).select().single();
-  if (error) throw error;
-  ids.subscriptionIds.push(sub.id);
-  await supabase.from('user_memberships').insert({
-    user_id: userId, subscription_id: sub.id, membership_tier: tier,
-    is_active: true, source: 'stripe', starts_at: new Date().toISOString(),
-  });
-  return sub;
-}
+const login = (page, email) => loginAs(page, email, url => url.pathname === '/' || url.pathname === '/home', PASSWORD);
 
 // Bottom-up manual teardown mirroring fixtures.js order (these describe blocks
 // seed in their own beforeAll, which runs outside the per-test `testData`
@@ -127,7 +85,7 @@ test.describe('Grantee walkthrough — create grant (self-service)', () => {
     ctx.ids.userIds.push(userRec.id);
     ctx.ids.tenantIds.push(userRec.tenant_id);
 
-    await grantActiveSubscription(supabase, ctx.ids, ctx.userId, 'basic');
+    await seedMembership(supabase, ctx.ids, ctx.userId, 'basic');
     ctx.supabase = supabase;
   });
 
@@ -206,7 +164,7 @@ test.describe('Grantee walkthrough — resubmit + expense receipt (managed)', ()
     ctx.userId = userRec.id;
     ctx.ids.userIds.push(userRec.id);
 
-    await grantActiveSubscription(supabase, ctx.ids, ctx.userId, 'basic');
+    await seedMembership(supabase, ctx.ids, ctx.userId, 'basic');
 
     // A needs_changes grant for the resubmit journey (§7).
     const { data: gNeeds } = await supabase.from('grant_record').insert({

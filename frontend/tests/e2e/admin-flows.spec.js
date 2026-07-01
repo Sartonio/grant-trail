@@ -1,4 +1,4 @@
-const { test, expect } = require('./fixtures');
+const { test, expect, loginAs } = require('./fixtures');
 
 // Admin-facing flows beyond the existing admin-review.spec.js (which covers approve):
 //   - Request-changes decision on a pending grant
@@ -78,13 +78,7 @@ test.describe('Admin management flows', () => {
     for (const uid of ids.authUids) await supabase.auth.admin.deleteUser(uid);
   });
 
-  async function loginAdmin(page) {
-    await page.goto('/login');
-    await page.fill('#email', ctx.adminEmail);
-    await page.fill('#password', ctx.password);
-    await page.locator('button[type="submit"]').click();
-    await page.waitForURL('**/admin', { timeout: 15000 });
-  }
+  const loginAdmin = (page) => loginAs(page, ctx.adminEmail, '**/admin');
 
   test('admin requests changes on a pending grant', async ({ page, supabase }) => {
     await loginAdmin(page);

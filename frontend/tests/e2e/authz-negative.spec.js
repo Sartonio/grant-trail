@@ -1,4 +1,4 @@
-const { test, expect } = require('./fixtures');
+const { test, expect, loginAs } = require('./fixtures');
 
 // Negative / authorization paths:
 //   - Logged-out visitor is redirected to /login on protected routes.
@@ -92,13 +92,7 @@ test.describe('Authorization & tenant isolation', () => {
     for (const uid of ids.authUids) await supabase.auth.admin.deleteUser(uid);
   });
 
-  async function login(page, email) {
-    await page.goto('/login');
-    await page.fill('#email', email);
-    await page.fill('#password', ctx.password);
-    await page.locator('button[type="submit"]').click();
-    await page.waitForURL(url => url.pathname !== '/login', { timeout: 15000 });
-  }
+  const login = (page, email) => loginAs(page, email, url => url.pathname !== '/login');
 
   test('logged-out visitor is redirected to /login on protected routes', async ({ page }) => {
     await page.goto('/grants');
