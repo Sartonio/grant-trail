@@ -31,12 +31,6 @@ Deno.serve(async (request) => {
         status: 400,
       });
     }
-    if (error instanceof AuthError) {
-      return new Response(JSON.stringify({ error: error.message }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 401,
-      });
-    }
     console.error('Billing portal session error:', error);
     try {
       await adminSupabase.from('system_logs').insert({
@@ -50,6 +44,13 @@ Deno.serve(async (request) => {
       });
     } catch (logError) {
       console.error('Failed to write system log to database:', logError);
+    }
+
+    if (error instanceof AuthError) {
+      return new Response(JSON.stringify({ error: error.message }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 401,
+      });
     }
 
     return new Response(JSON.stringify({ error: error instanceof Error ? error.message : 'Unable to create billing portal session.' }), {

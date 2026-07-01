@@ -1,16 +1,19 @@
 #!/usr/bin/env bash
 #
 # Self-test for issue #4: each billing Edge Function must persist a row to
-# public.system_logs (severity = 'critical') when it fails.
+# public.system_logs (severity = 'critical') when it fails unexpectedly.
 #
-# Strategy: hitting a function with the anon key (instead of a real user token)
-# makes requireAuthenticatedProfile() throw "Unauthorized", which lands in the
-# catch block -- the exact failure-logging path we added. We then assert one
-# system_logs row exists per function with the expected distinct event_name.
+# Strategy: an *unauthenticated* call now short-circuits to HTTP 401 via
+# AuthError -- BEFORE the failure-logging path -- so it can't exercise this
+# feature. Instead we sign in as a seeded user (real access token) and let the
+# call fail downstream at the first Stripe API call: CI serves the functions
+# with a dummy STRIPE_SECRET_KEY, so Stripe rejects it with a generic error
+# that lands in the catch block, writes the critical system_logs row, and maps
+# to HTTP 400. We assert one such row exists per function.
 #
 # Prerequisites (local only -- never touches production):
-#   1. npm run db:start            # local Supabase stack
-#   2. cp supabase/.env.example supabase/.env   # dummy values are fine
+#   1. npm run db:start            # local Supabase stack (+ seed users)
+#   2. cp supabase/.env.example supabase/.env   # dummy Stripe values are fine
 #   3. npx supabase functions serve --env-file supabase/.env   # in another shell
 #
 # Run:  bash supabase/functions/tests/system-logs-failure.test.sh
@@ -23,6 +26,21 @@ DB_CONTAINER="supabase_db_${PROJECT_ID}"
 
 # Local Supabase ships a fixed demo anon key (see `npx supabase status`).
 ANON_KEY="${ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0}"
+
+# A seeded grantee (see supabase/seed.sql). Real access token -> passes auth so
+# the request reaches the Stripe call that fails under the dummy key.
+TEST_EMAIL="${TEST_EMAIL:-maria.smith@example.com}"
+TEST_PASSWORD="${TEST_PASSWORD:-password123}"
+
+ACCESS_TOKEN=$(curl -s -X POST "${API_URL}/auth/v1/token?grant_type=password" \
+  -H "apikey: ${ANON_KEY}" -H "Content-Type: application/json" \
+  -d "{\"email\":\"${TEST_EMAIL}\",\"password\":\"${TEST_PASSWORD}\"}" \
+  | grep -o '"access_token":"[^"]*"' | head -1 | cut -d'"' -f4)
+
+if [[ -z "$ACCESS_TOKEN" ]]; then
+  echo "FAIL  could not obtain access token for ${TEST_EMAIL} (is the stack seeded?)"
+  exit 1
+fi
 
 # function name : expected event_name
 declare -A CASES=(
@@ -40,7 +58,7 @@ for fn in "${!CASES[@]}"; do
     -c "DELETE FROM system_logs WHERE event_name = '${event_name}';" >/dev/null
 
   status=$(curl -s -o /dev/null -w "%{http_code}" -X POST "${API_URL}/functions/v1/${fn}" \
-    -H "Authorization: Bearer ${ANON_KEY}" -H "apikey: ${ANON_KEY}" \
+    -H "Authorization: Bearer ${ACCESS_TOKEN}" -H "apikey: ${ANON_KEY}" \
     -H "Content-Type: application/json" -d '{}')
 
   count=$(docker exec "$DB_CONTAINER" psql -U postgres -d postgres -tA \
