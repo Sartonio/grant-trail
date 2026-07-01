@@ -479,6 +479,12 @@ INSERT INTO user_memberships (user_id, subscription_id, membership_tier, is_acti
   ((SELECT id FROM users WHERE email = 'amara.okafor@example.com'), (SELECT id FROM subscriptions WHERE stripe_subscription_id = 'sub_amara123'), 'premium', true, 'stripe', now());
 
 
+-- Tenant-level Charity Directory entitlement: mirrors what the Stripe sync
+-- would set for amara's active premium subscription (seed runs after the
+-- migration backfill, so it must set the flag itself).
+UPDATE tenants SET accepts_sponsorships = true
+WHERE id = (SELECT tenant_id FROM users WHERE email = 'amara.okafor@example.com');
+
 -- ==========================================
 -- SECTION 8: FISCAL AGENT DIRECTORY
 -- ==========================================

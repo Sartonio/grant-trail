@@ -1007,6 +1007,7 @@ export type Database = {
       }
       tenants: {
         Row: {
+          accepts_sponsorships: boolean
           created_at: string | null
           id: number
           is_active: boolean
@@ -1015,6 +1016,7 @@ export type Database = {
           tenant_type: string
         }
         Insert: {
+          accepts_sponsorships?: boolean
           created_at?: string | null
           id?: number
           is_active?: boolean
@@ -1023,6 +1025,7 @@ export type Database = {
           tenant_type?: string
         }
         Update: {
+          accepts_sponsorships?: boolean
           created_at?: string | null
           id?: number
           is_active?: boolean

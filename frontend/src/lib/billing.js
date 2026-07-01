@@ -1,12 +1,11 @@
 import { supabase } from '../supabaseClient';
+// The app has exactly two tiers. Charity listing ownership is NOT a tier — it
+// is a tenant-level entitlement (tenants.accepts_sponsorships) set by the
+// billing sync while the ORG_ADMIN ('premium', "Fiscal Agents Plan")
+// subscription is active. See policy.canOwnListing.
 export const MEMBERSHIP_TIERS = {
   BASIC: 'basic',
   ORG_ADMIN: 'premium',
-  // Charity listing ownership is NOT its own tier — it folds into ORG_ADMIN
-  // ('premium', the "Fiscal Agents Plan"). FISCAL_AGENT is only a client-side
-  // selector used by the account-first charity signup; it routes through the same
-  // authenticated premium checkout (STRIPE_PRICE_FISCAL_AGENT) as ORG_ADMIN.
-  FISCAL_AGENT: 'fiscal_agent',
 };
 
 export const FEATURE_KEYS = {
@@ -184,11 +183,7 @@ function safeJsonParse(text) {
 
 export async function startCheckoutSession({ membershipTier, returnPath = '/subscription' }) {
   const productIds = await getMembershipProductIds();
-  // Fiscal Agent is account-FIRST now: the charity is authenticated and folds
-  // into the premium "Fiscal Agents Plan" — same product, same checkout function,
-  // same STRIPE_PRICE_FISCAL_AGENT (resolved server-side) as the org-admin plan.
-  const isOrgAdminPlan =
-    membershipTier === MEMBERSHIP_TIERS.ORG_ADMIN || membershipTier === MEMBERSHIP_TIERS.FISCAL_AGENT;
+  const isOrgAdminPlan = membershipTier === MEMBERSHIP_TIERS.ORG_ADMIN;
   const stripeProductId = isOrgAdminPlan ? productIds.premium : productIds.basic;
   const featureKey = isOrgAdminPlan ? FEATURE_KEYS.ADMIN_MEMBERSHIP : FEATURE_KEYS.BASIC_MEMBERSHIP;
 
@@ -241,6 +236,8 @@ export async function fetchSessionContext() {
     ...(data.tenantSettings || {}),
     type: tenant?.tenant_type,
     name: tenant?.name,
+    // Charity Directory entitlement flag (see policy.canOwnListing).
+    accepts_sponsorships: !!tenant?.accepts_sponsorships,
   };
 
   const membership = data.membership || null;

@@ -88,14 +88,16 @@ describe('policy.getRole', () => {
 // --- Charity Directory entitlements -----------------------------------------
 // Mirrors the data-layer gate proven in supabase/tests/charity-directory-rls.test.sh:
 // basic (the seeker SKU) OR super_admin OR exempt may VIEW the directory;
-// premium ("Fiscal Agents Plan") OR super_admin OR exempt may OWN a listing —
-// listing ownership folds into premium rather than a separate fiscal_agent SKU.
+// listing ownership is the tenant-level entitlement flag
+// tenants.accepts_sponsorships (synced from the premium subscription) OR
+// super_admin OR exempt — there is no separate fiscal_agent tier/role.
 
 // A seeker/charity session with arbitrary entitlement booleans.
-function seeker({ basic = false, premium = false, exempt = false } = {}) {
+function seeker({ basic = false, premium = false, exempt = false, sponsor = false } = {}) {
   return {
     userRecord: { role: ROLES.GRANTEE },
     membership: { hasBasicAccess: basic, hasPremiumAccess: premium, isExempt: exempt },
+    tenantConfig: { accepts_sponsorships: sponsor },
   };
 }
 
@@ -121,25 +123,27 @@ describe('policy.canViewDirectory', () => {
 
 // A tenant-admin session with arbitrary entitlement booleans (listings are
 // tenant-owned; admins of the tenant manage them).
-function tenantAdmin({ basic = false, premium = false, exempt = false } = {}) {
+function tenantAdmin({ basic = false, premium = false, exempt = false, sponsor = false } = {}) {
   return {
     userRecord: { role: ROLES.ADMIN },
     membership: { hasBasicAccess: basic, hasPremiumAccess: premium, isExempt: exempt },
+    tenantConfig: { accepts_sponsorships: sponsor },
   };
 }
 
 describe('policy.canOwnListing', () => {
-  it('super_admin OR premium/exempt TENANT ADMIN may manage a listing', () => {
+  it('super_admin OR sponsorship-entitled/exempt TENANT ADMIN may manage a listing', () => {
     expect(canOwnListing(superAdmin())).toBe(true);
-    expect(canOwnListing(tenantAdmin({ premium: true }))).toBe(true);
+    expect(canOwnListing(tenantAdmin({ sponsor: true }))).toBe(true);
     expect(canOwnListing(tenantAdmin({ exempt: true }))).toBe(true);
   });
-  it('non-admin roles do NOT manage listings, even with premium (tenant authority)', () => {
-    expect(canOwnListing(seeker({ premium: true }))).toBe(false);
+  it('non-admin roles do NOT manage listings, even when the tenant is entitled', () => {
+    expect(canOwnListing(seeker({ sponsor: true }))).toBe(false);
     expect(canOwnListing(seeker({ exempt: true }))).toBe(false);
   });
-  it('basic ALONE does NOT confer management (strict, non-cross-granting)', () => {
+  it('memberships ALONE do NOT confer management — the tenant flag does', () => {
     expect(canOwnListing(tenantAdmin({ basic: true }))).toBe(false);
+    expect(canOwnListing(tenantAdmin({ premium: true }))).toBe(false);
   });
   it('no entitlement / logged-out cannot manage', () => {
     expect(canOwnListing(tenantAdmin())).toBe(false);

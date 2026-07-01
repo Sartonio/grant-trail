@@ -42,6 +42,8 @@
  * @typedef {Object} TenantConfig
  * @property {TenantType} [type] - From tenant.tenant_type.
  * @property {string} [name] - From tenant.name.
+ * @property {boolean} [accepts_sponsorships] - Charity Directory entitlement
+ *   (from tenants.accepts_sponsorships; synced from the premium subscription).
  * @property {string} [support_email]
  * @property {string} [support_phone]
  * @property {boolean} [require_grant_approval]

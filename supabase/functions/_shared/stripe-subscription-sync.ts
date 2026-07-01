@@ -76,6 +76,45 @@ async function syncListingPublicationFromSubscription(
   }
 }
 
+/**
+ * Keep the tenant-level Charity Directory entitlement flag
+ * (tenants.accepts_sponsorships) tracking the premium subscription: set on
+ * active/trialing, cleared on past_due/canceled/unpaid, untouched otherwise
+ * (incomplete/paused). This flag is the single entitlement the app checks
+ * (policy.canOwnListing) — no 'fiscal_agent' pseudo-tier exists anywhere.
+ */
+async function syncTenantSponsorshipEntitlement(
+  userId: number,
+  membershipTier: string,
+  status: string,
+) {
+  if (membershipTier !== 'premium') return;
+
+  let accepts: boolean;
+  if (ACTIVE_STATUSES.includes(status)) accepts = true;
+  else if (LAPSE_STATUSES.includes(status)) accepts = false;
+  else return;
+
+  const { data: user, error: userError } = await adminSupabase
+    .from('users')
+    .select('tenant_id')
+    .eq('id', userId)
+    .single();
+
+  if (userError || !user?.tenant_id) {
+    throw new Error(`Unable to resolve tenant for sponsorship entitlement sync: ${userError?.message ?? 'no tenant'}`);
+  }
+
+  const { error } = await adminSupabase
+    .from('tenants')
+    .update({ accepts_sponsorships: accepts })
+    .eq('id', user.tenant_id);
+
+  if (error) {
+    throw new Error(`Unable to sync tenant sponsorship entitlement: ${error.message}`);
+  }
+}
+
 export async function upsertSubscriptionFromStripe(subscription: Stripe.Subscription) {
   await ensurePlatformMembershipProductIds();
 
@@ -183,4 +222,7 @@ export async function upsertSubscriptionFromStripe(subscription: Stripe.Subscrip
   // off the Stripe status directly (note: past_due keeps membership.is_active
   // true for the read-only grace window above, but still unlists the listing).
   await syncListingPublicationFromSubscription(billingCustomer.user_id, membershipTier, subscription.status);
+
+  // Tenant entitlement flag (accepts_sponsorships) tracks the same lifecycle.
+  await syncTenantSponsorshipEntitlement(billingCustomer.user_id, membershipTier, subscription.status);
 }

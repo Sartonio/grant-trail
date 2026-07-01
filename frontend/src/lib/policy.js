@@ -111,11 +111,12 @@ export function isReadOnlyAdmin(session) {
 
 // --- Charity Directory entitlements -----------------------------------------
 //
-// Two SKUs gate the Fiscal Agent / Charity Directory:
-//   - basic                   -> seeker may VIEW full listings + contact charities.
-//   - premium ("Fiscal Agents Plan") -> charity may OWN/publish a listing + triage
-//     inquiries. This reuses the existing org-admin premium plan rather than a
-//     separate fiscal_agent SKU.
+// Two gates drive the Fiscal Agent / Charity Directory:
+//   - basic membership -> seeker may VIEW full listings + contact charities.
+//   - tenants.accepts_sponsorships -> charity may OWN/publish a listing + triage
+//     inquiries. ONE tenant-level boolean, kept accurate by the Stripe
+//     subscription sync (set while the premium "Fiscal Agents Plan" sub is
+//     active, cleared on lapse). There is NO fiscal_agent tier/role/SKU.
 // super_admin and exempt tenants pass both, mirroring `hasRequiredSubscription`.
 // These are UX gates; RLS on the backend is the real security boundary.
 
@@ -138,11 +139,12 @@ export function canViewDirectory(session) {
 }
 
 // Manage gate: can this session manage their tenant's listing? Listings are
-// TENANT-owned; any admin of the tenant manages them, gated by the premium
-// ("Fiscal Agents Plan") entitlement: tenant admin AND (premium OR exempt), or
-// super_admin. Mirrors the tenant-admin RLS policies on fiscal_agent_listings.
-// Mutation rights on top of this still defer to the read-only-admin lapse policy
-// via `canMutate` / `useWriteGuard`.
+// TENANT-owned; any admin of the tenant manages them, gated by the tenant's
+// sponsorship entitlement (tenants.accepts_sponsorships, surfaced on
+// tenantConfig): tenant admin AND (entitled OR exempt), or super_admin.
+// Mirrors the tenant-admin RLS policies on fiscal_agent_listings. Mutation
+// rights on top of this still defer to the read-only-admin lapse policy via
+// `canMutate` / `useWriteGuard`.
 /**
  * @param {Session} [session]
  * @returns {boolean}
@@ -151,7 +153,6 @@ export function canOwnListing(session) {
   const role = getRole(session);
   if (role === ROLES.SUPER_ADMIN) return true;
   if (role !== ROLES.ADMIN) return false;
-  const membership = session?.membership;
-  if (!membership) return false;
-  return !!membership.isExempt || !!membership.hasPremiumAccess;
+  if (session?.membership?.isExempt) return true;
+  return !!session?.tenantConfig?.accepts_sponsorships;
 }

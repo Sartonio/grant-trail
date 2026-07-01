@@ -113,7 +113,7 @@ function CompleteProfile({ session, onProfileComplete }) {
         }
 
         const { url } = await startCheckoutSession({
-          membershipTier: MEMBERSHIP_TIERS.FISCAL_AGENT,
+          membershipTier: MEMBERSHIP_TIERS.ORG_ADMIN,
           returnPath: '/fiscal-agents/checkout/return?flow=onboarding',
         });
         window.location.assign(url);
