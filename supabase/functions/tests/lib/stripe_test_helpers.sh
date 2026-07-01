@@ -42,6 +42,73 @@ pass() { echo "PASS  $*"; PASS_COUNT=$((PASS_COUNT + 1)); }
 fail() { echo "FAIL  $*"; FAIL_COUNT=$((FAIL_COUNT + 1)); }
 info() { echo "----  $*"; }
 
+# ---- functions-serve lifecycle -------------------------------------------
+#
+# The billing edge functions must be served (`supabase functions serve`) as the
+# upstream behind Kong; with no server up, every /functions/* call 502s. Callers
+# used to have to start it by hand in a second shell (see run-all.sh / README).
+# `ensure_functions_served` makes each test self-sufficient: if nothing is
+# already serving, it starts one — WITHOUT --no-verify-jwt, so config.toml's
+# per-function verify_jwt is honoured (billing fns 401 without a JWT; the
+# verify_jwt=false stripe-webhook still receives forwarded events) — and stops it
+# on exit. An already-running server (a dev's shell, or a sibling test) is
+# detected and left untouched.
+
+_SERVE_STARTED_HERE=""
+
+# True when the edge stack answers /functions/* (Kong has a live upstream).
+# stripe-webhook is verify_jwt=false, so an unsigned POST reaches the function
+# and gets a real status (400, no signature); a missing upstream yields 000
+# (refused) or a 502/503 gateway error.
+_functions_up() {
+  local code
+  code=$(curl -s -o /dev/null -w "%{http_code}" -X POST "${FUNCTIONS_URL}/stripe-webhook" \
+    -H "Content-Type: application/json" --data-raw '{}' 2>/dev/null || true)
+  [ "$code" != "000" ] && [ "$code" != "502" ] && [ "$code" != "503" ]
+}
+
+# Only kills a server WE started (guarded by _SERVE_STARTED_HERE), so an
+# externally-managed serve is never touched. Mirrors email-resilience's pkill.
+_stop_functions_served() {
+  [ -n "$_SERVE_STARTED_HERE" ] || return 0
+  pkill -f "functions serve" 2>/dev/null || true
+  _SERVE_STARTED_HERE=""
+  # Block until the worker is actually gone. Without this, a sibling test in the
+  # same run-all sequence can probe during the kill window, mistake the dying
+  # server for a live one, reuse it, and then 502 mid-test.
+  local i; for i in 1 2 3 4 5; do _functions_up || return 0; sleep 1; done
+}
+
+ensure_functions_served() {
+  local root envfile logfile i
+  # this file is at <repo>/supabase/functions/tests/lib/ -> four levels up = repo root
+  root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"
+  envfile="${root}/supabase/functions/.env"
+
+  # Standalone runs (`bash <test>.test.sh`) don't inherit the Stripe env that
+  # run-all.sh exports, so the test's own sapi/curl calls and price-id refs would
+  # hit unbound vars. Load it here (idempotent — run-all already exported it).
+  if [ -z "${STRIPE_SECRET_KEY:-}" ] && [ -f "$envfile" ]; then
+    set -a; # shellcheck disable=SC1090
+    source "$envfile"; set +a
+  fi
+
+  _functions_up && return 0
+  logfile="$(mktemp -t lanef-serve.XXXXXX.log)"
+  info "no functions server up — starting one (log: ${logfile})"
+  ( cd "$root" && npx --prefix frontend supabase functions serve \
+      --env-file "$envfile" ) > "$logfile" 2>&1 &
+  _SERVE_STARTED_HERE=1
+  trap _stop_functions_served EXIT
+  for i in $(seq 1 60); do
+    _functions_up && { sleep 1; return 0; }   # brief settle for lazy worker boot
+    sleep 2
+  done
+  echo "FATAL: functions serve did not become ready in ~120s; log:" >&2
+  cat "$logfile" >&2
+  return 1
+}
+
 # ---- stripe API wrappers -------------------------------------------------
 
 # Strip ANSI colour codes so output is JSON-parseable.

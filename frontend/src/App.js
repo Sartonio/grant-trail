@@ -202,7 +202,7 @@ function App() {
           />
           <Route
             path="/fiscal-agents/checkout/return"
-            element={<FiscalAgentCheckoutReturn />}
+            element={<FiscalAgentCheckoutReturn onSynced={refreshMembership} />}
           />
           <Route path="/fiscal-agents/me" element={
             <Guard session={session} requireRole={ROLES.ADMIN} roleRedirect="/" billingMode="readOnly">

@@ -1,5 +1,6 @@
 import { adminSupabase, corsHeaders, buildRedirectUrl, ensurePlatformMembershipProductIds, getOrCreateStripeCustomer, requireAuthenticatedProfile, stripe } from '../_shared/stripe-client.ts';
 import { assertPostRequest, AuthError, parseJsonBody, validateFeatureKey, validateReturnOrigin, validateReturnPath, ValidationError } from '../_shared/validation.ts';
+import { isSubscriptionActive } from '../_shared/subscription-status.ts';
 
 // Feature key → (Stripe price env var, membership tier). `basic_membership` buys
 // the basic plan; every other key folds into the premium "Fiscal Agents Plan".
@@ -35,6 +36,19 @@ Deno.serve(async (request) => {
     await ensurePlatformMembershipProductIds();
 
     const customerId = await getOrCreateStripeCustomer(profile);
+
+    // Idempotency: never open a second checkout for a customer who already has a
+    // live subscription. Stale client-side membership state (e.g. an un-refreshed
+    // session right after onboarding) would otherwise let them subscribe twice.
+    // Send them to the success return instead, where membership re-syncs.
+    const existing = await stripe.subscriptions.list({ customer: customerId, status: 'all', limit: 100 });
+    if (existing.data.some((sub) => isSubscriptionActive(sub.status))) {
+      return new Response(JSON.stringify({ url: buildRedirectUrl(returnPath, '?checkout=success', returnOrigin), alreadyActive: true }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200,
+      });
+    }
+
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
       customer: customerId,

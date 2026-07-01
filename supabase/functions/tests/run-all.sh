@@ -20,9 +20,12 @@
 #        STRIPE_PRICE_FISCAL_AGENT, APP_URL, STRIPE_WEBHOOK_SECRET
 #      (STRIPE_WEBHOOK_SECRET must match the `stripe listen` signing secret;
 #       get it with: stripe listen --api-key <key> --print-secret)
-#   3. Functions served:
-#        npx --prefix frontend supabase functions serve \
-#          --env-file supabase/functions/.env
+#   3. Functions served: AUTOMATIC. Each test calls ensure_functions_served
+#        (lib/stripe_test_helpers.sh) to start `supabase functions serve` if none
+#        is already up, and stop it on exit. To serve by hand instead (e.g. for
+#        faster iteration), start it first and the tests will reuse it:
+#          npx --prefix frontend supabase functions serve \
+#            --env-file supabase/functions/.env
 #   4. Stripe CLI v1.42+ logged-in or STRIPE_SECRET_KEY exported.
 #
 # Run:  bash supabase/functions/tests/run-all.sh

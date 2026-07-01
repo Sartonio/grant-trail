@@ -28,6 +28,7 @@ set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/stripe_test_helpers.sh
 source "${HERE}/lib/stripe_test_helpers.sh"
+ensure_functions_served || exit 1
 
 # session_id_from_resp lives in lib/stripe_test_helpers.sh (sourced above).
 

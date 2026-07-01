@@ -26,6 +26,7 @@ set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/stripe_test_helpers.sh
 source "${HERE}/lib/stripe_test_helpers.sh"
+ensure_functions_served || exit 1
 
 # Find the Stripe event id of a given type for a given subscription id.
 event_id_for() {

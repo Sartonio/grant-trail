@@ -1,8 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FaCheckCircle, FaTimesCircle, FaArrowRight } from 'react-icons/fa';
-import * as Sentry from '@sentry/react';
-import { syncMembershipFromStripe } from '../../lib/billing';
 import './FiscalAgentDirectory.css';
 
 /*
@@ -25,7 +23,7 @@ function readStatus() {
   };
 }
 
-export default function FiscalAgentCheckoutReturn() {
+export default function FiscalAgentCheckoutReturn({ onSynced }) {
   const [{ status, flow }] = useState(readStatus);
   const [syncing, setSyncing] = useState(status === 'success');
 
@@ -36,15 +34,19 @@ export default function FiscalAgentCheckoutReturn() {
     if (isCancel) return undefined;
 
     let cancelled = false;
-    syncMembershipFromStripe()
-      .catch((err) => Sentry.captureException(err))
-      .finally(() => {
-        if (!cancelled) setSyncing(false);
-      });
+    // onSynced (App's refreshMembership) syncs from Stripe AND refreshes the
+    // in-memory session, so the gated pages we link to see the active membership.
+    // It swallows its own errors, so a bare .finally is enough here.
+    Promise.resolve(onSynced?.()).finally(() => {
+      if (!cancelled) setSyncing(false);
+    });
 
     return () => {
       cancelled = true;
     };
+    // onSynced is a fresh closure each render and calls setSession; syncing once
+    // on mount is intentional, so it stays out of the dep list.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isCancel]);
 
   if (isCancel) {

@@ -17,6 +17,7 @@ set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/stripe_test_helpers.sh
 source "${HERE}/lib/stripe_test_helpers.sh"
+ensure_functions_served || exit 1
 
 call_sync() {
   curl -s -X POST "$FUNCTIONS_URL/sync-my-subscription" \
