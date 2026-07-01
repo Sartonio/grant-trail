@@ -1,5 +1,5 @@
 import { adminSupabase, corsHeaders, buildRedirectUrl, ensurePlatformMembershipProductIds, getOrCreateStripeCustomer, requireAuthenticatedProfile, stripe } from '../_shared/stripe-client.ts';
-import { assertPostRequest, AuthError, parseJsonBody, validateFeatureKey, validateReturnPath, ValidationError } from '../_shared/validation.ts';
+import { assertPostRequest, AuthError, parseJsonBody, validateFeatureKey, validateReturnOrigin, validateReturnPath, ValidationError } from '../_shared/validation.ts';
 
 // Feature key → (Stripe price env var, membership tier). `basic_membership` buys
 // the basic plan; every other key folds into the premium "Fiscal Agents Plan".
@@ -23,6 +23,7 @@ Deno.serve(async (request) => {
     const { profile } = await requireAuthenticatedProfile(request.headers.get('Authorization'));
     const body = await parseJsonBody(request);
     const returnPath = validateReturnPath(body.returnPath);
+    const returnOrigin = validateReturnOrigin(body.returnOrigin);
     const featureKey = validateFeatureKey(body.featureKey, ALLOWED_FEATURE_KEYS, 'admin_membership');
     const { tier, priceEnv } = TIER_BY_FEATURE_KEY[featureKey];
     const stripePriceId = Deno.env.get(priceEnv);
@@ -39,8 +40,8 @@ Deno.serve(async (request) => {
       customer: customerId,
       line_items: [{ price: stripePriceId, quantity: 1 }],
       allow_promotion_codes: true,
-      success_url: buildRedirectUrl(returnPath, '?checkout=success'),
-      cancel_url: buildRedirectUrl(returnPath, '?checkout=canceled'),
+      success_url: buildRedirectUrl(returnPath, '?checkout=success', returnOrigin),
+      cancel_url: buildRedirectUrl(returnPath, '?checkout=canceled', returnOrigin),
       client_reference_id: String(profile.profileId),
       metadata: {
         user_id: String(profile.profileId),

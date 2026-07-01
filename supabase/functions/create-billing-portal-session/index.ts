@@ -1,5 +1,5 @@
 import { adminSupabase, buildRedirectUrl, corsHeaders, getOrCreateStripeCustomer, requireAuthenticatedProfile, stripe } from '../_shared/stripe-client.ts';
-import { assertPostRequest, AuthError, parseJsonBody, validateReturnPath, ValidationError } from '../_shared/validation.ts';
+import { assertPostRequest, AuthError, parseJsonBody, validateReturnOrigin, validateReturnPath, ValidationError } from '../_shared/validation.ts';
 
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') {
@@ -11,12 +11,13 @@ Deno.serve(async (request) => {
     const { profile } = await requireAuthenticatedProfile(request.headers.get('Authorization'));
     const body = await parseJsonBody(request);
     const returnPath = validateReturnPath(body.returnPath);
+    const returnOrigin = validateReturnOrigin(body.returnOrigin);
     const customerId = await getOrCreateStripeCustomer(profile);
     const portalConfigurationId = Deno.env.get('STRIPE_BILLING_PORTAL_CONFIGURATION_ID') || undefined;
 
     const session = await stripe.billingPortal.sessions.create({
       customer: customerId,
-      return_url: buildRedirectUrl(returnPath, ''),
+      return_url: buildRedirectUrl(returnPath, '', returnOrigin),
       configuration: portalConfigurationId,
     });
 

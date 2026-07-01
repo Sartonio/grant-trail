@@ -87,6 +87,44 @@ export function validateReturnPath(value: unknown): string {
 }
 
 /**
+ * Structurally validate a client-supplied return origin (the scheme+host the
+ * frontend wants Stripe to redirect back to). This only enforces that it's a
+ * well-formed bare origin with no path/query/fragment or injection characters —
+ * whether it is actually TRUSTED is decided later by the allowlist in
+ * `resolveAppOrigin`. Returns `undefined` when omitted.
+ */
+export function validateReturnOrigin(value: unknown): string | undefined {
+  if (value === undefined || value === null || value === '') {
+    return undefined;
+  }
+  if (typeof value !== 'string') {
+    throw new ValidationError('returnOrigin must be a string.');
+  }
+  if (value.length > 256) {
+    throw new ValidationError('returnOrigin is too long.');
+  }
+  if (CONTROL_CHARS.test(value)) {
+    throw new ValidationError('returnOrigin contains invalid characters.');
+  }
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new ValidationError('returnOrigin must be a valid URL.');
+  }
+  if (url.protocol !== 'https:' && url.protocol !== 'http:') {
+    throw new ValidationError('returnOrigin must be an http(s) origin.');
+  }
+  // Must be a bare origin: no path, query, fragment, or credentials. Reparsing
+  // `url.origin` and requiring equality rejects "https://host/evil", auth-in-URL
+  // ("https://a@host") and trailing junk in one check.
+  if (value !== url.origin) {
+    throw new ValidationError('returnOrigin must be a bare origin (scheme + host only).');
+  }
+  return value;
+}
+
+/**
  * Validate a feature key against an allowlist. Returns `fallback` when omitted.
  * Prevents arbitrary user-supplied values from being persisted into Stripe
  * metadata (which downstream subscription syncing reads to derive the tier).
