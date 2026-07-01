@@ -166,22 +166,9 @@ nav a:hover {
   transform: rotate(180deg);
 }
 
+/* Shell (position/shadow/animation) comes from .dropdown-panel in global.css. */
 .profile-dropdown {
-  position: absolute;
-  top: calc(100% + 0.5rem);
-  right: 0;
   min-width: 200px;
-  background: #fff;
-  border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14), 0 2px 6px rgba(0, 0, 0, 0.08);
-  overflow: hidden;
-  z-index: 200;
-  animation: dropdown-appear 0.15s ease;
-}
-
-@keyframes dropdown-appear {
-  from { opacity: 0; transform: translateY(-6px); }
-  to   { opacity: 1; transform: translateY(0); }
 }
 
 .profile-dropdown-header {
@@ -201,7 +188,7 @@ nav a:hover {
 
 .profile-dropdown-role {
   font-size: 0.75rem;
-  color: #6b7280;
+  color: var(--color-gray-500);
   font-family: var(--font-body);
 }
 
@@ -218,7 +205,7 @@ nav a:hover {
   padding: 0.7em 1em;
   font-size: 0.9rem;
   font-weight: 500;
-  color: #374151;
+  color: var(--color-gray-700);
   font-family: var(--font-body);
   text-decoration: none;
   background: transparent;
@@ -229,7 +216,7 @@ nav a:hover {
 }
 
 .profile-dropdown-item:hover {
-  background: #f3f4f6;
+  background: var(--color-gray-100);
   color: var(--color-primary);
 }
 
@@ -251,7 +238,7 @@ nav a:hover {
   border-bottom: 1px solid rgba(0, 0, 0, 0.08);
   padding: 0.3em 1.5em;
   font-size: 0.8rem;
-  color: #6b7280;
+  color: var(--color-gray-500);
   font-family: var(--font-body);
   text-align: right;
 }

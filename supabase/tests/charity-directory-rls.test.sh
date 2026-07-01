@@ -89,16 +89,8 @@ SQL
 scalar() { echo "$1" | grep -E '^[0-9]+$' | tail -1; }
 boolean() { echo "$1" | grep -E '^[tf]$' | tail -1; }
 
-assert_eq() {
-  local name="$1" expected="$2" actual="$3"
-  if [[ "$actual" == "$expected" ]]; then echo "PASS: $name"; pass=$((pass+1));
-  else echo "FAIL: $name  (expected [$expected], got [$actual])"; fail=$((fail+1)); fi
-}
-assert_contains() {
-  local name="$1" needle="$2" haystack="$3"
-  if [[ "$haystack" == *"$needle"* ]]; then echo "PASS: $name"; pass=$((pass+1));
-  else echo "FAIL: $name  (expected to contain [$needle], got [$haystack])"; fail=$((fail+1)); fi
-}
+# assert_eq / assert_contains are shared (see lib/common.sh).
+. "$(dirname "${BASH_SOURCE[0]}")/lib/common.sh"
 
 # membership setup snippets (planted as postgres). bright-horizons users are
 # non-exempt, so these genuinely flip the entitlement helpers. The seed already

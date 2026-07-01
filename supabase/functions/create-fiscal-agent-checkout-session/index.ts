@@ -1,5 +1,6 @@
-import { adminSupabase, corsHeaders, buildRedirectUrl, stripe } from '../_shared/stripe.ts';
+import { corsHeaders, buildRedirectUrl, stripe } from '../_shared/stripe.ts';
 import { assertPostRequest, parseJsonBody, validateReturnPath, ValidationError } from '../_shared/validation.ts';
+import { logSystemEvent } from '../_shared/logging.ts';
 
 // Charity onboarding (pay-first). A charity becomes a fiscal agent under the
 // existing PREMIUM plan ("Fiscal Agents Plan", STRIPE_PRICE_FISCAL_AGENT) — there is no
@@ -125,19 +126,13 @@ Deno.serve(async (request) => {
       });
     }
     console.error('Fiscal agent checkout session error:', error);
-    try {
-      await adminSupabase.from('system_logs').insert({
-        event_name: 'create_fiscal_agent_checkout_session_failure',
-        error_message: error instanceof Error ? error.message : String(error),
-        error_stack: error instanceof Error ? error.stack : undefined,
-        severity: 'critical',
-        metadata: {
-          path: new URL(request.url).pathname,
-        },
-      });
-    } catch (logError) {
-      console.error('Failed to write system log to database:', logError);
-    }
+    await logSystemEvent(
+      'create_fiscal_agent_checkout_session_failure',
+      'critical',
+      error instanceof Error ? error.message : String(error),
+      { path: new URL(request.url).pathname },
+      error instanceof Error ? error.stack : undefined,
+    );
 
     return new Response(JSON.stringify({ error: error instanceof Error ? error.message : 'Unable to create checkout session.' }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import {
   FiGrid, FiPlus, FiX, FiUsers, FiCheckCircle, FiXCircle, FiSearch, FiCopy, FiSave,
 } from 'react-icons/fi';
+import { fmtDate } from '../../lib/format';
 import {
   listTenants, listAllUserTenantIds, listAllTenantSettings,
   createTenant, createTenantSettings, createTenantAdminInvite,
@@ -252,11 +253,6 @@ function TenantManagement({ session }) {
   // Auto-generate slug from name
   function handleNameChange(val) {
     setNewName(val);
-  }
-
-  function fmtDate(ts) {
-    if (!ts) return '—';
-    return new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   }
 
   const q = search.toLowerCase();

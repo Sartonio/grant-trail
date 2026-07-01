@@ -85,29 +85,8 @@ ROLLBACK;
 SQL
 }
 
-# assert_eq <name> <expected> <actual>
-assert_eq() {
-  local name="$1" expected="$2" actual="$3"
-  if [[ "$actual" == "$expected" ]]; then
-    echo "PASS: $name"
-    pass=$((pass + 1))
-  else
-    echo "FAIL: $name  (expected [$expected], got [$actual])"
-    fail=$((fail + 1))
-  fi
-}
-
-# assert_contains <name> <needle> <haystack>
-assert_contains() {
-  local name="$1" needle="$2" haystack="$3"
-  if [[ "$haystack" == *"$needle"* ]]; then
-    echo "PASS: $name"
-    pass=$((pass + 1))
-  else
-    echo "FAIL: $name  (expected to contain [$needle], got [$haystack])"
-    fail=$((fail + 1))
-  fi
-}
+# assert_eq / assert_contains are shared (see lib/common.sh).
+. "$(dirname "${BASH_SOURCE[0]}")/lib/common.sh"
 
 echo "=============================================================="
 echo " RLS adversarial audit — proof tests"

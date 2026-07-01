@@ -28,9 +28,9 @@ import {
   isReadOnlyAdmin,
 } from './policy';
 
-// Where an unpaid grantee is sent. Sends lapsed grantees directly to the
-// subscription page so they can pay, rather than the marketing landing page.
-export const GRANTEE_BILLING_REDIRECT = '/subscription';
+// Where an unpaid grantee is sent: the same billing nudge as everyone else.
+// Aliased to policy's BILLING_NUDGE_PATH so the path lives in one place.
+export const GRANTEE_BILLING_REDIRECT = BILLING_NUDGE_PATH;
 
 // Resolve the redirect (if any) for a guarded route. Returns a path string to
 // redirect to, or null when the route should render. Pure function so the
@@ -101,34 +101,5 @@ export function Guard({ session, requireRole, roleRedirect, billingMode, billing
   if (readOnly && React.isValidElement(children)) {
     return React.cloneElement(children, { readOnly: true });
   }
-  return children;
-}
-
-// Thin role-only wrapper (authz axis). Wrong role / not authenticated -> redirect.
-/**
- * @param {Object} props
- * @param {Session} [props.session]
- * @param {Role} [props.role]
- * @param {string|((session: Session) => string)} [props.redirectTo]
- * @param {React.ReactNode} props.children
- */
-export function RequireRole({ session, role, redirectTo, children }) {
-  return (
-    <Guard session={session} requireRole={role ?? 'authenticated'} roleRedirect={redirectTo} billingMode="none">
-      {children}
-    </Guard>
-  );
-}
-
-// Thin subscription-only wrapper (billing axis). Assumes role already checked.
-// Unpaid -> billing redirect.
-/**
- * @param {Object} props
- * @param {Session} [props.session]
- * @param {string} [props.redirectTo]
- * @param {React.ReactNode} props.children
- */
-export function RequireSubscription({ session, redirectTo = GRANTEE_BILLING_REDIRECT, children }) {
-  if (needsSubscription(session)) return <Navigate to={redirectTo} />;
   return children;
 }

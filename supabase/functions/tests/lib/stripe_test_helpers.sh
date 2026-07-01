@@ -190,3 +190,9 @@ assert_eq() {
 assert_http() {
   if [ "$1" == "$2" ]; then pass "$3 (HTTP $2)"; else fail "$3 expected HTTP $2 got $1"; fi
 }
+
+# session_id_from_resp  — read a checkout-session response JSON on stdin and print
+# the Stripe Checkout Session id (cs_test_…) parsed out of its `url`, or empty.
+session_id_from_resp() {
+  python3 -c "import sys,json,re; u=json.load(sys.stdin).get('url','') or ''; m=re.search(r'(cs_test_[A-Za-z0-9]+)',u); print(m.group(1) if m else '')"
+}

@@ -6,7 +6,6 @@ import {
   FaSeedling,
   FaHandshake,
   FaArrowLeft,
-  FaStar,
   FaEnvelope,
   FaGlobe,
   FaPhone,
@@ -23,7 +22,7 @@ import { supabase } from '../../supabaseClient';
 import { canViewDirectory } from '../../lib/policy';
 import { startCheckoutSession, MEMBERSHIP_TIERS } from '../../lib/billing';
 import { mapTeaserListing, mapFullListing } from './fiscalAgents.map';
-import { isNewListing, NewBadge } from './fiscalAgentsShared';
+import { isNewListing, NewBadge, Stars } from './fiscalAgentsShared';
 import SponsorshipApplicationModal from './SponsorshipApplicationModal';
 import { notifyInquirySubmitted } from '../../lib/inquiries';
 import './FiscalAgentProfile.css';
@@ -37,15 +36,6 @@ import './FiscalAgentProfile.css';
   fetched), with a "Subscribe to contact" CTA. Subscribed seekers fetch the full
   row and get working contact lines + the application modal.
 */
-
-function Stars({ rating }) {
-  const value = typeof rating === 'number' ? rating : 0;
-  return (
-    <span className="fad-rating" aria-label={`${value} out of 5`}>
-      <FaStar /> {value.toFixed(1)}
-    </span>
-  );
-}
 
 export default function FiscalAgentProfile({ session }) {
   const { id } = useParams();

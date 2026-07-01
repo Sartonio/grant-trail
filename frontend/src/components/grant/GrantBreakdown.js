@@ -25,18 +25,11 @@ import { getReceiptSignedUrl } from "../../lib/storage";
 import { deleteExpense } from "../../lib/data/expenses";
 import { deleteBudgetItem } from "../../lib/data/budgetItems";
 import { useGrantBreakdown } from "../../hooks/useGrantBreakdown";
+import { formatExcelDate } from "../../lib/format";
 import {
   ResponsiveContainer, PieChart, Pie, Cell, Tooltip, Legend,
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
 } from 'recharts';
-
-const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-
-function formatDate(dateStr) {
-  if (!dateStr) return '—';
-  const [year, month, day] = dateStr.split('-');
-  return `${day}-${MONTHS[parseInt(month, 10) - 1]}-${year}`;
-}
 
 function GrantBreakdown({ session }) {
   const { id } = useParams();
@@ -383,7 +376,7 @@ function GrantBreakdown({ session }) {
                                   <tr key={exp.id}>
                                     <td className="item-name">{exp.item_name}</td>
                                     <td className="amount">${(exp.amount_spent || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                                    <td className="date">{formatDate(exp.expense_date)}</td>
+                                    <td className="date">{formatExcelDate(exp.expense_date)}</td>
                                     {session?.tenantConfig?.type !== 'self_service' && <td className="status-cell"><StatusBadge status={exp.status} iconOnly /></td>}
                                     <td className="receipt-cell">
                                       {receipt ? (

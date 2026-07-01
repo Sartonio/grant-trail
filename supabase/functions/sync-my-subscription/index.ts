@@ -1,5 +1,7 @@
 import { adminSupabase, corsHeaders, getOrCreateStripeCustomer, requireAuthenticatedProfile, stripe, upsertSubscriptionFromStripe } from '../_shared/stripe.ts';
 import { assertPostRequest, ValidationError } from '../_shared/validation.ts';
+import { ACTIVE_MEMBERSHIP_STATUSES, INACTIVE_MEMBERSHIP_STATUSES } from '../_shared/subscription-status.ts';
+import { logSystemEvent } from '../_shared/logging.ts';
 
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') {
@@ -22,8 +24,8 @@ Deno.serve(async (request) => {
     );
 
     const preferred =
-      sorted.find((sub) => ['active', 'trialing', 'past_due'].includes(sub.status)) ||
-      sorted.find((sub) => ['canceled', 'incomplete', 'incomplete_expired', 'unpaid'].includes(sub.status)) ||
+      sorted.find((sub) => (ACTIVE_MEMBERSHIP_STATUSES as readonly string[]).includes(sub.status)) ||
+      sorted.find((sub) => (INACTIVE_MEMBERSHIP_STATUSES as readonly string[]).includes(sub.status)) ||
       null;
 
     if (!preferred) {
@@ -63,19 +65,13 @@ Deno.serve(async (request) => {
       });
     }
     console.error('Subscription sync error:', error);
-    try {
-      await adminSupabase.from('system_logs').insert({
-        event_name: 'sync_my_subscription_failure',
-        error_message: error instanceof Error ? error.message : String(error),
-        error_stack: error instanceof Error ? error.stack : undefined,
-        severity: 'critical',
-        metadata: {
-          path: new URL(request.url).pathname,
-        }
-      });
-    } catch (logError) {
-      console.error('Failed to write system log to database:', logError);
-    }
+    await logSystemEvent(
+      'sync_my_subscription_failure',
+      'critical',
+      error instanceof Error ? error.message : String(error),
+      { path: new URL(request.url).pathname },
+      error instanceof Error ? error.stack : undefined,
+    );
 
     return new Response(JSON.stringify({ error: error instanceof Error ? error.message : 'Unable to sync subscription.' }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

@@ -1,6 +1,7 @@
 // src/components/AdminUserList.js
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { fmtDate } from '../../lib/format';
 import {
   FiArrowLeft, FiUsers, FiSearch, FiShield, FiUser,
   FiCheckCircle, FiXCircle, FiLink, FiAlertCircle,
@@ -159,11 +160,6 @@ function AdminUserList({ session, readOnly = false }) {
   const granteeCount  = users.filter(u => u.role === 'grantee').length;
   const disabledCount = users.filter(u => !u.is_active).length;
   const isTfacTenant = (session?.tenantConfig?.name || '').toLowerCase() === 'the family advocates canada';
-
-  function fmtDate(ts) {
-    if (!ts) return '—';
-    return new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  }
 
   if (loading) return <div className="admin-page"><p className="admin-loading">Loading users…</p></div>;
   if (error)   return <div className="admin-page"><p className="admin-error">{error}</p></div>;

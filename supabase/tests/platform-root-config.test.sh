@@ -23,14 +23,8 @@ psql_scalar() {
   docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -tA -v ON_ERROR_STOP=0 -c "$1" 2>&1
 }
 
-assert_eq() {
-  local name="$1" expected="$2" actual="$3"
-  if [[ "$actual" == "$expected" ]]; then
-    echo "PASS: $name"; pass=$((pass + 1))
-  else
-    echo "FAIL: $name  (expected [$expected], got [$actual])"; fail=$((fail + 1))
-  fi
-}
+# assert_eq is shared (see lib/common.sh).
+. "$(dirname "${BASH_SOURCE[0]}")/lib/common.sh"
 
 echo "=============================================================="
 echo " Platform-root config (#29) — proof tests"

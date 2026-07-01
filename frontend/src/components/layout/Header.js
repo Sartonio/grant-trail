@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { NavLink, Link, useNavigate } from 'react-router-dom';
 import { FiUser, FiChevronDown, FiLogOut, FiActivity, FiUsers, FiSettings } from 'react-icons/fi';
 import NotificationBell from './NotificationBell';
+import { useClickOutside } from './useClickOutside';
 import './Header.css';
 
 function Header({ session, onLogout, notifications, onMarkRead, onMarkAllRead, onClearAll }) {
@@ -9,16 +10,7 @@ function Header({ session, onLogout, notifications, onMarkRead, onMarkAllRead, o
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
 
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    function handleClickOutside(e) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
-        setDropdownOpen(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  useClickOutside(dropdownRef, useCallback(() => setDropdownOpen(false), []));
 
   const handleLogoutClick = async () => {
     setDropdownOpen(false);
@@ -203,7 +195,7 @@ function Header({ session, onLogout, notifications, onMarkRead, onMarkAllRead, o
               </button>
 
               {dropdownOpen && (
-                <div className="profile-dropdown">
+                <div className="dropdown-panel profile-dropdown">
                   <div className="profile-dropdown-header">
                     <span className="profile-dropdown-name">{displayName}</span>
                     <span className="profile-dropdown-role">

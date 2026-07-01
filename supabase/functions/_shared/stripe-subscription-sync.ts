@@ -14,6 +14,19 @@ const LAPSE_STATUSES = ['past_due', 'canceled', 'unpaid'];
 const ACTIVE_STATUSES = ['active', 'trialing'];
 
 /**
+ * Normalize Stripe subscription metadata into one of the app's canonical
+ * membership tiers ('basic' / 'premium'). Prefers `membership_tier`, falling
+ * back to the legacy `feature_key`, then maps the old SKU names onto the two
+ * current tiers. Returns '' when nothing maps (caller resolves via product id).
+ */
+export function normalizeMembershipTier(metadata: Record<string, unknown>): string {
+  let tier = String(metadata.membership_tier ?? metadata.feature_key ?? '').toLowerCase();
+  if (tier === 'basic_membership') tier = 'basic';
+  if (['admin_membership', 'premium_membership', 'excel_export'].includes(tier)) tier = 'premium';
+  return tier;
+}
+
+/**
  * Auto-unlist / re-publish a charity's directory listing as their premium
  * ("Fiscal Agents Plan") subscription lapses or reactivates (TASK A5).
  *
@@ -86,13 +99,7 @@ export async function upsertSubscriptionFromStripe(subscription: Stripe.Subscrip
   }
 
   const metadata = subscription.metadata ?? {};
-  let membershipTier = String(metadata.membership_tier ?? '').toLowerCase();
-
-  if (!membershipTier) {
-    const featureKey = String(metadata.feature_key ?? '').toLowerCase();
-    if (featureKey === 'basic_membership') membershipTier = 'basic';
-    if (featureKey === 'premium_membership' || featureKey === 'admin_membership' || featureKey === 'excel_export') membershipTier = 'premium';
-  }
+  let membershipTier = normalizeMembershipTier(metadata);
 
   // The app has exactly two SKUs: 'basic' and 'premium' (the "Fiscal Agents
   // Plan"). The charity onboarding flow uses the 'premium' tier (matched by

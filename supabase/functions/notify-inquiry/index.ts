@@ -1,6 +1,7 @@
 import { adminSupabase, corsHeaders } from '../_shared/stripe.ts';
 import { assertPostRequest, parseJsonBody, ValidationError } from '../_shared/validation.ts';
 import { sendInquiryNotificationEmail } from '../_shared/email.ts';
+import { logSystemEvent } from '../_shared/logging.ts';
 
 // Notify the charity (fiscal agent) when a seeker submits a sponsorship inquiry.
 //
@@ -26,28 +27,6 @@ function ok(payload: Record<string, unknown>): Response {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     status: 200,
   });
-}
-
-// supabase-js query builders are thenables, not Promises — and a logging failure
-// must never re-throw out of the handler. Wrap every write defensively.
-async function logSystem(
-  eventName: string,
-  severity: 'info' | 'warning' | 'error' | 'critical',
-  message: string,
-  metadata: Record<string, unknown>,
-  stack?: string,
-): Promise<void> {
-  try {
-    await adminSupabase.from('system_logs').insert({
-      event_name: eventName,
-      error_message: message,
-      error_stack: stack,
-      severity,
-      metadata,
-    });
-  } catch (_logError) {
-    /* swallow */
-  }
 }
 
 Deno.serve(async (request) => {
@@ -120,7 +99,7 @@ Deno.serve(async (request) => {
     const listingName = asString(listing?.name).trim() || 'there';
 
     if (!recipient) {
-      await logSystem(
+      await logSystemEvent(
         'inquiry_notification_skipped',
         'warning',
         `No notification address resolved for listing ${inquiry.listing_id}.`,
@@ -133,7 +112,7 @@ Deno.serve(async (request) => {
     // silently for the seeker, but record the skip so operators can see that
     // notifications aren't going out.
     if (!Deno.env.get('RESEND_API_KEY')) {
-      await logSystem(
+      await logSystemEvent(
         'inquiry_notification_skipped',
         'warning',
         'RESEND_API_KEY not set — sponsorship inquiry notification email not sent.',
@@ -162,7 +141,7 @@ Deno.serve(async (request) => {
     // Non-validation failures (DB lookup or Resend API) must not bubble up as a
     // submission failure — the inquiry is already persisted. Log and 200.
     console.error('Inquiry notification error:', error);
-    await logSystem(
+    await logSystemEvent(
       'inquiry_notification_failure',
       'error',
       error instanceof Error ? error.message : String(error),

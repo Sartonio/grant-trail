@@ -28,3 +28,23 @@ input[type="date"]::-webkit-datetime-edit-fields-wrapper {
 *, *::before, *::after {
   box-sizing: border-box;
 }
+
+/* Shared base for header popovers (profile dropdown + notification panel).
+   Element-specific rules (width, min-width, flex layout) stay in each
+   component's stylesheet; this owns the common shell. */
+.dropdown-panel {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  background: var(--color-white);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14), 0 2px 6px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+  z-index: 200;
+  animation: dropdown-panel-appear 0.15s ease;
+}
+
+@keyframes dropdown-panel-appear {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}

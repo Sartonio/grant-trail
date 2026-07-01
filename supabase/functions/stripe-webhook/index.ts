@@ -1,6 +1,7 @@
-import { adminSupabase, corsHeaders, provisionFiscalAgentFromCheckout, stripe, upsertSubscriptionFromStripe } from '../_shared/stripe.ts';
+import { adminSupabase, corsHeaders, normalizeMembershipTier, provisionFiscalAgentFromCheckout, stripe, upsertSubscriptionFromStripe } from '../_shared/stripe.ts';
 import { assertPostRequest, ValidationError } from '../_shared/validation.ts';
 import { sendFiscalAgentInviteEmail, sendPaymentConfirmationEmail } from '../_shared/email.ts';
+import { logSystemEvent } from '../_shared/logging.ts';
 
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') {
@@ -54,29 +55,23 @@ Deno.serve(async (request) => {
                   await sendFiscalAgentInviteEmail({ to: email, orgName, signupUrl });
                 } catch (inviteEmailError) {
                   console.error('Fiscal agent invite email failed:', inviteEmailError);
-                  try {
-                    await adminSupabase.from('system_logs').insert({
-                      event_name: 'fiscal_agent_invite_email_failure',
-                      error_message: inviteEmailError instanceof Error ? inviteEmailError.message : String(inviteEmailError),
-                      severity: 'error',
-                      metadata: { stripe_event_id: event.id },
-                    });
-                  } catch (_logError) { /* swallow */ }
+                  await logSystemEvent(
+                    'fiscal_agent_invite_email_failure',
+                    'error',
+                    inviteEmailError instanceof Error ? inviteEmailError.message : String(inviteEmailError),
+                    { stripe_event_id: event.id },
+                  );
                 }
               }
             } catch (provisionError) {
               console.error('Fiscal agent provisioning failed:', provisionError);
-              // supabase-js query builders are thenables, not Promises — no .catch().
-              // Wrap the log write so a logging failure can never mask the original.
-              try {
-                await adminSupabase.from('system_logs').insert({
-                  event_name: 'fiscal_agent_provisioning_failure',
-                  error_message: provisionError instanceof Error ? provisionError.message : String(provisionError),
-                  error_stack: provisionError instanceof Error ? provisionError.stack : undefined,
-                  severity: 'critical',
-                  metadata: { stripe_event_id: event.id },
-                });
-              } catch (_logError) { /* swallow */ }
+              await logSystemEvent(
+                'fiscal_agent_provisioning_failure',
+                'critical',
+                provisionError instanceof Error ? provisionError.message : String(provisionError),
+                { stripe_event_id: event.id },
+                provisionError instanceof Error ? provisionError.stack : undefined,
+              );
               throw provisionError; // re-raise so Stripe retries provisioning.
             }
           }
@@ -106,10 +101,7 @@ Deno.serve(async (request) => {
                 }
               }
 
-              const meta = subscription.metadata ?? {};
-              let tier = String(meta.membership_tier ?? meta.feature_key ?? '').toLowerCase();
-              if (tier === 'basic_membership') tier = 'basic';
-              if (['admin_membership', 'premium_membership', 'excel_export'].includes(tier)) tier = 'premium';
+              const tier = normalizeMembershipTier(subscription.metadata ?? {});
               const PLAN_NAMES: Record<string, string> = {
                 premium: 'Fiscal Agents Plan',
                 basic: 'Basic Plan',
@@ -132,18 +124,12 @@ Deno.serve(async (request) => {
             }
           } catch (emailError) {
             console.error('Payment confirmation email failed:', emailError);
-            // supabase-js query builders are thenables, not Promises — no .catch().
-            // Wrap the log write so a logging failure can never re-throw out of
-            // this isolated block (which would 4xx/5xx the webhook and trigger a
-            // Stripe retry for what is only a non-fatal email failure).
-            try {
-              await adminSupabase.from('system_logs').insert({
-                event_name: 'payment_confirmation_email_failure',
-                error_message: emailError instanceof Error ? emailError.message : String(emailError),
-                severity: 'error',
-                metadata: { stripe_event_id: event.id },
-              });
-            } catch (_logError) { /* swallow */ }
+            await logSystemEvent(
+              'payment_confirmation_email_failure',
+              'error',
+              emailError instanceof Error ? emailError.message : String(emailError),
+              { stripe_event_id: event.id },
+            );
           }
         }
         break;
@@ -180,19 +166,13 @@ Deno.serve(async (request) => {
       });
     }
     console.error('Webhook error:', error);
-    try {
-      await adminSupabase.from('system_logs').insert({
-        event_name: 'stripe_webhook_failure',
-        error_message: error instanceof Error ? error.message : String(error),
-        error_stack: error instanceof Error ? error.stack : undefined,
-        severity: 'critical',
-        metadata: {
-          signature: request.headers.get('stripe-signature'),
-        }
-      });
-    } catch (logError) {
-      console.error('Failed to write system log to database:', logError);
-    }
+    await logSystemEvent(
+      'stripe_webhook_failure',
+      'critical',
+      error instanceof Error ? error.message : String(error),
+      { signature: request.headers.get('stripe-signature') },
+      error instanceof Error ? error.stack : undefined,
+    );
 
     return new Response(JSON.stringify({ error: error instanceof Error ? error.message : 'Webhook processing failed.' }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

@@ -1,7 +1,8 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FiBell } from 'react-icons/fi';
 import { supabase } from '../../supabaseClient';
+import { useClickOutside } from './useClickOutside';
 import './NotificationBell.css';
 
 function NotificationBell({ notifications, onMarkRead, onMarkAllRead, onClearAll }) {
@@ -11,16 +12,7 @@ function NotificationBell({ notifications, onMarkRead, onMarkAllRead, onClearAll
 
   const unreadCount = notifications.filter(n => !n.is_read).length;
 
-  // Close panel when clicking outside
-  useEffect(() => {
-    function handleClickOutside(e) {
-      if (panelRef.current && !panelRef.current.contains(e.target)) {
-        setOpen(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  useClickOutside(panelRef, useCallback(() => setOpen(false), []));
 
   const handleNotificationClick = async (notification) => {
     if (!notification.is_read) {
@@ -84,7 +76,7 @@ function NotificationBell({ notifications, onMarkRead, onMarkAllRead, onClearAll
       </button>
 
       {open && (
-        <div className="notification-panel">
+        <div className="dropdown-panel notification-panel">
           <div className="notification-panel-header">
             <span className="notification-panel-title">Notifications</span>
             {unreadCount > 0 && (

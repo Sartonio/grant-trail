@@ -7,8 +7,8 @@ the canonical place, and these gates mirror the database RLS.
   `hasRequiredSubscription`, `needsSubscription`, `canMutate` / `isReadOnlyAdmin`
   (lapsed-admin read-only), and directory entitlements (`canViewDirectory`,
   `canOwnListing`). Pure functions over a `session`.
-- `guards.js` — declarative route guards (`Guard`, `RequireRole`,
-  `RequireSubscription`, `resolveGuard`) composing the role + billing axes.
+- `guards.js` — declarative route guards (`Guard`, `resolveGuard`) composing
+  the role + billing axes.
 - `useWriteGuard.js` — hook returning a guard fn; blocked writes route to the billing nudge.
 - `billing.js` — Stripe checkout/portal/sync via edge functions; session bootstrap
   (`fetchSessionContext`) and membership status. No hard-coded price/product IDs.

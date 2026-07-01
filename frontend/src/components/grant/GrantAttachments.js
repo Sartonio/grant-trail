@@ -10,6 +10,8 @@ import {
 } from 'react-icons/fa';
 import './GrantAttachments.css';
 import { getSignedUrl } from '../../lib/storage';
+import { formatDate } from '../../lib/format';
+import { fmtBytes } from '../../lib/format';
 
 const MAX_BYTES = 5 * 1024 * 1024; // 5 MB
 const ALLOWED_TYPES = [
@@ -30,18 +32,6 @@ const CATEGORY_LABELS = {
   general:  'General',
 };
 
-function fmtBytes(bytes) {
-  if (!bytes) return '—';
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function fmtDate(iso) {
-  if (!iso) return '—';
-  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  const [y, m, d] = iso.slice(0, 10).split('-');
-  return `${parseInt(d, 10)}-${months[parseInt(m, 10) - 1]}-${y}`;
-}
 
 function GrantAttachments({ grantId, session, readOnly = false }) {
   const [attachments, setAttachments] = useState([]);
@@ -281,7 +271,7 @@ function GrantAttachments({ grantId, session, readOnly = false }) {
 
               <div className="ga-item-right">
                 <span className="ga-item-meta">
-                  {fmtBytes(att.file_size)} · {fmtDate(att.created_at)}
+                  {fmtBytes(att.file_size)} · {formatDate(att.created_at)}
                 </span>
 
                 <div className="ga-item-actions">

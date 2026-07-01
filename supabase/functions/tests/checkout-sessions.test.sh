@@ -26,11 +26,8 @@ cleanup_test_users
 ADMIN_ID=$(create_test_user "lanef-checkout-admin@example.com" "admin")
 ADMIN_TOKEN=$(get_token "lanef-checkout-admin@example.com")
 
-# Pull the session id out of a checkout URL (…/c/pay/cs_test_xxx#...) and inspect
-# it via the Stripe API so we assert real session attributes, not just a 200.
-session_id_from_resp() {
-  python3 -c "import sys,json,re; u=json.load(sys.stdin).get('url','') or ''; m=re.search(r'(cs_test_[A-Za-z0-9]+)',u); print(m.group(1) if m else '')"
-}
+# session_id_from_resp (parses cs_test_… out of a checkout URL) lives in
+# lib/stripe_test_helpers.sh, sourced above.
 
 # ---- basic tier ----------------------------------------------------------
 

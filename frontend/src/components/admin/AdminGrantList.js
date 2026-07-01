@@ -6,6 +6,7 @@ import { FiSearch, FiArrowRight, FiArrowLeft, FiClock, FiArrowUp, FiArrowDown, F
 import StatusBadge from '../common/StatusBadge';
 import ReadOnlyBanner from '../common/ReadOnlyBanner';
 import { formatDateMed, formatCurrency } from '../../lib/format';
+import { timeRemaining } from '../../lib/format';
 import './Admin.css';
 
 const TABS = [
@@ -101,21 +102,6 @@ function AdminGrantList({ readOnly = false }) {
   const fmt = n => formatCurrency(n, 0);
 
   const formatDate = formatDateMed;
-
-  function timeRemaining(endDateStr) {
-    if (!endDateStr) return { display: '—', cls: '' };
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const end = new Date(endDateStr + 'T00:00:00');
-    const days = Math.round((end.getTime() - today.getTime()) / 86400000);
-    if (days < 0)  return { display: 'Expired', cls: 'expired' };
-    if (days === 0) return { display: 'Last day!', cls: 'warning' };
-    if (days < 30)  return { display: `${days}d left`, cls: 'warning' };
-    const months = Math.floor(days / 30);
-    const rem = days % 30;
-    const display = rem > 0 ? `${months}mo ${rem}d left` : `${months}mo left`;
-    return { display, cls: days < 90 ? 'warning' : '' };
-  }
 
   function handleSort(col) {
     if (sortBy === col) {

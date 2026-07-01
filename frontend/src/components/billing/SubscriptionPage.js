@@ -12,6 +12,11 @@ import './SubscriptionPage.css';
 // request can hang, so cap how long we wait before treating it as unavailable.
 const BILLING_REQUEST_TIMEOUT_MS = 15000;
 
+// After a successful checkout, re-poll membership on a short then longer delay to
+// let the Stripe webhook land before we tell the user their access is still locked.
+const SYNC_RETRY_ONE_MS = 2500;
+const SYNC_RETRY_TWO_MS = 7000;
+
 function withTimeout(promise, ms) {
   let timeoutId;
   const timeout = new Promise((_, reject) => {
@@ -59,11 +64,11 @@ function SubscriptionPage({ session, onMembershipUpdated }) {
     setSyncNotice('Purchase received. We are syncing your access...');
     onMembershipUpdated?.();
 
-    const retryOne = window.setTimeout(() => onMembershipUpdated?.(), 2500);
+    const retryOne = window.setTimeout(() => onMembershipUpdated?.(), SYNC_RETRY_ONE_MS);
     const retryTwo = window.setTimeout(() => {
       onMembershipUpdated?.();
       setSyncNotice('If your access still looks locked, click Refresh Access Status below.');
-    }, 7000);
+    }, SYNC_RETRY_TWO_MS);
 
     const cleanPath = window.location.pathname;
     window.history.replaceState({}, '', cleanPath);

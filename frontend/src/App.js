@@ -50,6 +50,32 @@ function FiscalAgentOnboardRedirect() {
   return <Navigate to={token ? `/complete-profile?invite=${encodeURIComponent(token)}` : '/login'} replace />;
 }
 
+// Full-screen branded notice for pre-session states (account disabled / session
+// error). Shared shell; callers pass the icon, title, and body (message + any
+// action button).
+function FullScreenNotice({ icon, title, children }) {
+  return (
+    <div style={{
+      minHeight: '100vh', display: 'flex', flexDirection: 'column',
+      alignItems: 'center', justifyContent: 'center',
+      background: '#f9fafb', fontFamily: 'Montserrat, sans-serif', padding: '2em',
+    }}>
+      <img src="/logo-full.png" alt="GrantTrail" style={{ height: 56, marginBottom: '1.5em' }} />
+      <div style={{
+        background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10,
+        padding: '2em 2.5em', maxWidth: 420, textAlign: 'center',
+        boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
+      }}>
+        <div style={{ fontSize: '2rem', marginBottom: '0.4em' }}>{icon}</div>
+        <h2 style={{ color: '#111827', marginBottom: '0.5em', fontSize: '1.2rem' }}>
+          {title}
+        </h2>
+        {children}
+      </div>
+    </div>
+  );
+}
+
 function App() {
   const {
     session,
@@ -71,61 +97,31 @@ function App() {
 
   if (accountDisabled) {
     return (
-      <div style={{
-        minHeight: '100vh', display: 'flex', flexDirection: 'column',
-        alignItems: 'center', justifyContent: 'center',
-        background: '#f9fafb', fontFamily: 'Montserrat, sans-serif', padding: '2em',
-      }}>
-        <img src="/logo-full.png" alt="GrantTrail" style={{ height: 56, marginBottom: '1.5em' }} />
-        <div style={{
-          background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10,
-          padding: '2em 2.5em', maxWidth: 420, textAlign: 'center',
-          boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
-        }}>
-          <div style={{ fontSize: '2rem', marginBottom: '0.4em' }}>🔒</div>
-          <h2 style={{ color: '#111827', marginBottom: '0.5em', fontSize: '1.2rem' }}>
-            Account Disabled
-          </h2>
-          <p style={{ color: '#6b7280', fontSize: '0.95rem', lineHeight: 1.6 }}>
-            Your account has been disabled. Please contact your administrator for assistance.
-          </p>
-        </div>
-      </div>
+      <FullScreenNotice icon="🔒" title="Account Disabled">
+        <p style={{ color: '#6b7280', fontSize: '0.95rem', lineHeight: 1.6 }}>
+          Your account has been disabled. Please contact your administrator for assistance.
+        </p>
+      </FullScreenNotice>
     );
   }
 
   if (sessionError) {
     return (
-      <div style={{
-        minHeight: '100vh', display: 'flex', flexDirection: 'column',
-        alignItems: 'center', justifyContent: 'center',
-        background: '#f9fafb', fontFamily: 'Montserrat, sans-serif', padding: '2em',
-      }}>
-        <img src="/logo-full.png" alt="GrantTrail" style={{ height: 56, marginBottom: '1.5em' }} />
-        <div style={{
-          background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10,
-          padding: '2em 2.5em', maxWidth: 420, textAlign: 'center',
-          boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
-        }}>
-          <div style={{ fontSize: '2rem', marginBottom: '0.4em' }}>⚠️</div>
-          <h2 style={{ color: '#111827', marginBottom: '0.5em', fontSize: '1.2rem' }}>
-            Something went wrong
-          </h2>
-          <p style={{ color: '#6b7280', fontSize: '0.95rem', lineHeight: 1.6, marginBottom: '1.2em' }}>
-            We couldn’t load your session. Please check your connection and try again.
-          </p>
-          <button
-            onClick={() => window.location.reload()}
-            style={{
-              background: '#111827', color: '#fff', border: 'none', borderRadius: 8,
-              padding: '0.6em 1.4em', fontSize: '0.95rem', cursor: 'pointer',
-              fontFamily: 'inherit',
-            }}
-          >
-            Retry
-          </button>
-        </div>
-      </div>
+      <FullScreenNotice icon="⚠️" title="Something went wrong">
+        <p style={{ color: '#6b7280', fontSize: '0.95rem', lineHeight: 1.6, marginBottom: '1.2em' }}>
+          We couldn’t load your session. Please check your connection and try again.
+        </p>
+        <button
+          onClick={() => window.location.reload()}
+          style={{
+            background: '#111827', color: '#fff', border: 'none', borderRadius: 8,
+            padding: '0.6em 1.4em', fontSize: '0.95rem', cursor: 'pointer',
+            fontFamily: 'inherit',
+          }}
+        >
+          Retry
+        </button>
+      </FullScreenNotice>
     );
   }
 

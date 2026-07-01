@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import * as XLSX from "xlsx";
 import { FEATURE_KEYS, hasFeature } from "../../lib/billing";
 import { formatDate } from "../../lib/format";
+import { formatExcelDate } from "../../lib/format";
 import { useExpenseReports } from "../../hooks/useExpenseReports";
 import {
   FaWallet,
@@ -75,11 +76,6 @@ function toSafeSheetName(baseName, usedNames) {
   return fallback;
 }
 
-function formatExcelDate(dateStr) {
-  if (!dateStr) return '—';
-  const [year, month, day] = dateStr.slice(0, 10).split('-');
-  return `${day}-${MONTHS[parseInt(month, 10) - 1]}-${year}`;
-}
 
 function ExpenseReports({ session }) {
   const navigate = useNavigate();

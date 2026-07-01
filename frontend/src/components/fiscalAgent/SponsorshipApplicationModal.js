@@ -1,12 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  FaTimes,
   FaCheck,
   FaChevronLeft,
   FaChevronRight,
   FaHandshake,
   FaCheckCircle,
 } from 'react-icons/fa';
+import { FOCUS_AREAS, Field, Modal } from './fiscalAgentsShared';
 import './SponsorshipApplicationModal.css';
 
 /*
@@ -21,17 +21,6 @@ import './SponsorshipApplicationModal.css';
   Reuses the directory's `.fad-*` look (modal, fields, stepper, buttons) and
   adds a few application-specific styles under the `sapp-` prefix.
 */
-
-const FOCUS_AREAS = [
-  'Education',
-  'Arts & Culture',
-  'Environment',
-  'Health',
-  'Youth',
-  'Food Security',
-  'Housing',
-  'Community',
-];
 
 const PROJECT_TYPES = [
   'New project',
@@ -61,51 +50,6 @@ const TIMELINES = [
 const STEPS = ['Project', 'Contact', 'Review'];
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-function Field({ label, children, required = false }) {
-  return (
-    <label className="fad-field">
-      <span className="fad-field-label">
-        {label}
-        {required && <em> *</em>}
-      </span>
-      {children}
-    </label>
-  );
-}
-
-/* Local copy of the directory Modal so this component is self-contained while
-   matching the shared `.fad-*` look, Escape-to-close, and body scroll-lock. */
-function Modal({ onClose, children, labelledBy }) {
-  useEffect(() => {
-    function onKey(e) {
-      if (e.key === 'Escape') onClose();
-    }
-    document.addEventListener('keydown', onKey);
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.removeEventListener('keydown', onKey);
-      document.body.style.overflow = '';
-    };
-  }, [onClose]);
-
-  return (
-    <div className="fad-overlay" onMouseDown={onClose}>
-      <div
-        className="fad-modal is-wide"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={labelledBy}
-        onMouseDown={(e) => e.stopPropagation()}
-      >
-        <button type="button" className="fad-modal-close" onClick={onClose} aria-label="Close">
-          <FaTimes />
-        </button>
-        {children}
-      </div>
-    </div>
-  );
-}
 
 export default function SponsorshipApplicationModal({ agent, onClose, onSubmit }) {
   const [step, setStep] = useState(0);
@@ -181,7 +125,7 @@ export default function SponsorshipApplicationModal({ agent, onClose, onSubmit }
   // success panel so the seeker has unambiguous feedback that it went through.
   if (submitted) {
     return (
-      <Modal onClose={onClose} labelledBy="sapp-title">
+      <Modal onClose={onClose} labelledBy="sapp-title" wide>
         <div className="sapp-success">
           <div className="sapp-success-icon" aria-hidden="true">
             <FaCheckCircle />
@@ -206,7 +150,7 @@ export default function SponsorshipApplicationModal({ agent, onClose, onSubmit }
   }
 
   return (
-    <Modal onClose={onClose} labelledBy="sapp-title">
+    <Modal onClose={onClose} labelledBy="sapp-title" wide>
       <h2 id="sapp-title" className="fad-modal-title">
         Apply for sponsorship with {agent.name}
       </h2>

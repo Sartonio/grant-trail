@@ -1,5 +1,6 @@
-import { adminSupabase, buildRedirectUrl, corsHeaders, getOrCreateStripeCustomer, requireAuthenticatedProfile, stripe } from '../_shared/stripe.ts';
+import { buildRedirectUrl, corsHeaders, getOrCreateStripeCustomer, requireAuthenticatedProfile, stripe } from '../_shared/stripe.ts';
 import { assertPostRequest, parseJsonBody, validateReturnPath, ValidationError } from '../_shared/validation.ts';
+import { logSystemEvent } from '../_shared/logging.ts';
 
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') {
@@ -12,7 +13,7 @@ Deno.serve(async (request) => {
     const body = await parseJsonBody(request);
     const returnPath = validateReturnPath(body.returnPath);
     const customerId = await getOrCreateStripeCustomer(profile);
-    const portalConfigurationId = Deno.env.get('STRIPE_BILLING_PORTAL_CONFIGURATION_ID') || undefined;
+    const portalConfigurationId = Deno.env.get('STRIPE_BILLING_PORTAL_CONFIGURATION_ID');
 
     const session = await stripe.billingPortal.sessions.create({
       customer: customerId,
@@ -32,19 +33,13 @@ Deno.serve(async (request) => {
       });
     }
     console.error('Billing portal session error:', error);
-    try {
-      await adminSupabase.from('system_logs').insert({
-        event_name: 'create_billing_portal_session_failure',
-        error_message: error instanceof Error ? error.message : String(error),
-        error_stack: error instanceof Error ? error.stack : undefined,
-        severity: 'critical',
-        metadata: {
-          path: new URL(request.url).pathname,
-        }
-      });
-    } catch (logError) {
-      console.error('Failed to write system log to database:', logError);
-    }
+    await logSystemEvent(
+      'create_billing_portal_session_failure',
+      'critical',
+      error instanceof Error ? error.message : String(error),
+      { path: new URL(request.url).pathname },
+      error instanceof Error ? error.stack : undefined,
+    );
 
     return new Response(JSON.stringify({ error: error instanceof Error ? error.message : 'Unable to create billing portal session.' }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
