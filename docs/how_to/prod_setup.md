@@ -50,24 +50,6 @@ see [staging_setup.md](staging_setup.md).
    once, including `RESEND_API_KEY` + `EMAIL_FROM`. After this the config lives in GitHub;
    developers never touch it unless a value rotates.
 
-> **Optional — green Vercel PR check.** The real prod/staging deploys go through the
-> *Deploy to Production* workflow, which injects `VITE_SUPABASE_URL`/`VITE_SUPABASE_KEY`
-> itself, so nothing below is needed for the site to ship. The two vars only make Vercel's
-> Git-integration **preview build** (the `Vercel – grant-trail` status check on a PR) pass
-> instead of failing the `prebuild` guard (`frontend/scripts/check-env.mjs`). Skip this
-> unless you want that PR check green. To set them (both public — the anon key ships in the
-> browser bundle anyway):
->
-> ```bash
-> npx vercel link --project grant-trail
-> for scope in preview production; do
->   printf '%s' "https://<project-ref>.supabase.co" \
->     | npx vercel env add VITE_SUPABASE_URL "$scope" --token="$VERCEL_TOKEN"
->   printf '%s' "sb_publishable_…" \
->     | npx vercel env add VITE_SUPABASE_KEY "$scope" --token="$VERCEL_TOKEN"
-> done
-> ```
-
 > **Reusing an existing Supabase project as prod?** Clear it first — see
 > [Clearing the database](#clearing-the-database).
 
@@ -125,7 +107,7 @@ receipt lands with the right plan / amount / date. If the email doesn't arrive: 
 ## Clearing the database
 
 Reusing an existing Supabase project as the new prod? Wipe it first so migrations re-apply
-from scratch. Run in that project's SQL editor — ⚠️ **prod only, never staging**:
+from scratch. Run in that project's SQL editor:
 
 ```sql
 drop schema if exists public cascade;
@@ -135,11 +117,6 @@ grant all on schema public to postgres, service_role;
 delete from supabase_migrations.schema_migrations;   -- re-run every migration
 delete from auth.users;                              -- optional: drop test users
 ```
-
-> **Required after the migration squash.** The old prod project's `schema_migrations` ledger
-> references pre-squash versions; because prod tracks migrations by version, the squashed
-> baseline won't apply over a stale ledger. Clearing it is mandatory before the first deploy,
-> not just when reusing a project for a different app.
 
 The next *Deploy to Production* rebuilds the schema from `supabase/migrations/`.
 
