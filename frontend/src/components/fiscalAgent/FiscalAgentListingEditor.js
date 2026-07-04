@@ -7,9 +7,8 @@ import {
   FaArrowLeft,
 } from 'react-icons/fa';
 import * as Sentry from '@sentry/react';
-import { supabase } from '../../supabaseClient';
 import { canOwnListing } from '../../lib/policy';
-import { getTenantListing } from '../../lib/data/fiscalAgentListings';
+import { getTenantListing, updateTenantListing } from '../../lib/data/fiscalAgentListings';
 import { useWriteGuard } from '../../lib/useWriteGuard';
 import { mapFullListing, listingToRow } from './fiscalAgents.map';
 import { FOCUS_AREAS, RESPONSE_TIMES, Field, Toast } from './fiscalAgentsShared';
@@ -108,10 +107,7 @@ export default function FiscalAgentListingEditor({ session, readOnly = false }) 
     if (!guardWrite()) return false;
     setSaving(true);
     try {
-      const { error } = await supabase
-        .from('fiscal_agent_listings')
-        .update({ ...listingToRow(data), ...extra })
-        .eq('id', Number(listing.id));
+      const { error } = await updateTenantListing(listing.id, { ...listingToRow(data), ...extra });
       if (error) throw error;
       return true;
     } catch (err) {

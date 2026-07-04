@@ -5,7 +5,7 @@ const fromMock = vi.hoisted(() => vi.fn());
 
 vi.mock('../../supabaseClient', () => ({ supabase: { rpc: rpcMock, from: fromMock } }));
 
-import { acceptSponsorshipInquiry, updateInquiryStatus } from './inquiries';
+import { acceptSponsorshipInquiry, updateInquiryStatus, listInquiriesForListing } from './inquiries';
 
 beforeEach(() => {
   rpcMock.mockReset().mockResolvedValue({
@@ -28,6 +28,21 @@ describe('acceptSponsorshipInquiry', () => {
     rpcMock.mockResolvedValue({ data: null, error: rpcError });
     const { error } = await acceptSponsorshipInquiry(7);
     expect(error).toBe(rpcError);
+  });
+});
+
+describe('listInquiriesForListing', () => {
+  it('selects the listing inquiries by numeric id, newest first', async () => {
+    const order = vi.fn().mockResolvedValue({ data: [], error: null });
+    const eq = vi.fn(() => ({ order }));
+    const select = vi.fn(() => ({ eq }));
+    fromMock.mockReturnValue({ select });
+
+    await listInquiriesForListing('5');
+    expect(fromMock).toHaveBeenCalledWith('sponsorship_inquiries');
+    expect(select).toHaveBeenCalledWith('*');
+    expect(eq).toHaveBeenCalledWith('listing_id', 5);
+    expect(order).toHaveBeenCalledWith('submitted_at', { ascending: false });
   });
 });
 

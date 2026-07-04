@@ -19,6 +19,30 @@ export const getTenantListing = (tenantId) =>
     .order('updated_at', { ascending: false })
     .limit(1);
 
+// Toggle whether the tenant's listing is accepting projects. RLS scopes the
+// write to tenant-admin membership + the fiscal_agent entitlement.
+/**
+ * @param {number|string} id
+ * @param {boolean} accepting
+ */
+export const updateListingAccepting = (id, accepting) =>
+  supabase
+    .from('fiscal_agent_listings')
+    .update({ accepting })
+    .eq('id', Number(id));
+
+// Save owner-editable columns on the tenant's listing (see listingToRow — never
+// the verified/verification columns, which only super_admin can change).
+/**
+ * @param {number|string} id
+ * @param {object} row
+ */
+export const updateTenantListing = (id, row) =>
+  supabase
+    .from('fiscal_agent_listings')
+    .update(row)
+    .eq('id', Number(id));
+
 export const listPendingListings = () =>
   supabase
     .from('fiscal_agent_listings')

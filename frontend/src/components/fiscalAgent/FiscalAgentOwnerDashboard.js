@@ -2,11 +2,10 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FaPen, FaInbox, FaIdCard } from 'react-icons/fa';
 import * as Sentry from '@sentry/react';
-import { supabase } from '../../supabaseClient';
 import { canOwnListing, isReadOnlyAdmin, BILLING_NUDGE_PATH } from '../../lib/policy';
-import { getTenantListing } from '../../lib/data/fiscalAgentListings';
+import { getTenantListing, updateListingAccepting } from '../../lib/data/fiscalAgentListings';
 import { useWriteGuard } from '../../lib/useWriteGuard';
-import { acceptSponsorshipInquiry, updateInquiryStatus } from '../../lib/data/inquiries';
+import { acceptSponsorshipInquiry, updateInquiryStatus, listInquiriesForListing } from '../../lib/data/inquiries';
 import { mapFullListing, mapInquiry } from './fiscalAgents.map';
 import { OwnerListingPanel, listingCompleteness, Toast } from './fiscalAgentsShared';
 import FiscalAgentInbox from './FiscalAgentInbox';
@@ -57,11 +56,7 @@ export default function FiscalAgentOwnerDashboard({ session, readOnly: readOnlyP
         if (!cancelled) setListing(model);
 
         if (model) {
-          const { data: inqRows, error: inqError } = await supabase
-            .from('sponsorship_inquiries')
-            .select('*')
-            .eq('listing_id', Number(model.id))
-            .order('submitted_at', { ascending: false });
+          const { data: inqRows, error: inqError } = await listInquiriesForListing(model.id);
           if (inqError) throw inqError;
           if (!cancelled) setInquiries((inqRows || []).map(mapInquiry));
         }
@@ -89,10 +84,7 @@ export default function FiscalAgentOwnerDashboard({ session, readOnly: readOnlyP
     // Optimistic update with rollback on failure.
     setListing((l) => ({ ...l, accepting: nextAccepting }));
     try {
-      const { error } = await supabase
-        .from('fiscal_agent_listings')
-        .update({ accepting: nextAccepting })
-        .eq('id', Number(listing.id));
+      const { error } = await updateListingAccepting(listing.id, nextAccepting);
       if (error) throw error;
     } catch (err) {
       Sentry.captureException(err);
@@ -175,7 +167,7 @@ export default function FiscalAgentOwnerDashboard({ session, readOnly: readOnlyP
           <strong>{listing.name}</strong>
           {readOnly ? (
             <>
-              {' '}is {listing.status === 'published' ? 'live' : 'unlisted'} — your Fiscal Agent
+              {' '}is unlisted — your Fiscal Agent
               subscription is inactive, so your listing is unlisted from the directory and this
               dashboard is read-only.{' '}
               <Link to={BILLING_NUDGE_PATH} className="fad-link">Resubscribe to edit</Link>.

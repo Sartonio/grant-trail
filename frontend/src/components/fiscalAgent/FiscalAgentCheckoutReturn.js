@@ -18,7 +18,7 @@ import './FiscalAgentDirectory.css';
 function readStatus() {
   const params = new URLSearchParams(window.location.search);
   return {
-    status: params.get('status') || params.get('checkout') || 'success',
+    status: (params.get('status') || params.get('checkout') || 'success').trim().toLowerCase(),
     flow: params.get('flow') || '',
   };
 }
@@ -27,7 +27,8 @@ export default function FiscalAgentCheckoutReturn({ onSynced }) {
   const [{ status, flow }] = useState(readStatus);
   const [syncing, setSyncing] = useState(status === 'success');
 
-  const isCancel = status === 'cancel' || status === 'cancelled';
+  // Stripe spells it 'canceled'; also cover 'cancel' / 'cancelled'.
+  const isCancel = status.startsWith('cancel');
   const isFiscalAgent = flow === 'onboarding';
 
   useEffect(() => {

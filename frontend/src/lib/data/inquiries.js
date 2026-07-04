@@ -14,6 +14,19 @@ import { supabase } from '../../supabaseClient';
  *
  * @param {number|string} inquiryId
  */
+/**
+ * Inquiries for a listing, newest first. RLS scopes rows to the caller's
+ * tenant-admin membership (listings are tenant-owned).
+ *
+ * @param {number|string} listingId
+ */
+export const listInquiriesForListing = (listingId) =>
+  supabase
+    .from('sponsorship_inquiries')
+    .select('*')
+    .eq('listing_id', Number(listingId))
+    .order('submitted_at', { ascending: false });
+
 export const acceptSponsorshipInquiry = (inquiryId) =>
   supabase.rpc('accept_sponsorship_inquiry', { p_inquiry_id: Number(inquiryId) });
 
