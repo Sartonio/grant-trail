@@ -16,6 +16,8 @@ bin/
 # Keep env templates tracked despite .env* above (e.g. supabase/functions/.env.example)
 !.env.example
 
-# Playwright (frontend e2e artifacts)
+# Playwright (frontend e2e artifacts; can land at repo root or frontend/ depending on cwd)
+/playwright-report/
+/test-results/
 /frontend/playwright-report/
 /frontend/test-results/
