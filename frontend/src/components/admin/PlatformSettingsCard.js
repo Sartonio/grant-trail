@@ -17,9 +17,12 @@ export default function PlatformSettingsCard() {
   const [platformOriginal, setPlatformOriginal] = useState({ email: '', phone: '', webhook: '' });
 
   useEffect(() => {
+    // Cleanup guard: without it, the StrictMode-doubled mount fetch can
+    // resolve late and clobber values the user has already typed.
+    let active = true;
     async function fetchPlatformSettings() {
       const { data } = await getPlatformSettings();
-      if (data) {
+      if (data && active) {
         setPlatformEmail(data.default_support_email || '');
         setPlatformPhone(data.default_support_phone || '');
         setPlatformWebhook(data.alert_webhook_url || '');
@@ -31,6 +34,7 @@ export default function PlatformSettingsCard() {
       }
     }
     fetchPlatformSettings();
+    return () => { active = false; };
   }, []);
 
   async function handleSavePlatformSettings() {

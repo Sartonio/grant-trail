@@ -34,7 +34,9 @@ function TenantManagement({ session }) {
   }, []);
 
   async function fetchTenants() {
-    setLoading(true);
+    // No setLoading(true) here: the full-page loader would unmount
+    // CreateTenantForm on refetch, wiping the invite link mid-flow.
+    // `loading` starts true, so the initial load still shows the loader.
     setError('');
 
     // Fetch tenants

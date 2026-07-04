@@ -106,12 +106,20 @@ test.describe('Super-admin platform flows', () => {
 
     const newEmail = `support+${Date.now()}@granttrail.test`;
     const emailInput = card.locator('input[type="email"]');
+    const saveBtn = card.getByRole('button', { name: /Save Platform Defaults/i });
+    // Filling before the card's initial fetch applies gets clobbered (and
+    // leaves Save disabled). Wait until the input shows the current DB value —
+    // the fetch applies exactly once — then fill.
+    const { data: before } = await supabase
+      .from('platform_settings').select('default_support_email').eq('id', 1).single();
+    await expect(emailInput).toHaveValue(before.default_support_email || '');
     await emailInput.fill(newEmail);
+    await expect(saveBtn).toBeEnabled();
 
     const savePromise = page.waitForResponse(r =>
       r.url().includes('platform_settings') && r.request().method() === 'PATCH' &&
       (r.status() === 200 || r.status() === 204));
-    await card.getByRole('button', { name: /Save Platform Defaults/i }).click();
+    await saveBtn.click();
     await savePromise;
 
     await expect(card.getByText('Platform settings saved.')).toBeVisible();
@@ -133,11 +141,13 @@ test.describe('Super-admin platform flows', () => {
     await createCard.getByPlaceholder('e.g. Hope Foundation').fill(ctx.createdName);
     await createCard.getByPlaceholder('admin@organization.com').fill(ctx.createdAdminEmail);
 
-    const tenantInsert = page.waitForResponse(r =>
-      r.url().includes('/rest/v1/tenants') && r.request().method() === 'POST' &&
+    // Wait for the LAST write in the create flow (the admin invite) — waiting
+    // only on the tenants POST races the success message on slow runners.
+    const inviteInsert = page.waitForResponse(r =>
+      r.url().includes('/rest/v1/invites') && r.request().method() === 'POST' &&
       (r.status() === 200 || r.status() === 201));
     await createCard.getByRole('button', { name: 'Create Tenant' }).click();
-    await tenantInsert;
+    await inviteInsert;
 
     // Success message + invite link surfaced.
     await expect(createCard.getByText(/created\. Share the invite link/i)).toBeVisible();
