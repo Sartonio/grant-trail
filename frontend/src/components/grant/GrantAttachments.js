@@ -2,6 +2,11 @@ import { useState, useRef, useEffect } from 'react';
 import * as Sentry from '@sentry/react';
 import { supabase } from '../../supabaseClient';
 import {
+  listGrantAttachments,
+  insertGrantAttachment,
+  deleteGrantAttachment,
+} from '../../lib/data/attachments';
+import {
   FaUpload,
   FaExternalLinkAlt,
   FaTrash,
@@ -47,11 +52,7 @@ function GrantAttachments({ grantId, session, readOnly = false }) {
   const fileInputRef = useRef(null);
 
   const fetchAttachments = async () => {
-    const { data } = await supabase
-      .from('grant_attachments')
-      .select('*')
-      .eq('grant_id', grantId)
-      .order('created_at', { ascending: false });
+    const { data } = await listGrantAttachments(grantId);
     setAttachments(data || []);
     setLoadingList(false);
   };
@@ -95,7 +96,7 @@ function GrantAttachments({ grantId, session, readOnly = false }) {
         .upload(storagePath, file, { upsert: false });
       if (uploadErr) throw new Error(`Upload failed: ${uploadErr.message}`);
 
-      const { error: dbErr } = await supabase.from('grant_attachments').insert({
+      const { error: dbErr } = await insertGrantAttachment({
         grant_id:    grantId,
         file_name:   file.name,
         file_path:   storagePath,
@@ -141,7 +142,7 @@ function GrantAttachments({ grantId, session, readOnly = false }) {
     // Second click = confirmed
     try {
       await supabase.storage.from('grant-documents').remove([att.file_path]);
-      await supabase.from('grant_attachments').delete().eq('id', att.id);
+      await deleteGrantAttachment(att.id);
       setDeletingId(null);
       await fetchAttachments();
     } catch (err) {

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import * as Sentry from '@sentry/react';
-import { supabase } from '../../supabaseClient';
+import { insertBudgetItem, updateBudgetItem } from '../../lib/data/budgetItems';
 import {
   FaTimes,
   FaSave,
@@ -87,19 +87,9 @@ function BudgetItemModal({ grantId, budgetItem, grantAmount, totalAllocated, onC
         payload.status = 'pending';
       }
 
-      let result;
-      if (isEditMode) {
-        result = await supabase
-          .from('budget_items')
-          .update(payload)
-          .eq('id', budgetItem.id)
-          .select();
-      } else {
-        result = await supabase
-          .from('budget_items')
-          .insert([payload])
-          .select();
-      }
+      const result = isEditMode
+        ? await updateBudgetItem(budgetItem.id, payload)
+        : await insertBudgetItem(payload);
 
       if (result.error) throw result.error;
 

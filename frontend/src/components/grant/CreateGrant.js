@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import * as Sentry from '@sentry/react';
-import { supabase } from '../../supabaseClient';
+import { getOwnGrant, insertGrant, updateOwnGrant } from '../../lib/data/grants';
+import { listBudgetItems } from '../../lib/data/budgetItems';
 import {
   FaCalendarAlt,
   FaDollarSign,
@@ -41,12 +42,7 @@ function CreateGrant({ session }) {
     async function fetchGrant() {
       setFetchLoading(true);
 
-      const { data: grantData, error: grantError } = await supabase
-        .from('grant_record')
-        .select('*')
-        .eq('id', id)
-        .eq('user_id', session.userRecord.id)
-        .single();
+      const { data: grantData, error: grantError } = await getOwnGrant(Number(id), session.userRecord.id);
 
       if (grantError || !grantData) {
         setError('Grant not found or access denied.');
@@ -70,10 +66,7 @@ function CreateGrant({ session }) {
       });
 
       // Fetch total allocated to enforce grant_amount >= allocated
-      const { data: biData } = await supabase
-        .from('budget_items')
-        .select('budget_allocated')
-        .eq('grant_id', id);
+      const { data: biData } = await listBudgetItems(Number(id));
 
       const allocated = (biData || []).reduce((sum, bi) => sum + (bi.budget_allocated || 0), 0);
       setTotalAllocated(allocated);
@@ -145,28 +138,21 @@ function CreateGrant({ session }) {
         if (session?.tenantConfig?.type !== 'self_service') {
           updateData.status = 'pending';
         }
-        const { error: updateError } = await supabase
-          .from('grant_record')
-          .update(updateData)
-          .eq('id', id)
-          .eq('user_id', session.userRecord.id);
+        const { error: updateError } = await updateOwnGrant(Number(id), session.userRecord.id, updateData);
 
         if (updateError) throw updateError;
       } else {
-        const { error: insertError } = await supabase
-          .from('grant_record')
-          .insert([{
-            user_id:            session.userRecord.id,
-            grant_name:         formData.grant_name.trim(),
-            description:        formData.description.trim() || null,
-            start_spend_period: formData.start_spend_period,
-            end_spend_period:   formData.end_spend_period,
-            release_date:       formData.release_date || null,
-            grant_amount:       parseFloat(formData.grant_amount),
-            status:             'pending',
-            submitted_at:       new Date().toISOString(),
-          }])
-          .select();
+        const { error: insertError } = await insertGrant({
+          user_id:            session.userRecord.id,
+          grant_name:         formData.grant_name.trim(),
+          description:        formData.description.trim() || null,
+          start_spend_period: formData.start_spend_period,
+          end_spend_period:   formData.end_spend_period,
+          release_date:       formData.release_date || null,
+          grant_amount:       parseFloat(formData.grant_amount),
+          status:             'pending',
+          submitted_at:       new Date().toISOString(),
+        });
 
         if (insertError) throw insertError;
       }

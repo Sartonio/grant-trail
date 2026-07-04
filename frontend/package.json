@@ -62,6 +62,22 @@
     "plugins": [
       "react",
       "react-hooks"
+    ],
+    "overrides": [
+      {
+        "files": [
+          "src/components/**/*.js"
+        ],
+        "rules": {
+          "no-restricted-syntax": [
+            "error",
+            {
+              "selector": "CallExpression[callee.object.name='supabase'][callee.property.name='from']",
+              "message": "Components must not call supabase.from(...) directly — add or reuse a function in frontend/src/lib/data/<entity>.js instead."
+            }
+          ]
+        }
+      }
     ]
   },
   "browserslist": {

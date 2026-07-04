@@ -1,7 +1,7 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FiBell } from 'react-icons/fi';
-import { supabase } from '../../supabaseClient';
+import { markNotificationRead, markNotificationsRead, deleteNotifications } from '../../lib/data/notifications';
 import { useClickOutside } from './useClickOutside';
 import './NotificationBell.css';
 
@@ -16,10 +16,7 @@ function NotificationBell({ notifications, onMarkRead, onMarkAllRead, onClearAll
 
   const handleNotificationClick = async (notification) => {
     if (!notification.is_read) {
-      await supabase
-        .from('notifications')
-        .update({ is_read: true })
-        .eq('id', notification.id);
+      await markNotificationRead(notification.id);
       onMarkRead(notification.id);
     }
     setOpen(false);
@@ -32,10 +29,7 @@ function NotificationBell({ notifications, onMarkRead, onMarkAllRead, onClearAll
     const unreadIds = notifications.filter(n => !n.is_read).map(n => n.id);
     if (unreadIds.length === 0) return;
 
-    await supabase
-      .from('notifications')
-      .update({ is_read: true })
-      .in('id', unreadIds);
+    await markNotificationsRead(unreadIds);
     onMarkAllRead();
   };
 
@@ -43,10 +37,7 @@ function NotificationBell({ notifications, onMarkRead, onMarkAllRead, onClearAll
     if (notifications.length === 0) return;
 
     const allIds = notifications.map(n => n.id);
-    await supabase
-      .from('notifications')
-      .delete()
-      .in('id', allIds);
+    await deleteNotifications(allIds);
     onClearAll();
   };
 

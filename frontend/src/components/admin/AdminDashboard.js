@@ -1,7 +1,9 @@
 // src/components/AdminDashboard.js
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { supabase } from '../../supabaseClient';
+import { listGrantsForDashboard } from '../../lib/data/grants';
+import { countPendingBudgetItems } from '../../lib/data/budgetItems';
+import { countPendingExpenses } from '../../lib/data/expenses';
 import { FiUsers, FiGrid, FiClock, FiCheckCircle, FiXCircle, FiDollarSign, FiArrowRight, FiAlertCircle, FiActivity } from 'react-icons/fi';
 import StatusBadge from '../common/StatusBadge';
 import ReadOnlyBanner from '../common/ReadOnlyBanner';
@@ -22,9 +24,7 @@ function AdminDashboard({ session, readOnly = false }) {
   useEffect(() => {
     async function load() {
       try {
-        const { data: grants, error: gErr } = await supabase
-          .from('grant_record')
-          .select('id, grant_name, grant_amount, total_spent, status, created_at, user_id, users(firstname, lastname, organization_name)');
+        const { data: grants, error: gErr } = await listGrantsForDashboard();
 
         if (gErr) throw gErr;
 
@@ -38,15 +38,9 @@ function AdminDashboard({ session, readOnly = false }) {
         }, {});
 
         // Pending budget items and expenses counts
-        const { count: pendingBudgetItems } = await supabase
-          .from('budget_items')
-          .select('id', { count: 'exact', head: true })
-          .eq('status', 'pending');
+        const { count: pendingBudgetItems } = await countPendingBudgetItems();
 
-        const { count: pendingExpenses } = await supabase
-          .from('expenses')
-          .select('id', { count: 'exact', head: true })
-          .eq('status', 'pending');
+        const { count: pendingExpenses } = await countPendingExpenses();
 
         setStats({
           totalGrantees,

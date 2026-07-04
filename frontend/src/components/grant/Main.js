@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { supabase } from "../../supabaseClient";
+import { listGrantStatsForUser, listRecentGrantsForUser } from '../../lib/data/grants';
+import { listUnapprovedExpenseAmounts } from '../../lib/data/expenses';
 import {
   FaFileAlt,
   FaClock,
@@ -44,10 +45,7 @@ function Main({ session }) {
       const userId = session.userRecord.id;
 
       // Fetch all grants for stats in one query
-      const { data: allGrants } = await supabase
-        .from("grant_record")
-        .select("id, status, grant_amount, disbursed_funds, total_spent")
-        .eq("user_id", userId);
+      const { data: allGrants } = await listGrantStatsForUser(userId);
 
       const totalGrants  = allGrants?.length ?? 0;
       const pending      = allGrants?.filter(g => g.status === 'pending').length ?? 0;
@@ -63,23 +61,14 @@ function Main({ session }) {
       const grantIds = allGrants?.map(g => g.id) || [];
       let totalPendingSpent = 0;
       if (grantIds.length > 0) {
-        const { data: pendingExpenses } = await supabase
-          .from('expenses')
-          .select('amount_spent')
-          .in('grant_id', grantIds)
-          .neq('status', 'approved');
+        const { data: pendingExpenses } = await listUnapprovedExpenseAmounts(grantIds);
         totalPendingSpent = (pendingExpenses || []).reduce((sum, e) => sum + Number(e.amount_spent || 0), 0);
       }
 
       setStats({ totalGrants, pending, needsChanges, approved, rejected, totalFunding, totalDisbursed, totalSpent, totalPendingSpent });
 
       // Fetch recent grants
-      const { data: grantsData } = await supabase
-        .from("grant_record")
-        .select("*")
-        .eq("user_id", userId)
-        .order("created_at", { ascending: false })
-        .limit(5);
+      const { data: grantsData } = await listRecentGrantsForUser(userId, 5);
 
       setRecentGrants(grantsData || []);
     }

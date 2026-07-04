@@ -1,44 +1,35 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   FaSearch,
-  FaMapMarkerAlt,
-  FaCheckCircle,
   FaLock,
   FaSeedling,
   FaHandshake,
   FaBuilding,
   FaArrowRight,
   FaCheck,
+  FaCheckCircle,
   FaFilter,
-  FaEnvelope,
   FaTimes,
-  FaRegBookmark,
-  FaBookmark,
-  FaGlobe,
-  FaPhone,
   FaChevronLeft,
   FaChevronRight,
   FaShieldAlt,
   FaUsers,
 } from 'react-icons/fa';
 import * as Sentry from '@sentry/react';
-import { supabase } from '../../supabaseClient';
-import { canViewDirectory, isAuthenticated } from '../../lib/policy';
+import { insertInquiry } from '../../lib/data/inquiries';
+import { isAuthenticated } from '../../lib/policy';
 import { startCheckoutSession, MEMBERSHIP_TIERS } from '../../lib/billing';
-import { mapTeaserListing, mapFullListing } from './fiscalAgents.map';
 import {
   FOCUS_AREAS,
   SORTS,
   PAGE_SIZE,
-  Stars,
-  Modal,
   AgentCard,
   Toast,
-  isNewListing,
-  NewBadge,
 } from './fiscalAgentsShared';
 import SponsorshipApplicationModal from './SponsorshipApplicationModal';
+import ProfileModal from './ProfileModal';
+import { useFiscalAgentDirectory } from './useFiscalAgentDirectory';
 import { notifyInquirySubmitted } from '../../lib/inquiries';
 import './FiscalAgentDirectory.css';
 
@@ -57,283 +48,23 @@ import './FiscalAgentDirectory.css';
     - "List your charity" -> the pay-first Fiscal Agent intake (/fiscal-agents/list).
 */
 
-/* ------------------------------------------------------------------ */
-/* Profile detail modal (teaser vs full per UX §2.3)                   */
-/* ------------------------------------------------------------------ */
-
-function ProfileModal({ agent, locked, saved, onToggleSave, onClose, onContact }) {
-  return (
-    <Modal onClose={onClose} labelledBy="fad-profile-name" wide>
-      <div className="fad-profile">
-        <div className="fad-profile-head">
-          <div className="fad-avatar fad-avatar-lg" aria-hidden="true">
-            {agent.name.charAt(0)}
-          </div>
-          <div className="fad-profile-headtext">
-            <h2 id="fad-profile-name">
-              {agent.name}
-              {agent.verified && (
-                <span className="fad-verified" title="Verified Fiscal Agent">
-                  <FaCheckCircle />
-                </span>
-              )}
-            </h2>
-            <p className="fad-location">
-              <FaMapMarkerAlt /> {agent.location}
-            </p>
-            <div className="fad-profile-badges">
-              {isNewListing(agent) ? (
-                <NewBadge />
-              ) : (
-                <>
-                  <Stars rating={agent.rating} />
-                  <span className="fad-reviews">{agent.reviews} reviews</span>
-                </>
-              )}
-              {agent.accepting ? (
-                <span className="fad-badge fad-badge-ok">
-                  <FaCheck /> Accepting projects
-                </span>
-              ) : (
-                <span className="fad-badge fad-badge-muted">Waitlist only</span>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <div className="fad-profile-grid">
-          <div className="fad-profile-main">
-            <p className="fad-blurb">{agent.blurb}</p>
-
-            {!locked && agent.about && (
-              <>
-                <h4>About</h4>
-                <p>{agent.about}</p>
-              </>
-            )}
-
-            {!locked && agent.services && agent.services.length > 0 && (
-              <>
-                <h4>Services</h4>
-                <ul className="fad-checklist">
-                  {agent.services.map((s) => (
-                    <li key={s}>
-                      <FaCheckCircle /> {s}
-                    </li>
-                  ))}
-                </ul>
-              </>
-            )}
-
-            {!locked && agent.projects && agent.projects.length > 0 && (
-              <>
-                <h4>Recently sponsored projects</h4>
-                <ul className="fad-projects">
-                  {agent.projects.map((p) => (
-                    <li key={p}>
-                      <FaSeedling /> {p}
-                    </li>
-                  ))}
-                </ul>
-              </>
-            )}
-
-            <ul className="fad-tags">
-              {(agent.focus || []).map((f) => (
-                <li key={f}>{f}</li>
-              ))}
-            </ul>
-          </div>
-
-          <aside className="fad-profile-side">
-            {!locked ? (
-              <>
-                <dl className="fad-sidestats">
-                  {!isNewListing(agent) && (
-                    <div>
-                      <dt>Projects sponsored</dt>
-                      <dd>{agent.sponsored}</dd>
-                    </div>
-                  )}
-                  <div>
-                    <dt>Assets managed</dt>
-                    <dd>{agent.assetsManaged}</dd>
-                  </div>
-                  <div>
-                    <dt>Admin fee</dt>
-                    <dd>{agent.feeNum ? `${agent.feeNum}%` : '—'}</dd>
-                  </div>
-                  <div>
-                    <dt>Typical response</dt>
-                    <dd>{agent.responseTime || '—'}</dd>
-                  </div>
-                </dl>
-
-                <div className="fad-contactlines">
-                  {agent.website && (
-                    <a href={`https://${agent.website}`} target="_blank" rel="noopener noreferrer">
-                      <FaGlobe /> {agent.website}
-                    </a>
-                  )}
-                  {agent.email && (
-                    <a href={`mailto:${agent.email}`}>
-                      <FaEnvelope /> {agent.email}
-                    </a>
-                  )}
-                  {agent.phone && (
-                    <span>
-                      <FaPhone /> {agent.phone}
-                    </span>
-                  )}
-                </div>
-
-                <button
-                  type="button"
-                  className="fad-btn fad-btn-primary fad-btn-block"
-                  onClick={() => onContact(agent)}
-                >
-                  <FaHandshake /> Request partnership
-                </button>
-                <button
-                  type="button"
-                  className="fad-btn fad-btn-ghost fad-btn-block"
-                  onClick={() => onToggleSave(agent.id)}
-                >
-                  {saved ? <FaBookmark /> : <FaRegBookmark />} {saved ? 'Saved' : 'Save for later'}
-                </button>
-              </>
-            ) : (
-              <div className="fad-paywall-card fad-paywall-card-inline">
-                <span className="fad-paywall-icon">
-                  <FaLock />
-                </span>
-                <h2>Subscribe to contact</h2>
-                <p>
-                  Contact details, fees, and eligibility for this fiscal agent are part of a
-                  Basic subscription.
-                </p>
-                <Link to="/subscription" className="fad-btn fad-btn-primary fad-btn-block">
-                  See plans <FaArrowRight />
-                </Link>
-              </div>
-            )}
-          </aside>
-        </div>
-      </div>
-    </Modal>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* Main component                                                      */
-/* ------------------------------------------------------------------ */
-
 export default function FiscalAgentDirectory({ session }) {
-  const navigate = useNavigate();
-  const subscribed = canViewDirectory(session);
-
-  const [query, setQuery] = useState('');
-  const [activeFocus, setActiveFocus] = useState('All');
-  const [region, setRegion] = useState('All');
-  const [acceptingOnly, setAcceptingOnly] = useState(false);
-  const [sort, setSort] = useState('rating');
-  const [page, setPage] = useState(1);
+  const {
+    subscribed, loading, loadError, regions, filtered, visible, pageCount,
+    heroStats, hasFilters, clearFilters,
+    query, setQuery,
+    activeFocus, setActiveFocus,
+    region, setRegion,
+    acceptingOnly, setAcceptingOnly,
+    sort, setSort,
+    page, setPage,
+  } = useFiscalAgentDirectory(session);
 
   const [saved, setSaved] = useState(() => new Set());
   const [profileAgent, setProfileAgent] = useState(null);
   const [applyAgent, setApplyAgent] = useState(null);
   const [toast, setToast] = useState(null);
   const [checkoutBusy, setCheckoutBusy] = useState(false);
-
-  const [agents, setAgents] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState(false);
-
-  // Fetch listings. Always read the public teaser view; when entitled, read the
-  // full table too (RLS returns full rows only to subscribers/owners/super
-  // admins). Subscribed sessions render full rows; locked sessions only ever
-  // hold teaser data so contact info is never fetched client-side.
-  useEffect(() => {
-    let cancelled = false;
-
-    async function load() {
-      setLoading(true);
-      setLoadError(false);
-      try {
-        if (subscribed) {
-          const { data, error } = await supabase
-            .from('fiscal_agent_listings')
-            .select('*')
-            .eq('status', 'published')
-            .eq('verification', 'verified');
-          if (error) throw error;
-          if (!cancelled) setAgents((data || []).map(mapFullListing));
-        } else {
-          const { data, error } = await supabase
-            .from('fiscal_agent_listings_public')
-            .select('*');
-          if (error) throw error;
-          if (!cancelled) setAgents((data || []).map(mapTeaserListing));
-        }
-      } catch (err) {
-        Sentry.captureException(err);
-        if (!cancelled) {
-          setLoadError(true);
-          setAgents([]);
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }
-
-    load();
-    return () => {
-      cancelled = true;
-    };
-  }, [subscribed]);
-
-  const regions = useMemo(
-    () => ['All', ...Array.from(new Set(agents.map((a) => a.region).filter(Boolean)))],
-    [agents],
-  );
-
-  // Reset pagination whenever filters change.
-  useEffect(() => {
-    setPage(1);
-  }, [query, activeFocus, region, acceptingOnly, sort]);
-
-  const filtered = useMemo(() => {
-    const list = agents.filter((a) => {
-      const matchesQuery =
-        !query ||
-        a.name.toLowerCase().includes(query.toLowerCase()) ||
-        a.location.toLowerCase().includes(query.toLowerCase());
-      const matchesFocus = activeFocus === 'All' || (a.focus || []).includes(activeFocus);
-      const matchesRegion = region === 'All' || a.region === region;
-      const matchesAccepting = !acceptingOnly || a.accepting;
-      return matchesQuery && matchesFocus && matchesRegion && matchesAccepting;
-    });
-
-    const sorted = [...list].sort((a, b) => {
-      if (sort === 'rating') return b.rating - a.rating;
-      if (sort === 'sponsored') return b.sponsored - a.sponsored;
-      if (sort === 'feeLow') return a.feeNum - b.feeNum;
-      return a.name.localeCompare(b.name);
-    });
-    return sorted;
-  }, [agents, query, activeFocus, region, acceptingOnly, sort]);
-
-  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const visible = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-
-  const heroStats = useMemo(
-    () => ({
-      total: agents.length,
-      verified: agents.filter((a) => a.verified).length,
-      sponsored: agents.reduce((n, a) => n + (a.sponsored || 0), 0),
-    }),
-    [agents],
-  );
 
   function toggleSave(id) {
     setSaved((prev) => {
@@ -354,16 +85,12 @@ export default function FiscalAgentDirectory({ session }) {
   // open until the seeker dismisses it), so we don't clear applyAgent here.
   async function handleApplicationSubmit(application) {
     const agent = applyAgent;
-    const { data, error } = await supabase
-      .from('sponsorship_inquiries')
-      .insert({
-        listing_id: Number(agent.id),
-        project: application.project,
-        contact: application.contact,
-        message: application.message,
-      })
-      .select('id')
-      .single();
+    const { data, error } = await insertInquiry({
+      listing_id: Number(agent.id),
+      project: application.project,
+      contact: application.contact,
+      message: application.message,
+    });
     if (error) {
       Sentry.captureException(error);
       throw error;
@@ -387,17 +114,6 @@ export default function FiscalAgentDirectory({ session }) {
       setToast({ kind: 'error', msg: 'Billing is temporarily unavailable — please try again later.' });
     }
   }
-
-  function clearFilters() {
-    setQuery('');
-    setActiveFocus('All');
-    setRegion('All');
-    setAcceptingOnly(false);
-    setSort('rating');
-  }
-
-  const hasFilters =
-    query || activeFocus !== 'All' || region !== 'All' || acceptingOnly || sort !== 'rating';
 
   return (
     <div className="fad-page">

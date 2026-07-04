@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { supabase } from '../../supabaseClient';
 import StatusBadge from '../common/StatusBadge';
 import GrantAttachments from './GrantAttachments';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, Legend } from 'recharts';
@@ -20,6 +19,7 @@ import {
 import './GrantDetail.css';
 import { formatDate } from '../../lib/format';
 import { getGrant } from '../../lib/data/grants';
+import { listGrantStatusHistory, listGrantComments } from '../../lib/data/grantReview';
 
 function GrantDetail({ session }) {
   const { id } = useParams();
@@ -42,18 +42,10 @@ function GrantDetail({ session }) {
       }
       setGrant(grantData);
 
-      const { data: historyData } = await supabase
-        .from('grant_status_history')
-        .select('*')
-        .eq('grant_id', id)
-        .order('created_at', { ascending: true });
+      const { data: historyData } = await listGrantStatusHistory(Number(id));
       setHistory(historyData || []);
 
-      const { data: commentsData } = await supabase
-        .from('grant_comments')
-        .select('*')
-        .eq('grant_id', id)
-        .order('created_at', { ascending: true });
+      const { data: commentsData } = await listGrantComments(Number(id));
       setComments(commentsData || []);
 
       setLoading(false);

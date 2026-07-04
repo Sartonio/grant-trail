@@ -1,18 +1,18 @@
 // src/components/AdminUserList.js
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { fmtDate } from '../../lib/format';
 import {
   FiArrowLeft, FiUsers, FiSearch, FiShield, FiUser,
-  FiCheckCircle, FiXCircle, FiLink, FiAlertCircle,
-  FiUserPlus, FiCopy, FiX,
+  FiXCircle, FiUserPlus,
 } from 'react-icons/fi';
 import {
   listTenantUsers, listActiveMemberships, updateUser,
-  waiveUserSubscription, removeUserMembership, createUserInvite,
+  waiveUserSubscription, removeUserMembership,
 } from '../../lib/data/users';
 import { useWriteGuard } from '../../lib/useWriteGuard';
 import ReadOnlyBanner from '../common/ReadOnlyBanner';
+import InviteUserForm from './InviteUserForm';
+import UserRow from './UserRow';
 import './Admin.css';
 
 function AdminUserList({ session, readOnly = false }) {
@@ -29,14 +29,7 @@ function AdminUserList({ session, readOnly = false }) {
 
   const myUid = session?.user?.id; // auth UUID of the logged-in admin
 
-  // Invite state
   const [showInviteForm, setShowInviteForm] = useState(false);
-  const [inviteRole, setInviteRole] = useState('grantee');
-  const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteLink, setInviteLink] = useState('');
-  const [inviteLoading, setInviteLoading] = useState(false);
-  const [inviteError, setInviteError] = useState('');
-  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     async function fetchUsers() {
@@ -102,46 +95,6 @@ function AdminUserList({ session, readOnly = false }) {
     setMemberships(prev => { const next = { ...prev }; delete next[u.id]; return next; });
   }
 
-  async function handleCreateInvite() {
-    if (!guardWrite()) return;
-    setInviteLoading(true);
-    setInviteError('');
-    setInviteLink('');
-    setCopied(false);
-
-    const tenantId = session?.userRecord?.tenant_id;
-    const { data, error: err } = await createUserInvite({
-      tenant_id: tenantId,
-      role: inviteRole,
-      email: inviteEmail.trim() || null,
-      created_by: session?.user?.id,
-    });
-
-    setInviteLoading(false);
-    if (err) {
-      setInviteError(err.message);
-      return;
-    }
-
-    const link = `${window.location.origin}/signup?invite=${data.token}`;
-    setInviteLink(link);
-  }
-
-  function handleCopyLink() {
-    navigator.clipboard.writeText(inviteLink);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }
-
-  function handleCloseInviteForm() {
-    setShowInviteForm(false);
-    setInviteRole('grantee');
-    setInviteEmail('');
-    setInviteLink('');
-    setInviteError('');
-    setCopied(false);
-  }
-
   // --- Derived data ---
 
   const q = search.toLowerCase();
@@ -192,69 +145,11 @@ function AdminUserList({ session, readOnly = false }) {
 
       {/* Invite Form */}
       {showInviteForm && (
-        <div className="admin-card" style={{ marginBottom: '1.5em' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1em' }}>
-            <h3 className="admin-card-title" style={{ margin: 0 }}><FiUserPlus /> Invite New User</h3>
-            <button onClick={handleCloseInviteForm} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}>
-              <FiX size={18} />
-            </button>
-          </div>
-
-          <div style={{ display: 'flex', gap: '1em', alignItems: 'flex-end', flexWrap: 'wrap' }}>
-            <div>
-              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.3em', fontFamily: 'var(--font-body)' }}>Role</label>
-              <select
-                value={inviteRole}
-                onChange={e => setInviteRole(e.target.value)}
-                disabled={inviteLoading}
-                style={{ padding: '0.5em 1em', borderRadius: '6px', border: '1.5px solid #e5e7eb', fontFamily: 'var(--font-body)', fontSize: '0.9rem' }}
-              >
-                <option value="grantee">Grantee</option>
-                <option value="admin">Admin</option>
-              </select>
-            </div>
-            <div style={{ flex: 1, minWidth: '200px' }}>
-              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.3em', fontFamily: 'var(--font-body)' }}>Email (optional)</label>
-              <input
-                type="email"
-                placeholder="user@example.com"
-                value={inviteEmail}
-                onChange={e => setInviteEmail(e.target.value)}
-                disabled={inviteLoading}
-                style={{ width: '100%', padding: '0.5em 1em', borderRadius: '6px', border: '1.5px solid #e5e7eb', fontFamily: 'var(--font-body)', fontSize: '0.9rem' }}
-              />
-            </div>
-            <button
-              className="admin-approve-btn"
-              onClick={handleCreateInvite}
-              disabled={inviteLoading}
-              style={{ whiteSpace: 'nowrap' }}
-            >
-              {inviteLoading ? 'Creating…' : 'Generate Invite Link'}
-            </button>
-          </div>
-
-          {inviteError && (
-            <p style={{ color: '#991b1b', fontSize: '0.88rem', marginTop: '0.75em' }}>{inviteError}</p>
-          )}
-
-          {inviteLink && (
-            <div style={{ marginTop: '1em', padding: '0.75em 1em', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '0.75em' }}>
-              <input
-                type="text"
-                readOnly
-                value={inviteLink}
-                style={{ flex: 1, padding: '0.4em 0.6em', border: '1px solid #d1d5db', borderRadius: '4px', fontSize: '0.85rem', fontFamily: 'var(--font-body)', background: '#fff' }}
-              />
-              <button
-                onClick={handleCopyLink}
-                style={{ display: 'flex', alignItems: 'center', gap: '0.3em', padding: '0.4em 0.8em', background: 'var(--color-primary)', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem', fontFamily: 'var(--font-body)' }}
-              >
-                <FiCopy size={14} /> {copied ? 'Copied!' : 'Copy'}
-              </button>
-            </div>
-          )}
-        </div>
+        <InviteUserForm
+          session={session}
+          guardWrite={guardWrite}
+          onClose={() => setShowInviteForm(false)}
+        />
       )}
 
       {/* Stat cards */}
@@ -332,201 +227,26 @@ function AdminUserList({ session, readOnly = false }) {
               </tr>
             </thead>
             <tbody>
-              {filtered.map(u => {
-                const isSelf     = u.user_id === myUid;
-                const isSuperAdmin = u.role === 'super_admin';
-                const isDisabled = !u.is_active;
-                const isSavingThis = saving === u.id;
-
-                return (
-                  <tr key={u.id} className={isDisabled ? 'user-row-disabled' : ''}>
-
-                    {/* Name */}
-                    <td className="grant-name-cell">
-                      {u.firstname} {u.lastname}
-                      {isSelf && <span className="user-self-badge"> (you)</span>}
-                    </td>
-
-                    {/* Email */}
-                    <td style={{ fontSize: '0.88rem' }}>{u.email}</td>
-
-                    {/* Organization */}
-                    <td style={{ fontSize: '0.88rem' }}>{u.organization_name || '—'}</td>
-
-                    {/* Role */}
-                    <td>
-                      <span className={`user-role-pill role-${u.role}`}>
-                        {u.role === 'admin' ? <FiShield size={11} /> : <FiUser size={11} />}
-                        {u.role}
-                      </span>
-                    </td>
-
-                    {/* Active status */}
-                    <td>
-                      <span className={`user-status-pill ${isDisabled ? 'status-disabled' : 'status-active'}`}>
-                        {isDisabled ? <FiXCircle size={11} /> : <FiCheckCircle size={11} />}
-                        {isDisabled ? 'Disabled' : 'Active'}
-                      </span>
-                    </td>
-
-                    {/* Subscription status */}
-                    <td>
-                      {u.role === 'super_admin' ? (
-                        <span className="user-status-pill" style={{ background: '#f3f4f6', color: '#6b7280', border: '1px solid #d1d5db' }}>Exempt</span>
-                      ) : u.role === 'admin' && isTfacTenant ? (
-                        <span className="user-status-pill" style={{ background: '#f3f4f6', color: '#6b7280', border: '1px solid #d1d5db' }}>Exempt</span>
-                      ) : memberships[u.id]?.source === 'manual' ? (
-                        <span className="user-status-pill" style={{ background: '#ede9fe', color: '#5b21b6', border: '1px solid #c4b5fd' }}>Waived</span>
-                      ) : memberships[u.id]?.membership_tier === 'premium' ? (
-                        <span className="user-status-pill" style={{ background: '#fef3c7', color: '#92400e', border: '1px solid #fcd34d' }}>Fiscal Agents Plan (Paid)</span>
-                      ) : memberships[u.id]?.membership_tier === 'basic' ? (
-                        <span className="user-status-pill" style={{ background: '#d1fae5', color: '#065f46', border: '1px solid #6ee7b7' }}>Basic (Paid)</span>
-                      ) : (
-                        <span className="user-status-pill" style={{ background: '#fef2f2', color: '#991b1b', border: '1px solid #fca5a5' }}>None</span>
-                      )}
-                    </td>
-
-                    {/* Linked */}
-                    <td>
-                      {u.user_id ? (
-                        <span className="user-linked-yes" title="Auth account linked"><FiLink size={14} /></span>
-                      ) : (
-                        <span
-                          className="user-linked-no"
-                          title="No auth account linked — run 05-After-User-Creation.sql"
-                        >
-                          <FiAlertCircle size={14} />
-                        </span>
-                      )}
-                    </td>
-
-                    {/* Joined */}
-                    <td className="date-cell">{fmtDate(u.created_at)}</td>
-
-                    {/* Actions */}
-                    <td className="user-actions-cell">
-                      {isSelf || isSuperAdmin ? (
-                        <span className="user-self-note">—</span>
-                      ) : (
-                        <>
-                          {/* Role toggle */}
-                          {confirmRole === u.id ? (
-                            <span className="user-confirm-group">
-                              <span className="user-confirm-label">
-                                Make {u.role === 'admin' ? 'Grantee' : 'Admin'}?
-                              </span>
-                              <button
-                                className="user-action-btn confirm"
-                                disabled={isSavingThis}
-                                onClick={() => handleRoleToggle(u)}
-                              >
-                                Yes
-                              </button>
-                              <button
-                                className="user-action-btn cancel"
-                                onClick={() => setConfirmRole(null)}
-                              >
-                                No
-                              </button>
-                            </span>
-                          ) : (
-                            <button
-                              className="user-action-btn role"
-                              title={u.role === 'admin' ? 'Make Grantee' : 'Make Admin'}
-                              onClick={() => { setConfirmDisable(null); setConfirmRole(u.id); }}
-                              disabled={isSavingThis}
-                            >
-                              <FiShield size={13} />
-                              {u.role === 'admin' ? 'Make Grantee' : 'Make Admin'}
-                            </button>
-                          )}
-
-                          {/* Enable/Disable toggle */}
-                          {confirmDisable === u.id ? (
-                            <span className="user-confirm-group">
-                              <span className="user-confirm-label">
-                                {isDisabled ? 'Enable' : 'Disable'} user?
-                              </span>
-                              <button
-                                className="user-action-btn confirm"
-                                disabled={isSavingThis}
-                                onClick={() => handleToggleActive(u)}
-                              >
-                                Yes
-                              </button>
-                              <button
-                                className="user-action-btn cancel"
-                                onClick={() => setConfirmDisable(null)}
-                              >
-                                No
-                              </button>
-                            </span>
-                          ) : (
-                            <button
-                              className={`user-action-btn ${isDisabled ? 'enable' : 'disable'}`}
-                              title={isDisabled ? 'Enable user' : 'Disable user'}
-                              onClick={() => { setConfirmRole(null); setConfirmDisable(u.id); }}
-                              disabled={isSavingThis}
-                            >
-                              {isDisabled
-                                ? <><FiCheckCircle size={13} /> Enable</>
-                                : <><FiXCircle size={13} /> Disable</>
-                              }
-                            </button>
-                          )}
-
-                          {/* Waive/Remove subscription requirement */}
-                          {(u.role === 'grantee' || (u.role === 'admin' && !isTfacTenant)) && (
-                            confirmWaive?.uid === u.id ? (
-                              <span className="user-confirm-group">
-                                <span className="user-confirm-label">
-                                  {confirmWaive.action === 'remove'
-                                    ? `Remove subscription waiver for ${u.firstname} ${u.lastname}? This will cut off their access if they have no active subscription.`
-                                    : `Waive subscription for ${u.firstname} ${u.lastname}? They will get full access without a paid subscription.`}
-                                </span>
-                                <button
-                                  className="user-action-btn confirm"
-                                  disabled={isSavingThis}
-                                  onClick={() => {
-                                    setConfirmWaive(null);
-                                    confirmWaive.action === 'remove' ? handleRemoveWaiver(u) : handleWaiveSubscription(u);
-                                  }}
-                                >
-                                  Yes
-                                </button>
-                                <button
-                                  className="user-action-btn cancel"
-                                  onClick={() => setConfirmWaive(null)}
-                                >
-                                  No
-                                </button>
-                              </span>
-                            ) : memberships[u.id]?.source === 'manual' ? (
-                              <button
-                                className="user-action-btn disable"
-                                title={u.role === 'admin' ? 'Remove waiver — admin will need a Fiscal Agents plan subscription' : 'Remove waiver — user will need a Stripe subscription'}
-                                onClick={() => { setConfirmRole(null); setConfirmDisable(null); setConfirmWaive({ uid: u.id, action: 'remove' }); }}
-                                disabled={isSavingThis}
-                              >
-                                <FiXCircle size={13} /> Remove Waiver
-                              </button>
-                            ) : !memberships[u.id] ? (
-                              <button
-                                className="user-action-btn enable"
-                                title={u.role === 'admin' ? 'Waive subscription — grant fiscal agent access without billing' : 'Waive subscription — grant full access for free'}
-                                onClick={() => { setConfirmRole(null); setConfirmDisable(null); setConfirmWaive({ uid: u.id, action: 'waive' }); }}
-                                disabled={isSavingThis}
-                              >
-                                <FiCheckCircle size={13} /> Waive
-                              </button>
-                            ) : null
-                          )}
-                        </>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
+              {filtered.map(u => (
+                <UserRow
+                  key={u.id}
+                  user={u}
+                  membership={memberships[u.id]}
+                  isSelf={u.user_id === myUid}
+                  isTfacTenant={isTfacTenant}
+                  isSavingThis={saving === u.id}
+                  confirmRole={confirmRole}
+                  confirmDisable={confirmDisable}
+                  confirmWaive={confirmWaive}
+                  setConfirmRole={setConfirmRole}
+                  setConfirmDisable={setConfirmDisable}
+                  setConfirmWaive={setConfirmWaive}
+                  onRoleToggle={handleRoleToggle}
+                  onToggleActive={handleToggleActive}
+                  onWaiveSubscription={handleWaiveSubscription}
+                  onRemoveWaiver={handleRemoveWaiver}
+                />
+              ))}
             </tbody>
           </table>
         </div>

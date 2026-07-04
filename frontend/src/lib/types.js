@@ -80,8 +80,15 @@
  * the source with `npm run db:types` after any migration.
  * @typedef {import('./database.types').Database['public']['Tables']['grant_record']['Row']} GrantRow
  * @typedef {import('./database.types').Database['public']['Tables']['grant_record']['Update']} GrantUpdate
+ * @typedef {import('./database.types').Database['public']['Tables']['grant_record']['Insert']} GrantInsert
+ * @typedef {import('./database.types').Database['public']['Tables']['budget_items']['Insert']} BudgetItemInsert
+ * @typedef {import('./database.types').Database['public']['Tables']['budget_items']['Update']} BudgetItemUpdate
  * @typedef {import('./database.types').Database['public']['Tables']['expenses']['Row']} ExpenseRow
+ * @typedef {import('./database.types').Database['public']['Tables']['expenses']['Insert']} ExpenseInsert
+ * @typedef {import('./database.types').Database['public']['Tables']['expenses']['Update']} ExpenseUpdate
  * @typedef {import('./database.types').Database['public']['Tables']['budget_items']['Row']} BudgetItemRow
+ * @typedef {import('./database.types').Database['public']['Tables']['receipts']['Insert']} ReceiptInsert
+ * @typedef {import('./database.types').Database['public']['Tables']['grant_attachments']['Insert']} GrantAttachmentInsert
  * @typedef {import('./database.types').Database['public']['Tables']['tenants']['Row']} TenantRow
  * @typedef {import('./database.types').Database['public']['Tables']['tenants']['Insert']} TenantInsert
  * @typedef {import('./database.types').Database['public']['Tables']['tenants']['Update']} TenantUpdate

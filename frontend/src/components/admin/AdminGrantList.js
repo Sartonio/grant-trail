@@ -1,7 +1,9 @@
 // src/components/AdminGrantList.js
 import React, { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { supabase } from '../../supabaseClient';
+import { listAllGrantsForAdmin } from '../../lib/data/grants';
+import { listPendingBudgetItemGrantIds } from '../../lib/data/budgetItems';
+import { listUnapprovedExpenseGrantIds } from '../../lib/data/expenses';
 import { FiSearch, FiArrowRight, FiArrowLeft, FiClock, FiArrowUp, FiArrowDown, FiDownload } from 'react-icons/fi';
 import StatusBadge from '../common/StatusBadge';
 import ReadOnlyBanner from '../common/ReadOnlyBanner';
@@ -38,10 +40,7 @@ function AdminGrantList({ readOnly = false }) {
     async function load() {
       setLoading(true);
       try {
-        const { data, error: err } = await supabase
-          .from('grant_record')
-          .select('id, grant_name, grant_amount, status, created_at, end_spend_period, user_id, users(firstname, lastname, organization_name)')
-          .order('created_at', { ascending: false });
+        const { data, error: err } = await listAllGrantsForAdmin();
 
         if (err) throw err;
         setGrants(data || []);
@@ -49,8 +48,8 @@ function AdminGrantList({ readOnly = false }) {
         const grantIds = (data || []).map(g => g.id);
         if (grantIds.length > 0) {
           const [{ data: pendingBi }, { data: pendingExp }] = await Promise.all([
-            supabase.from('budget_items').select('grant_id').in('grant_id', grantIds).eq('status', 'pending'),
-            supabase.from('expenses').select('grant_id').in('grant_id', grantIds).neq('status', 'approved'),
+            listPendingBudgetItemGrantIds(grantIds),
+            listUnapprovedExpenseGrantIds(grantIds),
           ]);
           const biMap = {};
           (pendingBi || []).forEach(r => { biMap[r.grant_id] = (biMap[r.grant_id] || 0) + 1; });

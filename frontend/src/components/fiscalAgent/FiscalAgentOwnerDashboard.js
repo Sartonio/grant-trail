@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { FaPen, FaInbox, FaIdCard } from 'react-icons/fa';
 import * as Sentry from '@sentry/react';
 import { canOwnListing, isReadOnlyAdmin, BILLING_NUDGE_PATH } from '../../lib/policy';
-import { getTenantListing, updateListingAccepting } from '../../lib/data/fiscalAgentListings';
+import { getTenantListing, updateListing } from '../../lib/data/fiscalAgentListings';
 import { useWriteGuard } from '../../lib/useWriteGuard';
 import { acceptSponsorshipInquiry, updateInquiryStatus, listInquiriesForListing } from '../../lib/data/inquiries';
 import { mapFullListing, mapInquiry } from './fiscalAgents.map';
@@ -84,7 +84,7 @@ export default function FiscalAgentOwnerDashboard({ session, readOnly: readOnlyP
     // Optimistic update with rollback on failure.
     setListing((l) => ({ ...l, accepting: nextAccepting }));
     try {
-      const { error } = await updateListingAccepting(listing.id, nextAccepting);
+      const { error } = await updateListing(listing.id, { accepting: nextAccepting });
       if (error) throw error;
     } catch (err) {
       Sentry.captureException(err);
@@ -167,7 +167,7 @@ export default function FiscalAgentOwnerDashboard({ session, readOnly: readOnlyP
           <strong>{listing.name}</strong>
           {readOnly ? (
             <>
-              {' '}is unlisted — your Fiscal Agent
+              {' '}is {listing.status === 'published' ? 'live' : 'unlisted'} — your Fiscal Agent
               subscription is inactive, so your listing is unlisted from the directory and this
               dashboard is read-only.{' '}
               <Link to={BILLING_NUDGE_PATH} className="fad-link">Resubscribe to edit</Link>.

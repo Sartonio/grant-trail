@@ -1,7 +1,9 @@
 // src/components/AdminAuditLog.js
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { supabase } from '../../supabaseClient';
+import { listAuditLog, getAuditDiff } from '../../lib/data/auditLog';
+import { listAuditUsers } from '../../lib/data/users';
+import { listExpenseGrantIds } from '../../lib/data/expenses';
 import { FiArrowLeft, FiActivity, FiX, FiChevronRight, FiChevronDown } from 'react-icons/fi';
 import ReadOnlyBanner from '../common/ReadOnlyBanner';
 import './Admin.css';
@@ -102,16 +104,13 @@ function AdminAuditLog({ readOnly = false }) {
 
   // Fetch users once
   useEffect(() => {
-    supabase
-      .from('users')
-      .select('user_id, firstname, lastname, role')
-      .then(({ data }) => {
-        const map = {};
-        (data || []).forEach(u => {
-          map[u.user_id] = `${u.firstname} ${u.lastname}${u.role === 'admin' ? ' (admin)' : ''}`;
-        });
-        setUserMap(map);
+    listAuditUsers().then(({ data }) => {
+      const map = {};
+      (data || []).forEach(u => {
+        map[u.user_id] = `${u.firstname} ${u.lastname}${u.role === 'admin' ? ' (admin)' : ''}`;
       });
+      setUserMap(map);
+    });
   }, []);
 
   // Fetch logs on mount, filter changes, and page changes
@@ -128,28 +127,15 @@ function AdminAuditLog({ readOnly = false }) {
       setError('');
 
       try {
-        const from = page * PAGE_SIZE;
-        const to   = from + PAGE_SIZE - 1;
-
-        let q = supabase
-          .from('audit_log')
-          .select('id, table_name, action, record_id, changed_by, created_at', { count: 'exact' })
-          .order('created_at', { ascending: false })
-          .range(from, to);
-
-        if (filterTable)  q = q.eq('table_name', filterTable);
-        if (filterAction) q = q.eq('action', filterAction);
-        if (filterUser)   q = q.eq('changed_by', filterUser);
-        if (filterFrom) {
-          const fromUtc = new Date(filterFrom + 'T00:00:00').toISOString();
-          q = q.gte('created_at', fromUtc);
-        }
-        if (filterTo) {
-          const toUtc = new Date(filterTo + 'T23:59:59').toISOString();
-          q = q.lte('created_at', toUtc);
-        }
-
-        const { data, error: logsErr, count } = await q;
+        const { data, error: logsErr, count } = await listAuditLog({
+          page,
+          pageSize: PAGE_SIZE,
+          table: filterTable,
+          action: filterAction,
+          user: filterUser,
+          from: filterFrom,
+          to: filterTo,
+        });
         if (cancelled) return;
         if (logsErr) throw logsErr;
         const auditRows = data || [];
@@ -169,10 +155,7 @@ function AdminAuditLog({ readOnly = false }) {
         const expenseAuditRows = auditRows.filter(r => r.table_name === 'expenses');
         if (expenseAuditRows.length > 0) {
           const expenseRecordIds = [...new Set(expenseAuditRows.map(r => r.record_id))];
-          const { data: expData } = await supabase
-            .from('expenses')
-            .select('id, grant_id')
-            .in('id', expenseRecordIds);
+          const { data: expData } = await listExpenseGrantIds(expenseRecordIds);
           if (!cancelled) {
             const expGrantMap = {};
             (expData || []).forEach(e => { expGrantMap[e.id] = e.grant_id; });
@@ -210,11 +193,7 @@ function AdminAuditLog({ readOnly = false }) {
     if (diffCache[row.id]) return;
 
     setDiffLoading(row.id);
-    const { data } = await supabase
-      .from('audit_log')
-      .select('old_values, new_values')
-      .eq('id', row.id)
-      .single();
+    const { data } = await getAuditDiff(row.id);
 
     setDiffCache(prev => ({ ...prev, [row.id]: data || {} }));
     setDiffLoading(null);

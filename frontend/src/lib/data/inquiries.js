@@ -14,19 +14,6 @@ import { supabase } from '../../supabaseClient';
  *
  * @param {number|string} inquiryId
  */
-/**
- * Inquiries for a listing, newest first. RLS scopes rows to the caller's
- * tenant-admin membership (listings are tenant-owned).
- *
- * @param {number|string} listingId
- */
-export const listInquiriesForListing = (listingId) =>
-  supabase
-    .from('sponsorship_inquiries')
-    .select('*')
-    .eq('listing_id', Number(listingId))
-    .order('submitted_at', { ascending: false });
-
 export const acceptSponsorshipInquiry = (inquiryId) =>
   supabase.rpc('accept_sponsorship_inquiry', { p_inquiry_id: Number(inquiryId) });
 
@@ -39,3 +26,21 @@ export const acceptSponsorshipInquiry = (inquiryId) =>
  */
 export const updateInquiryStatus = (inquiryId, status) =>
   supabase.from('sponsorship_inquiries').update({ status }).eq('id', Number(inquiryId));
+
+/**
+ * Seeker-submitted sponsorship application for a listing. Returns the new row's
+ * id ({ data: { id }, error }) so the caller can fire the notify-inquiry email.
+ *
+ * @param {{ listing_id: number, project: string, contact: string, message: string }} inquiry
+ */
+export const insertInquiry = (inquiry) =>
+  supabase.from('sponsorship_inquiries').insert(inquiry).select('id').single();
+
+// Inquiries for a listing, newest first (owner sponsorship inbox).
+/** @param {number|string} listingId */
+export const listInquiriesForListing = (listingId) =>
+  supabase
+    .from('sponsorship_inquiries')
+    .select('*')
+    .eq('listing_id', Number(listingId))
+    .order('submitted_at', { ascending: false });

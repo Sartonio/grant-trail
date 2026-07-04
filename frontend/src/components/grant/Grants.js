@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { supabase } from "../../supabaseClient";
+import { listGrantsForUser } from "../../lib/data/grants";
+import { listUnapprovedBudgetItemGrantIds } from "../../lib/data/budgetItems";
+import { listUnapprovedExpenseGrantIds } from "../../lib/data/expenses";
 import { filterSortGrants } from "../../utils/grantsList";
 import { formatDate } from "../../lib/format";
 import { timeRemaining } from "../../lib/format";
@@ -39,18 +41,15 @@ function Grants({ session }) {
     async function fetchGrants() {
       if (!session?.userRecord) return;
 
-      const { data, error } = await supabase
-        .from("grant_record")
-        .select("*")
-        .eq("user_id", session.userRecord.id);
+      const { data, error } = await listGrantsForUser(session.userRecord.id);
 
       if (!error && data) {
         setGrants(data);
         const grantIds = data.map(g => g.id);
         if (grantIds.length > 0) {
           const [{ data: pendingBi }, { data: pendingExp }] = await Promise.all([
-            supabase.from('budget_items').select('grant_id').in('grant_id', grantIds).neq('status', 'approved'),
-            supabase.from('expenses').select('grant_id').in('grant_id', grantIds).neq('status', 'approved'),
+            listUnapprovedBudgetItemGrantIds(grantIds),
+            listUnapprovedExpenseGrantIds(grantIds),
           ]);
           setGrantsWithPendingItems(new Set([
             ...(pendingBi || []).map(r => r.grant_id),

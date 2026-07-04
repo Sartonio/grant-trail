@@ -19,7 +19,8 @@ import {
   FaExclamationCircle,
 } from 'react-icons/fa';
 import * as Sentry from '@sentry/react';
-import { supabase } from '../../supabaseClient';
+import { getListing, getPublicListing } from '../../lib/data/fiscalAgentListings';
+import { insertInquiry } from '../../lib/data/inquiries';
 import { canViewDirectory } from '../../lib/policy';
 import { startCheckoutSession, MEMBERSHIP_TIERS } from '../../lib/billing';
 import { mapTeaserListing, mapFullListing } from './fiscalAgents.map';
@@ -55,21 +56,11 @@ export default function FiscalAgentProfile({ session }) {
       setLoading(true);
       try {
         if (subscribed) {
-          const { data, error } = await supabase
-            .from('fiscal_agent_listings')
-            .select('*')
-            .eq('id', Number(id))
-            .eq('status', 'published')
-            .eq('verification', 'verified')
-            .maybeSingle();
+          const { data, error } = await getListing(id);
           if (error) throw error;
           if (!cancelled) setAgent(data ? mapFullListing(data) : null);
         } else {
-          const { data, error } = await supabase
-            .from('fiscal_agent_listings_public')
-            .select('*')
-            .eq('id', Number(id))
-            .maybeSingle();
+          const { data, error } = await getPublicListing(id);
           if (error) throw error;
           if (!cancelled) setAgent(data ? mapTeaserListing(data) : null);
         }
@@ -105,16 +96,12 @@ export default function FiscalAgentProfile({ session }) {
   // seeker retry; on success the modal shows its own confirmation panel and stays
   // open until dismissed, so we don't close it here.
   async function handleApplicationSubmit(application) {
-    const { data, error } = await supabase
-      .from('sponsorship_inquiries')
-      .insert({
-        listing_id: Number(agent.id),
-        project: application.project,
-        contact: application.contact,
-        message: application.message,
-      })
-      .select('id')
-      .single();
+    const { data, error } = await insertInquiry({
+      listing_id: Number(agent.id),
+      project: application.project,
+      contact: application.contact,
+      message: application.message,
+    });
     if (error) {
       Sentry.captureException(error);
       throw error;

@@ -1,6 +1,8 @@
 import { useState, useRef } from 'react';
 import * as Sentry from '@sentry/react';
 import { supabase } from '../../supabaseClient';
+import { deleteExpense, insertExpense, updateExpense } from '../../lib/data/expenses';
+import { deleteReceiptByExpense, insertReceipt } from '../../lib/data/receipts';
 import {
   FaTimes,
   FaSave,
@@ -134,9 +136,9 @@ function AddExpenseModal({ grantId, budgetItemId, budgetItem, expenseItem, exist
 
     if (isUpdate) {
       // Replace existing receipt record for this expense
-      await supabase.from('receipts').delete().eq('expense_id', expenseId);
+      await deleteReceiptByExpense(expenseId);
     }
-    const { error: insertErr } = await supabase.from('receipts').insert(receiptPayload);
+    const { error: insertErr } = await insertReceipt(receiptPayload);
     if (insertErr) throw insertErr;
   }
 
@@ -159,21 +161,17 @@ function AddExpenseModal({ grantId, budgetItemId, budgetItem, expenseItem, exist
       if (isEditMode) {
         // Managed tenants: reset status to pending for admin re-review
         if (isManagedTenant) itemData.status = 'pending';
-        const { error: updateErr } = await supabase
-          .from('expenses')
-          .update(itemData)
-          .eq('id', expenseItem.id);
+        const { error: updateErr } = await updateExpense(expenseItem.id, itemData);
         if (updateErr) throw updateErr;
 
         if (receiptFile) {
           await uploadReceipt(expenseItem.id, true);
         }
       } else {
-        const { data: newExpense, error: insertErr } = await supabase
-          .from('expenses')
-          .insert([{ ...itemData, status: 'pending' }])
-          .select()
-          .single();
+        const { data: newExpense, error: insertErr } = await insertExpense({
+          ...itemData,
+          status: 'pending',
+        });
         if (insertErr) throw insertErr;
 
         if (receiptFile) {
@@ -181,7 +179,7 @@ function AddExpenseModal({ grantId, budgetItemId, budgetItem, expenseItem, exist
             await uploadReceipt(newExpense.id, false);
           } catch (uploadErr) {
             // Compensate: remove the expense we just created so data stays consistent
-            await supabase.from('expenses').delete().eq('id', newExpense.id);
+            await deleteExpense(newExpense.id);
             throw uploadErr;
           }
         }

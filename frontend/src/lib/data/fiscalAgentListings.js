@@ -19,29 +19,40 @@ export const getTenantListing = (tenantId) =>
     .order('updated_at', { ascending: false })
     .limit(1);
 
-// Toggle whether the tenant's listing is accepting projects. RLS scopes the
-// write to tenant-admin membership + the fiscal_agent entitlement.
-/**
- * @param {number|string} id
- * @param {boolean} accepting
- */
-export const updateListingAccepting = (id, accepting) =>
+// Directory: published + verified full rows (RLS returns them only to entitled
+// callers — subscribers/owners/super admins).
+export const listPublishedListings = () =>
   supabase
     .from('fiscal_agent_listings')
-    .update({ accepting })
-    .eq('id', Number(id));
+    .select('*')
+    .eq('status', 'published')
+    .eq('verification', 'verified');
 
-// Save owner-editable columns on the tenant's listing (see listingToRow — never
-// the verified/verification columns, which only super_admin can change).
-/**
- * @param {number|string} id
- * @param {object} row
- */
-export const updateTenantListing = (id, row) =>
+// Directory teaser: the public view (never exposes contact/fee data).
+export const listPublicListings = () =>
+  supabase.from('fiscal_agent_listings_public').select('*');
+
+// A single full listing by id (entitled callers only, via RLS). Mirrors the
+// verified-only visibility rule: only published + verified listings resolve.
+/** @param {number|string} id */
+export const getListing = (id) =>
   supabase
     .from('fiscal_agent_listings')
-    .update(row)
-    .eq('id', Number(id));
+    .select('*')
+    .eq('id', Number(id))
+    .eq('status', 'published')
+    .eq('verification', 'verified')
+    .maybeSingle();
+
+// A single teaser listing by id, from the public view.
+/** @param {number|string} id */
+export const getPublicListing = (id) =>
+  supabase.from('fiscal_agent_listings_public').select('*').eq('id', Number(id)).maybeSingle();
+
+// Owner-side listing edits (accepting toggle + full editor save).
+/** @param {number|string} id @param {Record<string, unknown>} updates */
+export const updateListing = (id, updates) =>
+  supabase.from('fiscal_agent_listings').update(updates).eq('id', Number(id));
 
 export const listPendingListings = () =>
   supabase

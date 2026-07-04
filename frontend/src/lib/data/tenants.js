@@ -43,6 +43,10 @@ export const updatePlatformSettings = (updates) =>
 export const setTenantActive = (id, isActive) =>
   supabase.from('tenants').update({ is_active: isActive }).eq('id', id);
 
+/** @param {number} tenantId @param {TenantSettingsUpdate} updates */
+export const updateTenantSettings = (tenantId, updates) =>
+  supabase.from('tenant_settings').update(updates).eq('tenant_id', tenantId);
+
 /**
  * @param {number} tenantId
  * @param {boolean} requireSubscription

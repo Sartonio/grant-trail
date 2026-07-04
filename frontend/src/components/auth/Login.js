@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { flushSync } from 'react-dom';
 import { supabase } from '../../supabaseClient';
+import { getUserByAuthId } from '../../lib/data/users';
 import { Link, useNavigate } from 'react-router-dom';
 import '../../styles/Login.css';
 
@@ -31,11 +32,7 @@ function Login({ onLogin }) {
     } else {
       const user = data.user;
 
-      const { data: userRecord, error: userError } = await supabase
-        .from('users')
-        .select('*')
-        .eq('user_id', user.id)
-        .single();
+      const { data: userRecord, error: userError } = await getUserByAuthId(user.id);
 
       if (userError || !userRecord) {
         // User verified their email but hasn't completed their profile yet

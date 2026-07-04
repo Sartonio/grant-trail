@@ -6,6 +6,15 @@ import { supabase } from '../../supabaseClient';
 /** @typedef {import('../types').UserTableUpdate} UserTableUpdate */
 /** @typedef {import('../types').InviteInsert} InviteInsert */
 
+// The signed-in user's profile row, looked up by their auth user id at login.
+/** @param {string} authUserId */
+export const getUserByAuthId = (authUserId) =>
+  supabase.from('users').select('*').eq('user_id', authUserId).single();
+
+// Names/roles keyed by auth user id, for the audit-log "changed by" filter.
+export const listAuditUsers = () =>
+  supabase.from('users').select('user_id, firstname, lastname, role');
+
 export const listTenantUsers = () =>
   supabase
     .from('users')

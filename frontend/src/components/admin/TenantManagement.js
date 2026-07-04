@@ -1,16 +1,16 @@
 // src/components/TenantManagement.js
 import React, { useState, useEffect } from 'react';
 import {
-  FiGrid, FiPlus, FiX, FiUsers, FiCheckCircle, FiXCircle, FiSearch, FiCopy, FiSave,
+  FiGrid, FiPlus, FiUsers, FiCheckCircle, FiXCircle, FiSearch,
 } from 'react-icons/fi';
 import { fmtDate } from '../../lib/format';
 import {
   listTenants, listAllUserTenantIds, listAllTenantSettings,
-  createTenant, createTenantSettings, createTenantAdminInvite,
-  getPlatformSettings, updatePlatformSettings,
   setTenantActive, setTenantRequireSubscription,
   listTenantUserIds, deleteManualMembershipsForUsers,
 } from '../../lib/data/tenants';
+import CreateTenantForm from './CreateTenantForm';
+import PlatformSettingsCard from './PlatformSettingsCard';
 import './Admin.css';
 
 function TenantManagement({ session }) {
@@ -23,33 +23,14 @@ function TenantManagement({ session }) {
   const [filterFrom, setFilterFrom] = useState('');
   const [filterTo, setFilterTo] = useState('');
 
-  // Create tenant form state
   const [showCreate, setShowCreate] = useState(false);
-  const [newName, setNewName] = useState('');
-  const [newSlug, setNewSlug] = useState('');
-  const [adminEmail, setAdminEmail] = useState('');
-  const [creating, setCreating] = useState(false);
-  const [createError, setCreateError] = useState('');
-  const [createSuccess, setCreateSuccess] = useState('');
-  const [inviteLink, setInviteLink] = useState('');
-  const [copied, setCopied] = useState(false);
 
   // Disable/enable confirm state
   const [confirmDisable, setConfirmDisable] = useState(null);
   const [saving, setSaving] = useState(null);
 
-  // Platform settings state
-  const [platformEmail, setPlatformEmail] = useState('');
-  const [platformPhone, setPlatformPhone] = useState('');
-  const [platformWebhook, setPlatformWebhook] = useState('');
-  const [platformSaving, setPlatformSaving] = useState(false);
-  const [platformSuccess, setPlatformSuccess] = useState('');
-  const [platformError, setPlatformError] = useState('');
-  const [platformOriginal, setPlatformOriginal] = useState({ email: '', phone: '', webhook: '' });
-
   useEffect(() => {
     fetchTenants();
-    fetchPlatformSettings();
   }, []);
 
   async function fetchTenants() {
@@ -88,125 +69,6 @@ function TenantManagement({ session }) {
     })));
     setLoading(false);
   }
-
-  async function handleCreateTenant() {
-    if (!newName.trim()) {
-      setCreateError('Tenant name is required.');
-      return;
-    }
-    if (!adminEmail.trim()) {
-      setCreateError('Admin email is required — the first admin needs an invite to set up the tenant.');
-      return;
-    }
-
-    // Auto-generate slug from name
-    const slug = newName.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-    setCreating(true);
-    setCreateError('');
-    setCreateSuccess('');
-    setInviteLink('');
-
-    // Create tenant
-    const { data: tenant, error: tErr } = await createTenant({ name: newName.trim(), slug, tenant_type: 'managed' });
-
-    if (tErr) {
-      setCreateError(
-        tErr.message?.includes('tenants_slug_key')
-          ? 'A tenant with that name already exists. Please choose a different name.'
-          : tErr.message
-      );
-      setCreating(false);
-      return;
-    }
-
-    // Create tenant settings with all approvals on
-    const { error: sErr } = await createTenantSettings({
-      tenant_id: tenant.id,
-      require_grant_approval: true,
-      require_budget_approval: true,
-      require_expense_approval: true,
-    });
-
-    if (sErr) {
-      setCreateError(`Tenant created but settings failed: ${sErr.message}`);
-      setCreating(false);
-      return;
-    }
-
-    // Generate admin invite for the new tenant
-    const { data: invite, error: iErr } = await createTenantAdminInvite({
-      tenant_id: tenant.id,
-      role: 'admin',
-      email: adminEmail.trim().toLowerCase(),
-      created_by: session?.user?.id,
-    });
-
-    if (iErr) {
-      setCreateError(`Tenant created but invite failed: ${iErr.message}`);
-      setCreating(false);
-      return;
-    }
-
-    const link = `${window.location.origin}/signup?invite=${invite.token}`;
-    setInviteLink(link);
-    setCreateSuccess(`Tenant "${newName.trim()}" created. Share the invite link below with the admin.`);
-    setCreating(false);
-    setNewName('');
-    setAdminEmail('');
-    setNewSlug('');
-    await fetchTenants();
-  }
-
-  function handleCloseCreate() {
-    setShowCreate(false);
-    setNewName('');
-    setNewSlug('');
-    setAdminEmail('');
-    setCreateError('');
-    setCreateSuccess('');
-    setInviteLink('');
-  }
-
-  async function fetchPlatformSettings() {
-    const { data } = await getPlatformSettings();
-    if (data) {
-      setPlatformEmail(data.default_support_email || '');
-      setPlatformPhone(data.default_support_phone || '');
-      setPlatformWebhook(data.alert_webhook_url || '');
-      setPlatformOriginal({
-        email: data.default_support_email || '',
-        phone: data.default_support_phone || '',
-        webhook: data.alert_webhook_url || '',
-      });
-    }
-  }
-
-  async function handleSavePlatformSettings() {
-    setPlatformSaving(true);
-    setPlatformError('');
-    setPlatformSuccess('');
-    const { error: err } = await updatePlatformSettings({
-      default_support_email: platformEmail.trim() || 'support@granttrail.org',
-      default_support_phone: platformPhone.trim() || '(555) 123-4567',
-      alert_webhook_url: platformWebhook.trim() || null,
-    });
-    setPlatformSaving(false);
-    if (err) {
-      setPlatformError(err.message);
-    } else {
-      setPlatformSuccess('Platform settings saved.');
-      setPlatformOriginal({
-        email: platformEmail.trim(),
-        phone: platformPhone.trim(),
-        webhook: platformWebhook.trim(),
-      });
-    }
-  }
-
-  const platformHasChanges =
-    platformEmail !== platformOriginal.email ||
-    platformPhone !== platformOriginal.phone ||
-    platformWebhook !== platformOriginal.webhook;
 
   async function handleToggleTenantActive(t) {
     const newActive = !t.is_active;
@@ -248,11 +110,6 @@ function TenantManagement({ session }) {
         ? { ...x, settings: { ...x.settings, require_subscription: newVal } }
         : x
     ));
-  }
-
-  // Auto-generate slug from name
-  function handleNameChange(val) {
-    setNewName(val);
   }
 
   const q = search.toLowerCase();
@@ -297,74 +154,11 @@ function TenantManagement({ session }) {
 
       {/* Create tenant form */}
       {showCreate && (
-        <div className="admin-card" style={{ marginBottom: '1.5em' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1em' }}>
-            <h3 className="admin-card-title" style={{ margin: 0 }}><FiPlus /> New Tenant</h3>
-            <button onClick={handleCloseCreate} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}>
-              <FiX size={18} />
-            </button>
-          </div>
-
-          <div style={{ display: 'flex', gap: '1em', alignItems: 'flex-end', flexWrap: 'wrap' }}>
-            <div style={{ flex: 1, minWidth: '200px' }}>
-              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.3em', fontFamily: 'var(--font-body)' }}>Tenant Name</label>
-              <input
-                type="text"
-                placeholder="e.g. Hope Foundation"
-                value={newName}
-                onChange={e => handleNameChange(e.target.value)}
-                disabled={creating || !!inviteLink}
-                style={{ width: '100%', padding: '0.5em 1em', borderRadius: '6px', border: '1.5px solid #e5e7eb', fontFamily: 'var(--font-body)', fontSize: '0.9rem' }}
-              />
-            </div>
-            <div style={{ flex: 1, minWidth: '200px' }}>
-              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.3em', fontFamily: 'var(--font-body)' }}>Admin Email</label>
-              <input
-                type="email"
-                placeholder="admin@organization.com"
-                value={adminEmail}
-                onChange={e => setAdminEmail(e.target.value)}
-                disabled={creating || !!inviteLink}
-                style={{ width: '100%', padding: '0.5em 1em', borderRadius: '6px', border: '1.5px solid #e5e7eb', fontFamily: 'var(--font-body)', fontSize: '0.9rem' }}
-              />
-            </div>
-            {!inviteLink && (
-              <button
-                className="admin-approve-btn"
-                onClick={handleCreateTenant}
-                disabled={creating}
-                style={{ whiteSpace: 'nowrap' }}
-              >
-                {creating ? 'Creating…' : 'Create Tenant'}
-              </button>
-            )}
-          </div>
-
-          {createError && (
-            <p style={{ color: '#991b1b', fontSize: '0.88rem', marginTop: '0.75em' }}>{createError}</p>
-          )}
-
-          {createSuccess && (
-            <p style={{ color: 'var(--color-success)', fontSize: '0.88rem', marginTop: '0.75em' }}>{createSuccess}</p>
-          )}
-
-          {inviteLink && (
-            <div style={{ marginTop: '1em', padding: '0.75em 1em', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '0.75em' }}>
-              <input
-                type="text"
-                readOnly
-                value={inviteLink}
-                style={{ flex: 1, padding: '0.4em 0.6em', border: '1px solid #d1d5db', borderRadius: '4px', fontSize: '0.85rem', fontFamily: 'var(--font-body)', background: '#fff' }}
-              />
-              <button
-                onClick={() => { navigator.clipboard.writeText(inviteLink); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
-                style={{ display: 'flex', alignItems: 'center', gap: '0.3em', padding: '0.4em 0.8em', background: 'var(--color-primary)', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem', fontFamily: 'var(--font-body)' }}
-              >
-                <FiCopy size={14} /> {copied ? 'Copied!' : 'Copy'}
-              </button>
-            </div>
-          )}
-        </div>
+        <CreateTenantForm
+          session={session}
+          onClose={() => setShowCreate(false)}
+          onCreated={fetchTenants}
+        />
       )}
 
       {/* Search and filters */}
@@ -538,63 +332,7 @@ function TenantManagement({ session }) {
       )}
 
       {/* Platform Settings */}
-      <div className="admin-card" style={{ maxWidth: '640px', marginTop: '2em' }}>
-        <h3 className="admin-card-title" style={{ margin: '0 0 0.5em' }}><FiGrid /> Platform Defaults</h3>
-        <p style={{ color: '#6b7280', fontSize: '0.88rem', marginBottom: '1em', lineHeight: 1.6 }}>
-          Default support contact shown in the footer for all self-service users and for managed tenants that haven't set their own.
-        </p>
-
-        <div style={{ display: 'flex', gap: '1em', flexWrap: 'wrap', marginBottom: '1em' }}>
-          <div style={{ flex: 1, minWidth: '200px' }}>
-            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.3em', fontFamily: 'var(--font-body)' }}>Default Support Email</label>
-            <input
-              type="email"
-              placeholder="support@granttrail.org"
-              value={platformEmail}
-              onChange={e => setPlatformEmail(e.target.value)}
-              style={{ width: '100%', padding: '0.5em 1em', borderRadius: '6px', border: '1.5px solid #e5e7eb', fontFamily: 'var(--font-body)', fontSize: '0.9rem' }}
-            />
-          </div>
-          <div style={{ flex: 1, minWidth: '200px' }}>
-            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.3em', fontFamily: 'var(--font-body)' }}>Default Support Phone</label>
-            <input
-              type="tel"
-              placeholder="(555) 123-4567"
-              value={platformPhone}
-              onChange={e => setPlatformPhone(e.target.value)}
-              style={{ width: '100%', padding: '0.5em 1em', borderRadius: '6px', border: '1.5px solid #e5e7eb', fontFamily: 'var(--font-body)', fontSize: '0.9rem' }}
-            />
-          </div>
-        </div>
-
-        <div style={{ marginBottom: '1.25em' }}>
-          <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.3em', fontFamily: 'var(--font-body)' }}>Alerting Webhook URL</label>
-          <input
-            type="url"
-            placeholder="e.g. https://hooks.slack.com/services/..."
-            value={platformWebhook}
-            onChange={e => setPlatformWebhook(e.target.value)}
-            style={{ width: '100%', padding: '0.5em 1em', borderRadius: '6px', border: '1.5px solid #e5e7eb', fontFamily: 'var(--font-body)', fontSize: '0.9rem' }}
-          />
-          <p style={{ color: '#6b7280', fontSize: '0.78rem', marginTop: '0.3em', lineHeight: 1.4, fontFamily: 'var(--font-body)' }}>
-            Sends an HTTP POST alert for critical system failures (e.g. Stripe webhook processing failures) using database webhooks.
-          </p>
-        </div>
-
-        {platformError && <p style={{ color: '#991b1b', fontSize: '0.88rem', marginTop: '0.75em' }}>{platformError}</p>}
-        {platformSuccess && <p style={{ color: 'var(--color-success)', fontSize: '0.88rem', marginTop: '0.75em' }}>{platformSuccess}</p>}
-
-        <div style={{ marginTop: '1em' }}>
-          <button
-            className="admin-approve-btn"
-            onClick={handleSavePlatformSettings}
-            disabled={platformSaving || !platformHasChanges}
-            style={{ display: 'flex', alignItems: 'center', gap: '0.4em', opacity: platformHasChanges ? 1 : 0.5 }}
-          >
-            <FiSave size={15} /> {platformSaving ? 'Saving…' : 'Save Platform Defaults'}
-          </button>
-        </div>
-      </div>
+      <PlatformSettingsCard />
     </div>
   );
 }

@@ -1,7 +1,7 @@
 // src/components/AdminSettings.js
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { supabase } from '../../supabaseClient';
+import { updateTenantSettings } from '../../lib/data/tenants';
 import { FiArrowLeft, FiSettings, FiSave } from 'react-icons/fi';
 import { useWriteGuard } from '../../lib/useWriteGuard';
 import ReadOnlyBanner from '../common/ReadOnlyBanner';
@@ -35,16 +35,13 @@ function AdminSettings({ session, readOnly = false }) {
     setError('');
     setSuccess('');
 
-    const { error: err } = await supabase
-      .from('tenant_settings')
-      .update({
-        require_grant_approval: requireGrant,
-        require_budget_approval: requireBudget,
-        require_expense_approval: requireExpense,
-        support_email: supportEmail.trim() || null,
-        support_phone: supportPhone.trim() || null,
-      })
-      .eq('tenant_id', tenantId);
+    const { error: err } = await updateTenantSettings(tenantId, {
+      require_grant_approval: requireGrant,
+      require_budget_approval: requireBudget,
+      require_expense_approval: requireExpense,
+      support_email: supportEmail.trim() || null,
+      support_phone: supportPhone.trim() || null,
+    });
 
     setSaving(false);
     if (err) {
