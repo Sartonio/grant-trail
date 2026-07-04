@@ -171,12 +171,12 @@ function ProfileModal({ agent, locked, saved, onToggleSave, onClose, onContact }
 
                 <div className="fad-contactlines">
                   {agent.website && (
-                    <a href={`https://${agent.website}`} onClick={(e) => e.preventDefault()}>
+                    <a href={`https://${agent.website}`} target="_blank" rel="noopener noreferrer">
                       <FaGlobe /> {agent.website}
                     </a>
                   )}
                   {agent.email && (
-                    <a href={`mailto:${agent.email}`} onClick={(e) => e.preventDefault()}>
+                    <a href={`mailto:${agent.email}`}>
                       <FaEnvelope /> {agent.email}
                     </a>
                   )}
@@ -212,7 +212,7 @@ function ProfileModal({ agent, locked, saved, onToggleSave, onClose, onContact }
                   Contact details, fees, and eligibility for this fiscal agent are part of a
                   Basic subscription.
                 </p>
-                <Link to="/fiscal-agents" className="fad-btn fad-btn-primary fad-btn-block">
+                <Link to="/subscription" className="fad-btn fad-btn-primary fad-btn-block">
                   See plans <FaArrowRight />
                 </Link>
               </div>

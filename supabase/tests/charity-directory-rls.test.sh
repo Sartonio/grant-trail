@@ -161,8 +161,11 @@ assert_contains "PostgREST anon: base table leaks no contact email" "$(
 # ============================================================================
 # ITEM 2 — Directory SELECT gating (full rows incl. contact columns)
 # ============================================================================
-# Ground truth: only personas c (basic), d (owner), e (super_admin)
-# may read full rows with contact columns. a (anon) and b (authed no access) cannot.
+# Ground truth: non-owner subscribers (c basic, f premium) may read full rows
+# ONLY for published+verified listings; owner (d) sees their whole tenant in any
+# status; super_admin (e) sees everything. a (anon) and b (authed no access) cannot.
+# Verified-only visibility is enforced in RLS, not the client (migration
+# 20260704011516_rls_fiscal_agent_listing_verified_visibility).
 
 # (a) anonymous — anon has no SELECT grant on the base table, so the read is
 # rejected at the privilege layer (permission denied) — a strictly stronger gate
@@ -181,11 +184,16 @@ assert_eq "(b) authed user w/o basic reads 0 full listings" "0" "$(scalar "$out"
 out=$(psql_as "$GRANTEE_SELF" "$(m_lapse $UID9)" "SELECT has_basic_membership();")
 assert_eq "(b) has_basic_membership() is false for lapsed grantee" "f" "$(boolean "$out")"
 
-# (c) authenticated WITH basic sees ALL listings incl. contact columns.
+# (c) authenticated non-owner WITH basic sees ONLY published+verified listings.
+# user 6 is a tenant-2 grantee (not an admin), so the owner arm never applies —
+# the verified gate is what they get. Listing 1 (published+verified) is visible;
+# listing 2 (draft) and listing 3 (published-UNverified) are not.
 out=$(psql_as "$GRANTEE_BRIGHT" "$(m_basic $UID6)" "SELECT count(*) FROM fiscal_agent_listings;")
-assert_eq "(c) basic user reads ALL 3 full listings" "3" "$(scalar "$out")"
+assert_eq "(c) basic non-owner reads ONLY the 1 published+verified listing" "1" "$(scalar "$out")"
 out=$(psql_as "$GRANTEE_BRIGHT" "$(m_basic $UID6)" "SELECT email FROM fiscal_agent_listings WHERE id=1;")
-assert_contains "(c) basic user CAN see contact email" "partnerships@cedarroots.org" "$out"
+assert_contains "(c) basic non-owner CAN see contact email on published+verified listing" "partnerships@cedarroots.org" "$out"
+out=$(psql_as "$GRANTEE_BRIGHT" "$(m_basic $UID6)" "SELECT count(*) FROM fiscal_agent_listings WHERE id IN (2,3);")
+assert_eq "(c) basic non-owner CANNOT see draft or unverified listings" "0" "$(scalar "$out")"
 out=$(psql_as "$GRANTEE_BRIGHT" "$(m_basic $UID6)" "SELECT has_basic_membership();")
 assert_eq "(c) has_basic_membership() true after granting tier" "t" "$(boolean "$out")"
 
@@ -217,9 +225,11 @@ assert_contains "(e) super_admin CAN see contact email" "intake@northwindfund.or
 out=$(psql_as "$GRANTEE_BRIGHT2" "$(m_fa $UID7)" "SELECT has_basic_membership();")
 assert_eq "(f) has_basic_membership() true for premium tier (premium ⊇ basic)" "t" "$(boolean "$out")"
 out=$(psql_as "$GRANTEE_BRIGHT2" "$(m_fa $UID7)" "SELECT count(*) FROM fiscal_agent_listings;")
-assert_eq "(f) premium (non-owner) subscriber reads ALL 3 full listings" "3" "$(scalar "$out")"
+assert_eq "(f) premium (non-owner) subscriber reads ONLY the 1 published+verified listing" "1" "$(scalar "$out")"
 out=$(psql_as "$GRANTEE_BRIGHT2" "$(m_fa $UID7)" "SELECT email FROM fiscal_agent_listings WHERE id=1;")
-assert_contains "(f) premium (non-owner) subscriber CAN see contact email" "partnerships@cedarroots.org" "$out"
+assert_contains "(f) premium (non-owner) subscriber CAN see contact email on published+verified listing" "partnerships@cedarroots.org" "$out"
+out=$(psql_as "$GRANTEE_BRIGHT2" "$(m_fa $UID7)" "SELECT count(*) FROM fiscal_agent_listings WHERE id IN (2,3);")
+assert_eq "(f) premium (non-owner) subscriber CANNOT see draft or unverified listings" "0" "$(scalar "$out")"
 
 # ============================================================================
 # ITEM 3 — Inquiry INSERT gating

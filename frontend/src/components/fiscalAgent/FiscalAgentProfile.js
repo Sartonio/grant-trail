@@ -16,6 +16,7 @@ import {
   FaShieldAlt,
   FaMoneyBillWave,
   FaArrowRight,
+  FaExclamationCircle,
 } from 'react-icons/fa';
 import * as Sentry from '@sentry/react';
 import { supabase } from '../../supabaseClient';
@@ -58,6 +59,8 @@ export default function FiscalAgentProfile({ session }) {
             .from('fiscal_agent_listings')
             .select('*')
             .eq('id', Number(id))
+            .eq('status', 'published')
+            .eq('verification', 'verified')
             .maybeSingle();
           if (error) throw error;
           if (!cancelled) setAgent(data ? mapFullListing(data) : null);
@@ -94,7 +97,7 @@ export default function FiscalAgentProfile({ session }) {
     } catch (err) {
       Sentry.captureException(err);
       setCheckoutBusy(false);
-      setNotice({ kind: 'apply', msg: 'Billing is temporarily unavailable — please try again later.' });
+      setNotice({ kind: 'error', msg: 'Billing is temporarily unavailable — please try again later.' });
     }
   }
 
@@ -287,8 +290,11 @@ export default function FiscalAgentProfile({ session }) {
         <aside className="fap-side">
           <div className="fap-side-sticky">
             {notice && (
-              <div className={`fap-notice fap-notice-${notice.kind}`} role="status">
-                <FaCheckCircle /> {notice.msg}
+              <div
+                className={`fap-notice fap-notice-${notice.kind}`}
+                role={notice.kind === 'error' ? 'alert' : 'status'}
+              >
+                {notice.kind === 'error' ? <FaExclamationCircle /> : <FaCheckCircle />} {notice.msg}
               </div>
             )}
 
@@ -317,12 +323,12 @@ export default function FiscalAgentProfile({ session }) {
 
                 <div className="fad-contactlines">
                   {agent.website && (
-                    <a href={`https://${agent.website}`} onClick={(e) => e.preventDefault()}>
+                    <a href={`https://${agent.website}`} target="_blank" rel="noopener noreferrer">
                       <FaGlobe /> {agent.website}
                     </a>
                   )}
                   {agent.email && (
-                    <a href={`mailto:${agent.email}`} onClick={(e) => e.preventDefault()}>
+                    <a href={`mailto:${agent.email}`}>
                       <FaEnvelope /> {agent.email}
                     </a>
                   )}

@@ -275,6 +275,11 @@
   color: #075985;
 }
 
+.fap-notice-error {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
 /* ---- Not found ---- */
 .fap-notfound {
   text-align: center;
