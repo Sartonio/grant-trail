@@ -132,10 +132,17 @@ export async function getOrCreateStripeCustomer(profile: {
     },
   });
 
-  const { error: insertError } = await adminSupabase.from('billing_customers').insert({
-    user_id: profile.profileId,
-    stripe_customer_id: customer.id,
-  });
+  // Upsert, not insert: get-or-create is not atomic (the Stripe round-trip sits
+  // between the SELECT and this write), so a concurrent call or a leftover row
+  // would make a plain INSERT die on billing_customers_user_id_key. Last writer
+  // wins; both writers hold a freshly created customer for the same user.
+  const { error: insertError } = await adminSupabase.from('billing_customers').upsert(
+    {
+      user_id: profile.profileId,
+      stripe_customer_id: customer.id,
+    },
+    { onConflict: 'user_id' },
+  );
 
   if (insertError) {
     throw new Error(`Unable to save billing customer: ${insertError.message}`);

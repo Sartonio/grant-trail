@@ -212,7 +212,11 @@ get_token() {
 # Remove all Lane-F test fixtures (DB rows + GoTrue users + per-test tenants).
 cleanup_test_users() {
   local ids
-  ids=$(dbq "SELECT user_id FROM users WHERE email LIKE 'lanef-%@example.com';")
+  # Collect auth ids from auth.users (not public.users): an interrupted run can
+  # die between the GoTrue create and the public.users INSERT, leaving an
+  # orphaned auth user a public-row-based sweep would never find — and a leaked
+  # auth user makes every later create_test_user for that email fail (422).
+  ids=$(dbq "SELECT id FROM auth.users WHERE email LIKE 'lanef-%@example.com';")
   dbx "DELETE FROM users WHERE email LIKE 'lanef-%@example.com';"
   # Drop the per-admin tenants minted by create_test_user (tenant_settings
   # cascades via FK). Safe only after their users are gone (above).
