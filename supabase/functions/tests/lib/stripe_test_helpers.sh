@@ -93,7 +93,33 @@ ensure_functions_served() {
     source "$envfile"; set +a
   fi
 
-  _functions_up && return 0
+  # One failed probe is not proof the server is down (worker recycle, restart
+  # window). Starting a competing serve against a live one tears down its
+  # edge-runtime container and strands Kong ("name resolution failed"), so
+  # require three consecutive misses before we take over.
+  for i in 1 2 3; do
+    _functions_up && return 0
+    sleep 1
+  done
+
+  # In CI there is no supabase/functions/.env — the Stripe secrets arrive as
+  # exported env vars. Serving with a missing --env-file makes the CLI die
+  # after it has already replaced the runtime container. Synthesize one.
+  if [ ! -f "$envfile" ]; then
+    if [ -z "${STRIPE_SECRET_KEY:-}" ]; then
+      echo "FATAL: no ${envfile} and STRIPE_SECRET_KEY not exported — cannot serve functions" >&2
+      return 1
+    fi
+    envfile="$(mktemp -t lanef-env.XXXXXX)"
+    {
+      echo "STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}"
+      echo "STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET:-}"
+      echo "STRIPE_PRICE_BASIC=${STRIPE_PRICE_BASIC:-}"
+      echo "STRIPE_PRICE_FISCAL_AGENT=${STRIPE_PRICE_FISCAL_AGENT:-}"
+      echo "APP_URL=${APP_URL:-http://localhost:3000}"
+    } > "$envfile"
+  fi
+
   logfile="$(mktemp -t lanef-serve.XXXXXX.log)"
   info "no functions server up — starting one (log: ${logfile})"
   ( cd "$root" && npx --prefix frontend supabase functions serve \
