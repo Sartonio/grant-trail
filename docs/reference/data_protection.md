@@ -151,10 +151,10 @@ via `current_tenant_id()` (schema:125) and per-table `tenant_id` scoping, with
 role checks through `is_admin()` / `is_super_admin()`. The recent hardening pass
 (documented in `docs/reference/rls_audit_findings.md`) closed several genuine gaps in
 forward migrations: a **vertical privilege-escalation** hole where users could
-update their own `role` (`20260619120000_rls_audit_fix_privilege_escalation`), a
-**world-readable `invites`** table leaking every token + email to `anon`
-(`20260619140000_invites_token_scoped_read`), and **tenant-blind storage
-objects** where any authenticated user could read/overwrite another org's
-uploaded files (`20260619150000_storage_tenant_scoping`). These fixes
+update their own `role` (now part of the squashed baseline,
+`20260630130000_squashed_schema.sql`), a **world-readable `invites`** table
+leaking every token + email to `anon`, and **tenant-blind storage objects**
+where any authenticated user could read/overwrite another org's uploaded
+files (both also folded into the squashed baseline). These fixes
 substantially tighten the access boundary, but data-subject tooling (export /
 erasure) still sits outside this layer.

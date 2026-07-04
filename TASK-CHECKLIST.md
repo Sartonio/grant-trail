@@ -8,4 +8,3 @@
 - [ ]  Setup Resend in Supabase
 - [ ]  Run load test against prod Supabase
 - [ ]  Run security overview (`🟢` item in TEST-CHECKLIST.md)
-

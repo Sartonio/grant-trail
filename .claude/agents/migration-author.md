@@ -18,9 +18,12 @@ without correct RLS is a security hole, not an incomplete feature.
 
 ## Before you write anything
 1. Read the 2-3 most recent files in `supabase/migrations/` to match the live
-   style. `20260624120000_charity_directory.sql` (new tables + RLS) and
-   `20260619120000_rls_audit_fix_privilege_escalation.sql` (escalation fixes)
-   are the canonical references.
+   style. The old per-feature migrations were squashed into
+   `20260630130000_squashed_schema.sql` — it's now the canonical reference for
+   both patterns: charity-directory tables + RLS (`fiscal_agent_listings`,
+   `fiscal_agent_listings_public`, `enforce_listing_moderation_guard`) and the
+   self-update privilege-freeze trigger (`enforce_user_self_update_guard`).
+   Grep that file for a pattern before reinventing it.
 2. Identify the existing helper functions instead of reinventing predicates:
    `public.current_tenant_id()`, `public.is_admin()`, `public.is_super_admin()`,
    `public.has_basic_membership()`, `public.has_premium_membership()`, and the
@@ -30,8 +33,8 @@ without correct RLS is a security hole, not an incomplete feature.
 `supabase/migrations/YYYYMMDDHHMMSS_snake_case_name.sql`, UTC timestamp,
 strictly greater than the latest existing migration so it sorts last. Get it
 with `date -u +%Y%m%d%H%M%S`. Never edit a historical migration — every change
-is a new forward migration (the repo states this explicitly in the audit
-migration's header).
+is a new forward migration (the squashed baseline's header says as much: "Do
+NOT edit this file. Make schema changes via a new migration on top.").
 
 ## File structure (match the repo)
 - Open with a `-- ===`-boxed comment block stating the migration's INTENT: what
@@ -55,8 +58,9 @@ migration's header).
   and/or ownership (`owner_user_id IN (SELECT id FROM users WHERE user_id = auth.uid())`).
 - INSERT/UPDATE policies MUST carry the predicate in `WITH CHECK`, and UPDATE
   must repeat it in both `USING` and `WITH CHECK` so ownership/tenant_id cannot
-  be reassigned away. A `USING` clause with no `WITH CHECK` is the exact
-  privilege-escalation bug fixed in `20260619120000` — never reproduce it.
+  be reassigned away. A `USING` clause with no `WITH CHECK` lets Postgres reuse
+  `USING` as the check, leaving every other column writable — a real
+  privilege-escalation bug this app has shipped before. Never reproduce it.
 - Billing gating belongs in RLS too: writes that require a paid tier carry
   `has_basic_membership()` / `has_premium_membership()`; super_admin and exempt
   tenants pass via those helpers. A lapsed admin keeps SELECT but loses the

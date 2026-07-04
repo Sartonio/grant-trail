@@ -99,7 +99,9 @@ A change is NOT done until it meets these. Don't declare completion otherwise.
   keys are absent (stack tier skipped with a warning) — run it where they exist.
 - **NEW code uses the `lib/data/` access layer.** No raw `supabase.from(...)` in components; add or
   reuse a thin function in `frontend/src/lib/data/<entity>.js` (each typed to its table via the
-  generated `lib/database.types.ts`). Components import from there.
+  generated `lib/database.types.ts`). Components import from there. ESLint enforces this
+  (`no-restricted-syntax` over `src/components/**` in `frontend/package.json`) — raw
+  `supabase.from(...)` in a component fails lint. `supabase.auth`/`.storage` are exempt.
 - **Types stay honest.** After any migration, regenerate `lib/database.types.ts`
   (`npm run db:types --prefix frontend`); annotate new `lib/`/`hooks/` code with JSDoc so
   `npm run typecheck` stays green over the enforced scope.
@@ -123,6 +125,6 @@ Defined in `.claude/agents/` — prefer them for their domains:
 
 ## Docs
 
-Full docs under `docs/` (Diátaxis: `tutorials/`, `how_to/`, `reference/`, `explanation/`, `roadmap/`).
+Full docs under `docs/` (Diátaxis: `tutorials/`, `how_to/`, `reference/`, `explanation/`).
 Setup is three flows: `docs/how_to/dev_setup.md`, `staging_setup.md`, `prod_setup.md`; everyday
-ops in `docs/how_to/dev_practices.md`.
+ops in `docs/how_to/dev_practices.md`. Open work and known issues/flakes: `TASK-CHECKLIST.md`.

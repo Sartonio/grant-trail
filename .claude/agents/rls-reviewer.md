@@ -34,9 +34,8 @@ RLS policy is exploitable regardless of what the UI shows.
 - `tenant_id` is NEVER trusted from the client — it must be derived by a
   `SECURITY DEFINER` `BEFORE INSERT` trigger that force-overwrites it (pattern:
   `set_inquiry_tenant_id`, `set_grant_tenant_id`). Flag any INSERT path that
-  lets a caller supply tenant_id, even if the SELECT policy is scoped (the row
-  still lands in the victim tenant and fires its triggers — GAP 3 in
-  `20260619120000`).
+  lets a caller supply tenant_id, even if the SELECT policy is scoped — the row
+  still lands in the victim tenant and fires its triggers.
 - Watch for IDOR: a policy scoped only by id, not by ownership/tenant.
 
 ## 2. Billing gating
@@ -51,9 +50,10 @@ RLS policy is exploitable regardless of what the UI shows.
 
 ## 3. Privilege escalation
 - Any UPDATE policy with `USING` but no `WITH CHECK` is critical — Postgres
-  reuses USING as the check, leaving every other column writable (the exact bug
-  in `20260619120000`). UPDATE must restate the full predicate in WITH CHECK so
-  ownership/tenant_id/role cannot be reassigned.
+  reuses USING as the check, leaving every other column writable (a real
+  privilege-escalation bug this app has shipped and fixed before). UPDATE must
+  restate the full predicate in WITH CHECK so ownership/tenant_id/role cannot
+  be reassigned.
 - Trust columns (`role`, `tenant_id`, `is_active`, `verification`, `verified`,
   etc.) must be frozen on self-writes by a guard trigger that exempts only
   `is_super_admin()` / `service_role` (see `enforce_user_self_update_guard`,
