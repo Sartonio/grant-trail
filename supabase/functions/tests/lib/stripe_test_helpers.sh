@@ -128,8 +128,16 @@ ensure_functions_served() {
 
   logfile="$(mktemp -t lanef-serve.XXXXXX.log)"
   info "no functions server up — starting one (log: ${logfile})"
-  ( cd "$root" && npx --prefix frontend supabase functions serve \
-      --env-file "$envfile" ) > "$logfile" 2>&1 &
+  # Prefer the supabase binary on PATH (CI installs it via setup-cli and runs
+  # no npm install, so npx would re-download the CLI); fall back to the
+  # frontend dev-dependency for local shells without a global install.
+  if command -v supabase >/dev/null 2>&1; then
+    ( cd "$root" && supabase functions serve \
+        --env-file "$envfile" ) > "$logfile" 2>&1 &
+  else
+    ( cd "$root" && npx --prefix frontend supabase functions serve \
+        --env-file "$envfile" ) > "$logfile" 2>&1 &
+  fi
   _SERVE_STARTED_HERE=1
   trap _stop_functions_served EXIT
   for i in $(seq 1 60); do

@@ -13,12 +13,18 @@
 #
 # Prerequisites (local only -- never touches production):
 #   1. npm run db:start            # local Supabase stack (+ seed users)
-#   2. cp supabase/.env.example supabase/.env   # dummy Stripe values are fine
-#   3. npx supabase functions serve --env-file supabase/.env   # in another shell
+#   2. Stripe env: supabase/functions/.env, or exported STRIPE_* vars
+#      (dummy values are fine -- the point is that the Stripe call fails).
+#      Serving is automatic via ensure_functions_served (same path as the
+#      other suites and local runs).
 #
 # Run:  bash supabase/functions/tests/system-logs-failure.test.sh
 
 set -euo pipefail
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/stripe_test_helpers.sh
+source "${HERE}/lib/stripe_test_helpers.sh"
+ensure_functions_served || exit 1
 
 API_URL="${API_URL:-http://127.0.0.1:54321}"
 PROJECT_ID="grant-trail"

@@ -166,14 +166,14 @@ jobs:
           source .github/scripts/edge-fn-ci-lib.sh
           # Dummy, non-empty Stripe secrets so the billing function modules boot
           # (they throw on an empty STRIPE_SECRET_KEY). These never touch prod.
-          cat > supabase/.env <<'ENVEOF'
-          STRIPE_SECRET_KEY="sk_test_dummy_ci"
-          STRIPE_PRICE_BASIC="price_dummy_basic"
-          STRIPE_PRICE_FISCAL_AGENT="price_dummy_fiscal_agent"
-          STRIPE_WEBHOOK_SECRET="whsec_dummy"
-          APP_URL="http://localhost:3000"
-          ENVEOF
-          serve_functions_and_wait supabase/.env || exit 1
+          # Serving is owned by the tests' own ensure_functions_served (the single
+          # serve/readiness path, shared with local runs); with no
+          # supabase/functions/.env in CI it synthesizes one from these exports.
+          export STRIPE_SECRET_KEY="sk_test_dummy_ci"
+          export STRIPE_PRICE_BASIC="price_dummy_basic"
+          export STRIPE_PRICE_FISCAL_AGENT="price_dummy_fiscal_agent"
+          export STRIPE_WEBHOOK_SECRET="whsec_dummy"
+          export APP_URL="http://localhost:3000"
           # FAST tier: local-stack-only tests (no Stripe forwarder, no live Stripe
           # API). checkout-sessions.test.sh is deliberately NOT here — it makes
           # real Stripe API calls (a dummy key 401s) and is owned by the
@@ -181,9 +181,6 @@ jobs:
           mapfile -t FAST_TESTS < <(select_tests \
             system-logs-failure.test.sh)
           run_tests "${FAST_TESTS[@]}"
-          status=$?
-          stop_functions
-          exit $status
 
   # DB-level trigger / function proof tests. These drive the local Supabase
   # Postgres directly (docker exec psql, rolled-back transactions) — no edge
@@ -285,7 +282,6 @@ jobs:
           APP_URL: http://localhost:3000
         run: |
           set -uo pipefail
-          source .github/scripts/edge-fn-ci-lib.sh
           # Start the forwarder and derive the signing secret it will use, so the
           # served stripe-webhook verifies signatures against the live loop.
           stripe listen --forward-to "${API_URL}/functions/v1/stripe-webhook" \
@@ -293,19 +289,13 @@ jobs:
           STRIPE_LISTEN_PID=$!
           STRIPE_WEBHOOK_SECRET="$(stripe listen --print-secret)"
           export STRIPE_WEBHOOK_SECRET
-          # Hand the (TEST-mode) secrets to the served functions.
-          cat > supabase/.env <<ENVEOF
-          STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
-          STRIPE_PRICE_BASIC=${STRIPE_PRICE_BASIC}
-          STRIPE_PRICE_FISCAL_AGENT=${STRIPE_PRICE_FISCAL_AGENT}
-          STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
-          APP_URL=${APP_URL}
-          ENVEOF
-          serve_functions_and_wait supabase/.env || { kill "$STRIPE_LISTEN_PID" 2>/dev/null || true; exit 1; }
+          # Serving is owned by the tests' own ensure_functions_served (the single
+          # serve/readiness path, shared with local runs); with no
+          # supabase/functions/.env in CI it synthesizes one from the exported
+          # step env (STRIPE_* / APP_URL above + STRIPE_WEBHOOK_SECRET).
           # run-all.sh owns the test-clock / event orchestration and exits
           # non-zero on any failure, which gates this job.
           bash supabase/functions/tests/run-all.sh
           status=$?
-          stop_functions
           kill "$STRIPE_LISTEN_PID" 2>/dev/null || true
           exit $status

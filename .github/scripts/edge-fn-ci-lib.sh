@@ -2,9 +2,12 @@
 #
 # edge-fn-ci-lib.sh — shared helpers for the edge-function CI jobs.
 #
-# Sourced by both the FAST gate job and the STRIPE-ENABLED job in
-# .github/workflows/ci.yml. Keeps the "serve functions + wait until ready"
-# dance and the test discovery glob in one place so the two jobs can't drift.
+# Sourced by the FAST gate job in .github/workflows/ci.yml for test discovery
+# and aggregation. Serving the edge functions + waiting for readiness is NOT
+# done here: the tests' own ensure_functions_served
+# (supabase/functions/tests/lib/stripe_test_helpers.sh) is the single
+# serve/readiness path, shared byte-for-byte between local runs and CI, so the
+# two can't drift.
 #
 # Nothing here touches production: it only drives the local Supabase stack.
 
@@ -14,45 +17,6 @@ export ANON_KEY="${ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdX
 
 API_URL="${API_URL:-http://127.0.0.1:54321}"
 TESTS_DIR="${TESTS_DIR:-supabase/functions/tests}"
-
-# Serve the edge functions in the background and block until the runtime
-# answers. Writes the background PID to the global SERVE_PID so the caller can
-# tear it down. Returns non-zero (and kills the runtime) if it never comes up.
-#   $1 — path to the --env-file passed to `supabase functions serve`
-serve_functions_and_wait() {
-  local env_file="$1"
-  supabase functions serve --env-file "$env_file" &
-  SERVE_PID=$!
-  local resp code
-  for _ in $(seq 1 60); do
-    # A booted runtime rejects an empty-body anon request with a 4xx (400
-    # "missing fields", or 401 if auth is checked first). A runtime still
-    # booting ("Setting up Edge Functions runtime...", cold image pull on CI
-    # runners) answers 5xx with a {"code":"WORKER_ERROR"} body — that is NOT
-    # ready; accepting any 4xx/5xx let whole suites run against a half-started
-    # runtime and fail every call. Connection-refused yields 000.
-    resp=$(curl -s -w $'\n%{http_code}' -X POST \
-      "${API_URL}/functions/v1/create-checkout-session" \
-      -H "Authorization: Bearer ${ANON_KEY}" -H "apikey: ${ANON_KEY}" \
-      -H "Content-Type: application/json" -d '{}' || true)
-    code="${resp##*$'\n'}"
-    if [ "${code:0:1}" = "4" ] && [[ "$resp" != *WORKER_ERROR* ]]; then
-      return 0
-    fi
-    sleep 2
-  done
-  echo "::error::Edge runtime did not become ready in time"
-  stop_functions
-  return 1
-}
-
-# Kill the background `functions serve` process if we started one.
-stop_functions() {
-  if [ -n "${SERVE_PID:-}" ]; then
-    kill "$SERVE_PID" 2>/dev/null || true
-    SERVE_PID=""
-  fi
-}
 
 # Print the .sh tests in the given tier, newline-separated, sorted. A tier is
 # just a space-separated list of basenames; only files that actually exist are
