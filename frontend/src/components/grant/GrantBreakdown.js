@@ -49,6 +49,9 @@ function GrantBreakdown({ session }) {
   // Confirm dialog state
   const [confirmDialog, setConfirmDialog] = useState(null); // { title, message, onConfirm }
 
+  // Transient action error (e.g. receipt fetch failure)
+  const [actionError, setActionError] = useState('');
+
   const toggleExpanded = (biId) => {
     setExpanded(prev => ({ ...prev, [biId]: !prev[biId] }));
   };
@@ -80,9 +83,10 @@ function GrantBreakdown({ session }) {
   const handleViewReceipt = async (storagePath) => {
     const signedUrl = await getReceiptSignedUrl(storagePath);
     if (!signedUrl) {
-      alert('Could not open receipt. Please try again.');
+      setActionError('Could not open receipt. Please try again.');
       return;
     }
+    setActionError('');
     window.open(signedUrl, '_blank');
   };
 
@@ -126,6 +130,15 @@ function GrantBreakdown({ session }) {
           </div>
         </div>
       </div>
+
+      {actionError && (
+        <div
+          className="detail-error"
+          style={{ padding: '0.75em 1em', margin: '0 0 1em', color: 'var(--color-error)', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '6px' }}
+        >
+          {actionError}
+        </div>
+      )}
 
       {/* Expired grant warning */}
       {grant.end_spend_period && new Date(grant.end_spend_period + 'T23:59:59') < new Date() && (

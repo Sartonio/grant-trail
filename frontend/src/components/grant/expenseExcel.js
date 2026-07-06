@@ -1,4 +1,4 @@
-import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 import { formatExcelDate } from "../../lib/format";
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -51,8 +51,8 @@ function toSafeSheetName(baseName, usedNames) {
 
 /**
  * Build a per-month Excel workbook from the already-filtered/sorted expenses and
- * write it to disk. Surfaces validation problems via alert() and returns early,
- * matching the original inline behavior exactly.
+ * write it to disk. Validation problems are returned to the caller (which renders
+ * them inline) rather than surfaced via alert(); returns null on success.
  *
  * @param {Object} params
  * @param {Array<Object>} params.sortedExpenses
@@ -60,19 +60,18 @@ function toSafeSheetName(baseName, usedNames) {
  * @param {Array<Object>} params.budgetItems
  * @param {string} params.dateFrom
  * @param {string} params.dateTo
+ * @returns {Promise<{ error: string } | null>} an error to display, or null on success
  */
-export function exportExpensesExcel({ sortedExpenses, grants, budgetItems, dateFrom, dateTo }) {
+export async function exportExpensesExcel({ sortedExpenses, grants, budgetItems, dateFrom, dateTo }) {
   if (sortedExpenses.length === 0) {
-    alert('No expenses found for export.');
-    return;
+    return { error: 'No expenses found for export.' };
   }
 
   const selectedStart = toDateOnly(dateFrom);
   const selectedEnd = toDateOnly(dateTo);
 
   if (selectedStart && selectedEnd && selectedStart > selectedEnd) {
-    alert('Start date must be on or before end date.');
-    return;
+    return { error: 'Start date must be on or before end date.' };
   }
 
   const filteredForExport = sortedExpenses.filter(exp => {
@@ -84,8 +83,7 @@ export function exportExpensesExcel({ sortedExpenses, grants, budgetItems, dateF
   });
 
   if (filteredForExport.length === 0) {
-    alert('No expenses found in the selected date range.');
-    return;
+    return { error: 'No expenses found in the selected date range.' };
   }
 
   const sortedByDate = [...filteredForExport].sort((a, b) => {
@@ -103,8 +101,7 @@ export function exportExpensesExcel({ sortedExpenses, grants, budgetItems, dateF
   });
 
   if (expensesByMonth.size === 0) {
-    alert('No expenses found in the selected date range.');
-    return;
+    return { error: 'No expenses found in the selected date range.' };
   }
 
   const monthKeys = Array.from(expensesByMonth.keys()).sort();
@@ -155,8 +152,10 @@ export function exportExpensesExcel({ sortedExpenses, grants, budgetItems, dateF
     headerRow1[col] = label;
   });
 
-  const workbook = XLSX.utils.book_new();
+  const workbook = new ExcelJS.Workbook();
   const usedSheetNames = new Set();
+
+  const colWidths = [24, 12, 12, 28, 13, 12, 16, 16, 36, 12, 18, 14, 14, 16, 18, 22, 28];
 
   monthKeys.forEach((monthKey) => {
     const monthExpenses = expensesByMonth.get(monthKey) || [];
@@ -196,48 +195,39 @@ export function exportExpensesExcel({ sortedExpenses, grants, budgetItems, dateF
       ];
     });
 
-    const ws = XLSX.utils.aoa_to_sheet([headerRow1, headerRow2, ...dataRows]);
-
-    const merges = [
-      { s: { r: 0, c: 0 }, e: { r: 1, c: 0 } },
-      { s: { r: 0, c: 1 }, e: { r: 0, c: 2 } },
-      { s: { r: 0, c: 3 }, e: { r: 1, c: 3 } },
-      { s: { r: 0, c: 4 }, e: { r: 0, c: 5 } },
-      { s: { r: 0, c: 6 }, e: { r: 0, c: 7 } },
-      { s: { r: 0, c: 8 }, e: { r: 1, c: 8 } },
-    ];
-
-    trailingLabels.forEach((_, index) => {
-      const c = trailingStartCol + index;
-      merges.push({ s: { r: 0, c }, e: { r: 1, c } });
-    });
-
-    ws['!merges'] = merges;
-    ws['!cols'] = [
-      { wch: 24 },
-      { wch: 12 },
-      { wch: 12 },
-      { wch: 28 },
-      { wch: 13 },
-      { wch: 12 },
-      { wch: 16 },
-      { wch: 16 },
-      { wch: 36 },
-      { wch: 12 },
-      { wch: 18 },
-      { wch: 14 },
-      { wch: 14 },
-      { wch: 16 },
-      { wch: 18 },
-      { wch: 22 },
-      { wch: 28 },
-    ];
-
     const sheetLabel = monthLabelFromKey(monthKey);
     const sheetName = toSafeSheetName(sheetLabel, usedSheetNames);
-    XLSX.utils.book_append_sheet(workbook, ws, sheetName);
+    const ws = workbook.addWorksheet(sheetName);
+
+    ws.columns = colWidths.map((width) => ({ width }));
+    ws.addRow(headerRow1);
+    ws.addRow(headerRow2);
+    dataRows.forEach((row) => ws.addRow(row));
+
+    // ExcelJS mergeCells is 1-indexed (row, col); XLSX '!merges' was 0-indexed.
+    ws.mergeCells(1, 1, 2, 1);
+    ws.mergeCells(1, 2, 1, 3);
+    ws.mergeCells(1, 4, 2, 4);
+    ws.mergeCells(1, 5, 1, 6);
+    ws.mergeCells(1, 7, 1, 8);
+    ws.mergeCells(1, 9, 2, 9);
+
+    trailingLabels.forEach((_, index) => {
+      const c = trailingStartCol + index + 1;
+      ws.mergeCells(1, c, 2, c);
+    });
   });
 
   const fileSuffix = [dateFrom || 'all', dateTo || 'all'].join('_to_');
-  XLSX.writeFile(workbook, `expense-report-excel_${fileSuffix}.xlsx`);
+  const buffer = await workbook.xlsx.writeBuffer();
+  const blob = new Blob([buffer], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = `expense-report-excel_${fileSuffix}.xlsx`;
+  anchor.click();
+  URL.revokeObjectURL(url);
+  return null;
 }

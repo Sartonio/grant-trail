@@ -25,6 +25,7 @@ function AdminUserList({ session, readOnly = false }) {
   const [confirmDisable, setConfirmDisable] = useState(null); // user.id pending enable/disable confirm
   const [confirmWaive,   setConfirmWaive]   = useState(null); // { uid, action: 'waive'|'remove' }
   const [saving,         setSaving]         = useState(null); // user.id currently being saved
+  const [actionError,    setActionError]    = useState('');   // transient mutation error
   const [memberships,    setMemberships]    = useState({});   // user.id → membership row
 
   const myUid = session?.user?.id; // auth UUID of the logged-in admin
@@ -60,7 +61,8 @@ function AdminUserList({ session, readOnly = false }) {
     setSaving(u.id);
     const { error: err } = await updateUser(u.id, { role: newRole });
     setSaving(null);
-    if (err) { alert('Error updating role: ' + err.message); return; }
+    if (err) { setActionError('Error updating role: ' + err.message); return; }
+    setActionError('');
     setUsers(prev => prev.map(x => x.id === u.id ? { ...x, role: newRole } : x));
     setConfirmRole(null);
   }
@@ -71,7 +73,8 @@ function AdminUserList({ session, readOnly = false }) {
     setSaving(u.id);
     const { error: err } = await updateUser(u.id, { is_active: newActive });
     setSaving(null);
-    if (err) { alert('Error updating status: ' + err.message); return; }
+    if (err) { setActionError('Error updating status: ' + err.message); return; }
+    setActionError('');
     setUsers(prev => prev.map(x => x.id === u.id ? { ...x, is_active: newActive } : x));
     setConfirmDisable(null);
   }
@@ -82,7 +85,8 @@ function AdminUserList({ session, readOnly = false }) {
     setSaving(u.id);
     const { data, error: err } = await waiveUserSubscription(u.id, waiverTier);
     setSaving(null);
-    if (err) { alert('Error waiving subscription: ' + err.message); return; }
+    if (err) { setActionError('Error waiving subscription: ' + err.message); return; }
+    setActionError('');
     setMemberships(prev => ({ ...prev, [u.id]: data }));
   }
 
@@ -91,7 +95,8 @@ function AdminUserList({ session, readOnly = false }) {
     setSaving(u.id);
     const { error: err } = await removeUserMembership(u.id);
     setSaving(null);
-    if (err) { alert('Error removing waiver: ' + err.message); return; }
+    if (err) { setActionError('Error removing waiver: ' + err.message); return; }
+    setActionError('');
     setMemberships(prev => { const next = { ...prev }; delete next[u.id]; return next; });
   }
 
@@ -120,6 +125,9 @@ function AdminUserList({ session, readOnly = false }) {
   return (
     <div className="admin-page">
       <ReadOnlyBanner readOnly={readOnly} />
+      {actionError && (
+        <p className="admin-error" style={{ marginBottom: '1em' }}>{actionError}</p>
+      )}
       {/* Page header */}
       <div className="admin-header">
         <div>

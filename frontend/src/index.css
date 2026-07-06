@@ -8,3 +8,25 @@ body {
 code {
   font-family: var(--font-body);
 }
+
+/* Minimal centered loader for pre-session/route boot states. */
+.app-loading {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-gray-50, #f9fafb);
+}
+
+.app-loading-spinner {
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 3px solid var(--color-gray-200, #e5e7eb);
+  border-top-color: var(--color-primary, #065f46);
+  border-radius: var(--radius-full, 9999px);
+  animation: app-spin 0.7s linear infinite;
+}
+
+@keyframes app-spin {
+  to { transform: rotate(360deg); }
+}

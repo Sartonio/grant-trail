@@ -84,7 +84,13 @@ function App() {
   const platformSettings = usePlatformSettings();
   const { notifications, handleMarkRead, handleMarkAllRead, handleClearAll } = useNotifications(session);
 
-  if (sessionLoading) return null;
+  if (sessionLoading) {
+    return (
+      <div className="app-loading" role="status" aria-label="Loading">
+        <div className="app-loading-spinner" />
+      </div>
+    );
+  }
 
   if (accountDisabled) {
     return (

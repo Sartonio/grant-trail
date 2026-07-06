@@ -14,7 +14,9 @@ Sentry.init({
     Sentry.browserTracingIntegration(),
     Sentry.replayIntegration(),
   ],
-  tracesSampleRate: 1.0,
+  // Sample every trace in dev for full visibility; throttle to 10% in
+  // production to keep transaction volume (and cost) sane.
+  tracesSampleRate: import.meta.env.PROD ? 0.1 : 1.0,
   replaysSessionSampleRate: 0.1,
   replaysOnErrorSampleRate: 1.0,
   environment: import.meta.env.MODE || 'development',

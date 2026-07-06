@@ -36,7 +36,8 @@ see [staging_setup.md](staging_setup.md).
      --enabled-events checkout.session.completed \
      --enabled-events customer.subscription.created \
      --enabled-events customer.subscription.updated \
-     --enabled-events customer.subscription.deleted
+     --enabled-events customer.subscription.deleted \
+     --enabled-events invoice.payment_failed
    ```
 
    Copy the `whsec_…` into `STRIPE_WEBHOOK_SECRET` (Part B). If the project ref changes,
@@ -127,3 +128,24 @@ The next *Deploy to Production* rebuilds the schema from `supabase/migrations/`.
 - **Config change** (rotated key, new price id)? Edit `.deploy/production.env` →
   `npm run deploy:secrets`.
 - **Code / schema only?** Actions → Deploy to Production → Run workflow → approve.
+
+---
+
+## Rollback
+
+**Migrations are forward-only.** `supabase db push` never runs `down` migrations, so there
+is no "roll back the last migration" button. Recovery paths, in order of preference:
+
+- **Fix-forward (default).** Write a *new* migration that corrects the problem (e.g. re-adds a
+  dropped column, relaxes a bad constraint) and deploy it the normal way. This keeps the
+  migration history linear and reproducible across staging/prod.
+- **Revert the code.** For a bad frontend/edge-function deploy that didn't touch the schema,
+  revert the offending commit on `main` and re-run *Deploy to Production* (Vercel also keeps
+  instant-rollback deployments in its dashboard for the frontend).
+- **PITR — catastrophic only.** For data loss or a destructive migration you cannot fix
+  forward, use Point-in-Time Recovery from the Supabase dashboard (Project → Database →
+  Backups) to restore to a timestamp just before the bad deploy. This rewinds the whole
+  database, so treat it as a last resort and coordinate the downtime.
+
+---
+

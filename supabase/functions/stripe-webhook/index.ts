@@ -1,7 +1,7 @@
 import { adminSupabase, corsHeaders, stripe } from '../_shared/stripe-client.ts';
 import { upsertSubscriptionFromStripe } from '../_shared/stripe-subscription-sync.ts';
 import { assertPostRequest, ValidationError } from '../_shared/validation.ts';
-import { sendPaymentConfirmationEmail } from '../_shared/email.ts';
+import { sendPaymentConfirmationEmail, sendPaymentFailedEmail } from '../_shared/email.ts';
 
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') {
@@ -113,6 +113,71 @@ Deno.serve(async (request) => {
         await upsertSubscriptionFromStripe(event.data.object);
         break;
       }
+      case 'invoice.payment_failed': {
+        // First-failure dunning signal ONLY. Subscription status stays driven by
+        // customer.subscription.updated (Stripe flips it to past_due and delivers
+        // that event separately) — this handler never touches the projection, it
+        // just notifies the subscriber. The email send is fully isolated so a mail
+        // failure can never 4xx/5xx the webhook and trigger a Stripe retry.
+        try {
+          const invoice = event.data.object;
+          const stripeCustomerId = String(invoice.customer ?? '');
+          const customerEmail = invoice.customer_email ?? '';
+          if (stripeCustomerId && customerEmail) {
+            let firstName = '';
+            let tier = '';
+            const { data: billingCustomer } = await adminSupabase
+              .from('billing_customers')
+              .select('user_id')
+              .eq('stripe_customer_id', stripeCustomerId)
+              .maybeSingle();
+            if (billingCustomer?.user_id) {
+              const { data: userRecord } = await adminSupabase
+                .from('users')
+                .select('firstname')
+                .eq('id', billingCustomer.user_id)
+                .maybeSingle();
+              firstName = String(userRecord?.firstname ?? '');
+              const { data: subRecord } = await adminSupabase
+                .from('subscriptions')
+                .select('membership_tier')
+                .eq('stripe_customer_id', stripeCustomerId)
+                .maybeSingle();
+              tier = String(subRecord?.membership_tier ?? '').toLowerCase();
+            }
+            const PLAN_NAMES: Record<string, string> = {
+              premium: 'Fiscal Agents Plan',
+              basic: 'Basic Plan',
+            };
+            const planName = PLAN_NAMES[tier] ?? 'membership';
+
+            const nextAttemptTs = invoice.next_payment_attempt;
+            const nextAttempt = nextAttemptTs ? new Date(nextAttemptTs * 1000) : null;
+            const appUrl = Deno.env.get('APP_URL') || 'https://granttrail.ca';
+
+            await sendPaymentFailedEmail({
+              to: customerEmail,
+              firstName,
+              planName,
+              amountCents: invoice.amount_due ?? 0,
+              currency: invoice.currency ?? 'cad',
+              manageUrl: `${appUrl}/subscription`,
+              nextAttempt,
+            });
+          }
+        } catch (emailError) {
+          console.error('Payment failed email failed:', emailError);
+          try {
+            await adminSupabase.from('system_logs').insert({
+              event_name: 'payment_failed_email_failure',
+              error_message: emailError instanceof Error ? emailError.message : String(emailError),
+              severity: 'error',
+              metadata: { stripe_event_id: event.id },
+            });
+          } catch (_logError) { /* swallow */ }
+        }
+        break;
+      }
       default:
         break;
     }
@@ -155,7 +220,8 @@ Deno.serve(async (request) => {
         error_stack: error instanceof Error ? error.stack : undefined,
         severity: 'critical',
         metadata: {
-          signature: request.headers.get('stripe-signature'),
+          // Never log the raw signature header (sensitive); record only presence.
+          signature_present: request.headers.get('stripe-signature') !== null,
         }
       });
     } catch (logError) {

@@ -34,6 +34,7 @@ function ExpenseReports({ session }) {
   const [statusFilter, setStatusFilter] = useState("all");
   const [sortBy, setSortBy] = useState("expense_date");
   const [sortOrder, setSortOrder] = useState("desc");
+  const [exportError, setExportError] = useState("");
   const canExportExcel = hasFeature(session, FEATURE_KEYS.EXCEL_EXPORT);
 
   // Sorting
@@ -151,12 +152,13 @@ function ExpenseReports({ session }) {
     URL.revokeObjectURL(url);
   }
 
-  function downloadExcel() {
+  async function downloadExcel() {
     if (!canExportExcel) {
       navigate('/subscription');
       return;
     }
-    exportExpensesExcel({ sortedExpenses, grants, budgetItems, dateFrom, dateTo });
+    const result = await exportExpensesExcel({ sortedExpenses, grants, budgetItems, dateFrom, dateTo });
+    setExportError(result?.error || "");
   }
 
   return (
@@ -302,6 +304,11 @@ function ExpenseReports({ session }) {
               </div>
             )}
           </div>
+          {exportError && (
+            <p style={{ color: 'var(--color-error)', fontSize: '0.85rem', margin: '0.5em 0 0', textAlign: 'right' }}>
+              {exportError}
+            </p>
+          )}
           {sortedExpenses.length > 0 ? (
             <table className="expenses-table-main">
               <thead>

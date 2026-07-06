@@ -2,7 +2,22 @@
    CSS VARIABLES - Design Tokens
    ======================================== */
 
-@import url('https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@400;700&family=Montserrat:wght@400;500;600;700&family=Dancing+Script:wght@400;700&display=swap');
+/* Self-hosted fonts (latin subset). See frontend/src/assets/fonts/.
+   Dancing Script was dropped — --font-decorative is unused in the app. */
+@font-face {
+  font-family: 'Libre Baskerville';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('../assets/fonts/libre-baskerville-latin.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Montserrat';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('../assets/fonts/montserrat-latin.woff2') format('woff2');
+}
 
 :root {
   /* ===== Brand Colors ===== */

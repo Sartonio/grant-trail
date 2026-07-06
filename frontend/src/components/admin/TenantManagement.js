@@ -28,6 +28,7 @@ function TenantManagement({ session }) {
   // Disable/enable confirm state
   const [confirmDisable, setConfirmDisable] = useState(null);
   const [saving, setSaving] = useState(null);
+  const [actionError, setActionError] = useState(''); // transient mutation error
 
   useEffect(() => {
     fetchTenants();
@@ -78,9 +79,10 @@ function TenantManagement({ session }) {
     const { error: err } = await setTenantActive(t.id, newActive);
     setSaving(null);
     if (err) {
-      alert('Error updating tenant: ' + err.message);
+      setActionError('Error updating tenant: ' + err.message);
       return;
     }
+    setActionError('');
     setTenants(prev => prev.map(x => x.id === t.id ? { ...x, is_active: newActive } : x));
     setConfirmDisable(null);
   }
@@ -104,9 +106,10 @@ function TenantManagement({ session }) {
 
     setSaving(null);
     if (err) {
-      alert('Error updating subscription setting: ' + err.message);
+      setActionError('Error updating subscription setting: ' + err.message);
       return;
     }
+    setActionError('');
     setTenants(prev => prev.map(x =>
       x.id === t.id
         ? { ...x, settings: { ...x.settings, require_subscription: newVal } }
@@ -136,6 +139,9 @@ function TenantManagement({ session }) {
 
   return (
     <div className="admin-page">
+      {actionError && (
+        <p className="admin-error" style={{ marginBottom: '1em' }}>{actionError}</p>
+      )}
       {/* Page header */}
       <div className="admin-header">
         <div>

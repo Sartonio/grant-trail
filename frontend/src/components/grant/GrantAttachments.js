@@ -128,9 +128,10 @@ function GrantAttachments({ grantId, session, readOnly = false }) {
   const handleView = async (storagePath) => {
     const signedUrl = await getSignedUrl('grant-documents', storagePath);
     if (!signedUrl) {
-      alert('Could not open file. Please try again.');
+      setError('Could not open file. Please try again.');
       return;
     }
+    setError('');
     window.open(signedUrl, '_blank');
   };
 
@@ -143,12 +144,13 @@ function GrantAttachments({ grantId, session, readOnly = false }) {
     try {
       await supabase.storage.from('grant-documents').remove([att.file_path]);
       await deleteGrantAttachment(att.id);
+      setError('');
       setDeletingId(null);
       await fetchAttachments();
     } catch (err) {
       console.error('Delete error:', err);
       Sentry.captureException(err);
-      alert('Could not delete file. Please try again.');
+      setError('Could not delete file. Please try again.');
       setDeletingId(null);
     }
   };
@@ -234,12 +236,13 @@ function GrantAttachments({ grantId, session, readOnly = false }) {
               )}
             </button>
           </div>
+        </div>
+      )}
 
-          {error && (
-            <div className="ga-error">
-              <FaTimes className="ga-error-icon" /> {error}
-            </div>
-          )}
+      {/* Error banner — shown for upload, view, and delete failures (incl. read-only viewers) */}
+      {error && (
+        <div className="ga-error">
+          <FaTimes className="ga-error-icon" /> {error}
         </div>
       )}
 

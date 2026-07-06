@@ -224,7 +224,7 @@ export async function sendPaymentConfirmationEmail(opts: PaymentConfirmationOpti
           <tr>
             <td style="padding:40px;">
 
-              <p style="margin:0 0 20px;font-size:16px;color:#111111;">Hi ${opts.firstName || 'there'},</p>
+              <p style="margin:0 0 20px;font-size:16px;color:#111111;">Hi ${escapeHtml(opts.firstName || 'there')},</p>
               <p style="margin:0 0 32px;font-size:16px;color:#444444;line-height:1.6;">
                 Thank you for your payment. Your <strong>${opts.planName}</strong> membership is now active.
                 Please keep this email as your receipt.
@@ -303,6 +303,112 @@ export async function sendPaymentConfirmationEmail(opts: PaymentConfirmationOpti
   await sendEmail({
     to: opts.to,
     subject: `Your GrantTrail receipt — ${opts.planName}`,
+    html,
+  });
+}
+
+interface PaymentFailedOptions {
+  to: string;
+  firstName: string;
+  planName: string;
+  amountCents: number;
+  currency: string;
+  manageUrl: string;
+  nextAttempt: Date | null;
+}
+
+// First-failure dunning notice: a renewal payment for the subscriber's plan was
+// declined. Action-oriented — what failed and a button to update the payment
+// method — but reassuring, since the subscription is not cancelled yet (the
+// read-only grace window keeps admin access alive during past_due). Sent from
+// the invoice.payment_failed webhook handler; failure is isolated so a down mail
+// provider never re-triggers a Stripe retry.
+export async function sendPaymentFailedEmail(opts: PaymentFailedOptions): Promise<void> {
+  const formattedAmount = new Intl.NumberFormat('en-CA', {
+    style: 'currency',
+    currency: opts.currency.toUpperCase(),
+  }).format(opts.amountCents / 100);
+
+  const formatDate = (d: Date) =>
+    d.toLocaleDateString('en-CA', { year: 'numeric', month: 'long', day: 'numeric' });
+
+  const manageUrl = encodeURI(opts.manageUrl);
+  const year = new Date().getFullYear();
+
+  const retryLine = opts.nextAttempt
+    ? `We'll automatically try again on <strong>${formatDate(opts.nextAttempt)}</strong>, but updating your payment method now avoids any interruption to your access.`
+    : `Please update your payment method to avoid any interruption to your access.`;
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>Payment Failed — GrantTrail</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f3f4f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background-color:#f3f4f6;padding:40px 16px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" role="presentation" style="background-color:#ffffff;border-radius:8px;overflow:hidden;max-width:600px;width:100%;">
+
+          <!-- Header -->
+          <tr>
+            <td style="background-color:#1a6b3c;padding:32px 40px;text-align:center;">
+              <p style="margin:0;font-size:26px;font-weight:700;color:#ffffff;letter-spacing:-0.5px;">GrantTrail</p>
+              <p style="margin:8px 0 0;font-size:14px;color:rgba(255,255,255,0.75);">Payment Failed</p>
+            </td>
+          </tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="padding:40px;">
+
+              <p style="margin:0 0 20px;font-size:16px;color:#111111;">Hi ${escapeHtml(opts.firstName || 'there')},</p>
+              <p style="margin:0 0 24px;font-size:16px;color:#444444;line-height:1.6;">
+                We were unable to process the <strong>${formattedAmount} ${opts.currency.toUpperCase()}</strong>
+                renewal payment for your <strong>${opts.planName}</strong> membership. ${retryLine}
+              </p>
+
+              <!-- CTA -->
+              <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin:0 0 32px;">
+                <tr>
+                  <td align="center">
+                    <a href="${manageUrl}"
+                      style="display:inline-block;background-color:#1a6b3c;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;padding:14px 32px;border-radius:6px;">
+                      Update payment method
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="margin:0;font-size:14px;color:#6b7280;line-height:1.6;">
+                Questions? Reply to this email or contact us at
+                <a href="mailto:support@granttrail.ca" style="color:#1a6b3c;text-decoration:none;">support@granttrail.ca</a>.
+              </p>
+
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background-color:#f9fafb;padding:24px 40px;border-top:1px solid #e5e7eb;text-align:center;">
+              <p style="margin:0;font-size:12px;color:#9ca3af;">
+                &copy; ${year} GrantTrail &mdash; This is an automated notice.
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+  await sendEmail({
+    to: opts.to,
+    subject: `Action needed: your GrantTrail payment failed`,
     html,
   });
 }

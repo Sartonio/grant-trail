@@ -1196,6 +1196,33 @@ export type Database = {
         }
         Relationships: []
       }
+      platform_settings_public: {
+        Row: {
+          basic_membership_product_id: string | null
+          default_support_email: string | null
+          default_support_phone: string | null
+          id: number | null
+          platform_root_slug: string | null
+          premium_membership_product_id: string | null
+        }
+        Insert: {
+          basic_membership_product_id?: string | null
+          default_support_email?: string | null
+          default_support_phone?: string | null
+          id?: number | null
+          platform_root_slug?: string | null
+          premium_membership_product_id?: string | null
+        }
+        Update: {
+          basic_membership_product_id?: string | null
+          default_support_email?: string | null
+          default_support_phone?: string | null
+          id?: number | null
+          platform_root_slug?: string | null
+          premium_membership_product_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       accept_sponsorship_inquiry: {

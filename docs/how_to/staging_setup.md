@@ -30,7 +30,8 @@ differences are below. Background: [Deploy Architecture](../explanation/deploy_a
      --enabled-events checkout.session.completed \
      --enabled-events customer.subscription.created \
      --enabled-events customer.subscription.updated \
-     --enabled-events customer.subscription.deleted
+     --enabled-events customer.subscription.deleted \
+     --enabled-events invoice.payment_failed
    ```
 
    Copy the `whsec_…` into Part B's config.

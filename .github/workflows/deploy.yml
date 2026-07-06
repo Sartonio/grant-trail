@@ -114,8 +114,13 @@ jobs:
           STRIPE_PRODUCT_FISCAL_AGENT: ${{ vars.STRIPE_PRODUCT_FISCAL_AGENT }}
         run: |
           set -euo pipefail
+          # Bind the product ids as psql variables (-v) and reference them with
+          # :'name' so they're quoted/escaped by psql rather than interpolated
+          # into the SQL string by the shell/runner.
           supabase db query --linked \
-            "UPDATE platform_settings SET basic_membership_product_id = '${STRIPE_PRODUCT_BASIC}', premium_membership_product_id = '${STRIPE_PRODUCT_FISCAL_AGENT}' WHERE id = 1"
+            -v basic="$STRIPE_PRODUCT_BASIC" \
+            -v premium="$STRIPE_PRODUCT_FISCAL_AGENT" \
+            "UPDATE platform_settings SET basic_membership_product_id = :'basic', premium_membership_product_id = :'premium' WHERE id = 1"
 
       # config.toml is the single source of truth for which edge functions exist
       # (same list scripts/prune_functions.js reads). Deploy exactly those, then

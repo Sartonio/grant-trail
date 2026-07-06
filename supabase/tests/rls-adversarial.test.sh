@@ -126,6 +126,18 @@ out=$(psql_as "$GRANTEE_BRIGHT" "
   SELECT count(*) FROM grant_record WHERE grant_name='POISON' AND tenant_id=1;")
 assert_eq "grantee cannot plant a grant into another tenant (forged tenant_id)" "0" "$(echo "$out" | grep -E '^[0-9]+$' | tail -1)"
 
+# Admin UPDATE cannot REASSIGN an own-tenant row's tenant_id into another tenant.
+# Regression guard for the missing WITH CHECK on the admin UPDATE policies
+# (20260706044339): without an explicit WITH CHECK, a tenant-B admin could flip
+# tenant_id on their own grant/budget/expense and hand it to tenant A. The NEW
+# row must fail the policy's WITH CHECK.
+out=$(psql_as "$ADMIN_BRIGHT" "UPDATE grant_record SET tenant_id=1 WHERE tenant_id=2;")
+assert_contains "tenant-B ADMIN cannot REASSIGN a grant's tenant_id to tenant A" "row-level security" "$out"
+out=$(psql_as "$ADMIN_BRIGHT" "UPDATE budget_items SET tenant_id=1 WHERE tenant_id=2;")
+assert_contains "tenant-B ADMIN cannot REASSIGN a budget item's tenant_id to tenant A" "row-level security" "$out"
+out=$(psql_as "$ADMIN_BRIGHT" "UPDATE expenses SET tenant_id=1 WHERE tenant_id=2;")
+assert_contains "tenant-B ADMIN cannot REASSIGN an expense's tenant_id to tenant A" "row-level security" "$out"
+
 # --- VERTICAL PRIVILEGE ESCALATION (role) -----------------------------------
 out=$(psql_as "$GRANTEE_BRIGHT" "
   UPDATE users SET role='super_admin' WHERE user_id='${GRANTEE_BRIGHT}';

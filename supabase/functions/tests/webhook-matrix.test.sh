@@ -22,6 +22,12 @@
 #   invoice.payment_failed / past_due    past_due               true   (read-only grace)
 #   customer.subscription.deleted        canceled               false
 #
+# Also proves: invoice.payment_failed is handled as a first-failure DUNNING
+# signal -- the event is recorded (billing_webhook_events) and its isolated email
+# send is a clean no-op without Resend creds (no payment_failed_email_failure row),
+# WITHOUT ever mutating the subscription projection (that stays driven by
+# customer.subscription.updated).
+#
 # Also proves: cancelling a PREMIUM subscription auto-unlists the owner's
 # 'published' fiscal_agent_listings row (lapse -> status='unlisted').
 
@@ -158,6 +164,43 @@ for _ in $(seq 1 30); do
 done
 wait_for_sql "SELECT status FROM subscriptions WHERE stripe_subscription_id='$PDSUB';" "past_due" "[past_due] subscriptions.status past_due"
 wait_for_sql "SELECT is_active::text FROM user_memberships WHERE user_id=$DBUID;" "true" "[past_due] membership still active during grace"
+
+# The failing renewal also delivers invoice.payment_failed -> the dunning handler.
+# It must record the event (dedupe row) WITHOUT touching the subscription
+# projection (status stays past_due, driven solely by customer.subscription.updated).
+# The email send is isolated regardless of Resend creds -- exhaustively covered by
+# email-resilience.test.sh -- so this matrix case does NOT assert on the email
+# outcome (this env may carry live creds), only that the projection is untouched.
+info "[dunning] invoice.payment_failed recorded, subscription projection untouched"
+# Locate the event by CUSTOMER, not subscription: current Stripe API versions
+# drop the top-level `invoice.subscription` field event_id_for() keys on, so the
+# invoice is matched on its `customer` (the clock customer whose renewal failed).
+event_id_for_invoice_customer() {
+  local cusid="$1"
+  sapi events list --limit 50 | python3 -c "
+import sys,json
+cusid='$cusid'
+for e in json.load(sys.stdin)['data']:
+    obj=e['data']['object']
+    if e['type']=='invoice.payment_failed' and obj.get('customer')==cusid:
+        print(e['id']); break"
+}
+PFEVID=""
+for _ in $(seq 1 15); do
+  PFEVID=$(event_id_for_invoice_customer "$PDCUS")
+  [ -n "$PFEVID" ] && [ "$(dbq "SELECT count(*) FROM billing_webhook_events WHERE stripe_event_id='$PFEVID';")" == "1" ] && break
+  sleep 2
+done
+if [ -z "$PFEVID" ]; then
+  fail "[dunning] could not locate invoice.payment_failed event id"
+else
+  assert_eq "$(dbq "SELECT count(*) FROM billing_webhook_events WHERE stripe_event_id='$PFEVID';")" "1" "[dunning] invoice.payment_failed recorded in billing_webhook_events"
+  assert_eq "$(dbq "SELECT event_type FROM billing_webhook_events WHERE stripe_event_id='$PFEVID';")" "invoice.payment_failed" "[dunning] recorded event_type is invoice.payment_failed"
+  # The dunning handler must NOT mutate the projection: status is still past_due
+  # (set by customer.subscription.updated), membership still active in grace.
+  assert_eq "$(dbq "SELECT status FROM subscriptions WHERE stripe_subscription_id='$PDSUB';")" "past_due" "[dunning] subscription projection untouched by dunning handler"
+  assert_eq "$(dbq "SELECT is_active::text FROM user_memberships WHERE user_id=$DBUID;")" "true" "[dunning] membership still active (dunning handler is notify-only)"
+fi
 
 # =========================================================================
 # 6. customer.subscription.deleted -> canceled / membership inactive (lapse)

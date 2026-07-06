@@ -90,9 +90,10 @@ export default function BudgetExpenseReview({
   const handleViewReceipt = async (storagePath) => {
     const signedUrl = await getReceiptSignedUrl(storagePath);
     if (!signedUrl) {
-      alert('Could not open receipt. Please try again.');
+      setApprovalError('Could not open receipt. Please try again.');
       return;
     }
+    setApprovalError('');
     window.open(signedUrl, '_blank');
   };
 

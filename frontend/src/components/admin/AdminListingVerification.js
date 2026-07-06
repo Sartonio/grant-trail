@@ -12,6 +12,7 @@ function AdminListingVerification() {
   const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [actionError, setActionError] = useState(''); // transient mutation error
   const [saving, setSaving] = useState(null);
 
   useEffect(() => { fetchPending(); }, []);
@@ -29,7 +30,8 @@ function AdminListingVerification() {
     setSaving(listing.id);
     const { error: err } = await setListingVerification(listing.id, verification);
     setSaving(null);
-    if (err) { alert('Error updating listing: ' + err.message); return; }
+    if (err) { setActionError('Error updating listing: ' + err.message); return; }
+    setActionError('');
     setListings(prev => prev.filter(l => l.id !== listing.id));
   }
 
@@ -38,6 +40,9 @@ function AdminListingVerification() {
 
   return (
     <div className="admin-page">
+      {actionError && (
+        <p className="admin-error" style={{ marginBottom: '1em' }}>{actionError}</p>
+      )}
       <div className="admin-header">
         <div>
           <h2 className="admin-title"><FiShield /> Fiscal Agent Verification</h2>

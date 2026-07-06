@@ -94,7 +94,7 @@ async function getMembershipProductIds() {
   if (cachedProductIds) return cachedProductIds;
 
   const { data, error } = await supabase
-    .from('platform_settings')
+    .from('platform_settings_public')
     .select('basic_membership_product_id, premium_membership_product_id')
     .eq('id', 1)
     .single();
