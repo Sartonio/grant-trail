@@ -23,16 +23,20 @@ serve_functions_and_wait() {
   local env_file="$1"
   supabase functions serve --env-file "$env_file" &
   SERVE_PID=$!
-  local code
-  for _ in $(seq 1 30); do
+  local resp code
+  for _ in $(seq 1 60); do
     # A booted runtime rejects an empty-body anon request with a 4xx (400
-    # "missing fields", or 401 if auth is checked first); any 4xx/5xx means
-    # the HTTP server is up. Connection-refused yields 000.
-    code=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
+    # "missing fields", or 401 if auth is checked first). A runtime still
+    # booting ("Setting up Edge Functions runtime...", cold image pull on CI
+    # runners) answers 5xx with a {"code":"WORKER_ERROR"} body — that is NOT
+    # ready; accepting any 4xx/5xx let whole suites run against a half-started
+    # runtime and fail every call. Connection-refused yields 000.
+    resp=$(curl -s -w $'\n%{http_code}' -X POST \
       "${API_URL}/functions/v1/create-checkout-session" \
       -H "Authorization: Bearer ${ANON_KEY}" -H "apikey: ${ANON_KEY}" \
       -H "Content-Type: application/json" -d '{}' || true)
-    if [ "${code:0:1}" = "4" ] || [ "${code:0:1}" = "5" ]; then
+    code="${resp##*$'\n'}"
+    if [ "${code:0:1}" = "4" ] && [[ "$resp" != *WORKER_ERROR* ]]; then
       return 0
     fi
     sleep 2

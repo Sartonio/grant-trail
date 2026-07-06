@@ -56,15 +56,21 @@ info() { echo "----  $*"; }
 
 _SERVE_STARTED_HERE=""
 
-# True when the edge stack answers /functions/* (Kong has a live upstream).
+# True when the edge stack answers /functions/* with a REAL function response.
 # stripe-webhook is verify_jwt=false, so an unsigned POST reaches the function
-# and gets a real status (400, no signature); a missing upstream yields 000
-# (refused) or a 502/503 gateway error.
+# and gets a 4xx (400, no signature). A missing upstream yields 000 (refused)
+# or a 502/503 gateway error — and a runtime that is still booting ("Setting up
+# Edge Functions runtime...", cold image pull in CI) answers 5xx with a
+# {"code":"WORKER_ERROR"} body. Treating that boot phase as "up" let whole
+# suites run against a half-started runtime and fail every call, so only a
+# 4xx without WORKER_ERROR counts as ready.
 _functions_up() {
-  local code
-  code=$(curl -s -o /dev/null -w "%{http_code}" -X POST "${FUNCTIONS_URL}/stripe-webhook" \
+  local resp code body
+  resp=$(curl -s -w $'\n%{http_code}' -X POST "${FUNCTIONS_URL}/stripe-webhook" \
     -H "Content-Type: application/json" --data-raw '{}' 2>/dev/null || true)
-  [ "$code" != "000" ] && [ "$code" != "502" ] && [ "$code" != "503" ]
+  code="${resp##*$'\n'}"
+  body="${resp%$'\n'*}"
+  [ "${code:0:1}" = "4" ] && [[ "$body" != *WORKER_ERROR* ]]
 }
 
 # Only kills a server WE started (guarded by _SERVE_STARTED_HERE), so an
