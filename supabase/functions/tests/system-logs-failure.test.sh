@@ -63,19 +63,11 @@ for fn in "${!CASES[@]}"; do
   docker exec "$DB_CONTAINER" psql -U postgres -d postgres -q \
     -c "DELETE FROM system_logs WHERE event_name = '${event_name}';" >/dev/null
 
-  # Cold-start tolerance: the first authenticated hit to each function boots its
-  # worker (downloads npm deps), which can exceed the request deadline and return
-  # a transient 5xx (503/500) BEFORE the handler's try/catch runs. Retry until the
-  # worker is warm enough to reach the handler (any non-5xx) or we give up. The
-  # DELETE above ran once, so a later successful attempt writes exactly one row.
-  status=000
-  for _ in $(seq 1 20); do
-    status=$(curl -s -o /dev/null -w "%{http_code}" -X POST "${API_URL}/functions/v1/${fn}" \
-      -H "Authorization: Bearer ${ACCESS_TOKEN}" -H "apikey: ${ANON_KEY}" \
-      -H "Content-Type: application/json" -d '{}')
-    [[ "${status:0:1}" != "5" && "$status" != "000" ]] && break
-    sleep 2
-  done
+  # No cold-start retry here: ensure_functions_served warms every function
+  # worker before returning, so a single request reaches the handler.
+  status=$(curl -s -o /dev/null -w "%{http_code}" -X POST "${API_URL}/functions/v1/${fn}" \
+    -H "Authorization: Bearer ${ACCESS_TOKEN}" -H "apikey: ${ANON_KEY}" \
+    -H "Content-Type: application/json" -d '{}')
 
   count=$(docker exec "$DB_CONTAINER" psql -U postgres -d postgres -tA \
     -c "SELECT count(*) FROM system_logs WHERE event_name = '${event_name}' AND severity = 'critical';")

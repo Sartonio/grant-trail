@@ -73,6 +73,29 @@ _functions_up() {
   [ "${code:0:1}" = "4" ] && [[ "$body" != *WORKER_ERROR* ]]
 }
 
+# Per-function workers boot lazily: even after the runtime answers, the FIRST
+# hit to each function can 5xx (WORKER_ERROR / request-deadline during npm dep
+# download). Warm every function once HERE — the one place that owns
+# readiness — so individual tests never need their own cold-start retry
+# loops. An anon bearer passes gateway JWT verification (anon is a valid
+# role), boots the worker, and gets a fast 4xx from the handler; on an
+# already-warm server each probe is a few ms.
+_warm_functions() {
+  local root dir name code i
+  root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"
+  for dir in "$root"/supabase/functions/*/; do
+    name="$(basename "$dir")"
+    [ -f "${dir}index.ts" ] || continue
+    for i in $(seq 1 30); do
+      code=$(curl -s -o /dev/null -w "%{http_code}" -X POST "${FUNCTIONS_URL}/${name}" \
+        -H "Authorization: Bearer ${ANON_KEY}" -H "apikey: ${ANON_KEY}" \
+        -H "Content-Type: application/json" --data-raw '{}' 2>/dev/null || true)
+      [ "${code:0:1}" != "5" ] && [ "$code" != "000" ] && break
+      sleep 2
+    done
+  done
+}
+
 # Only kills a server WE started (guarded by _SERVE_STARTED_HERE), so an
 # externally-managed serve is never touched. Mirrors email-resilience's pkill.
 _stop_functions_served() {
@@ -104,7 +127,7 @@ ensure_functions_served() {
   # edge-runtime container and strands Kong ("name resolution failed"), so
   # require three consecutive misses before we take over.
   for i in 1 2 3; do
-    _functions_up && return 0
+    _functions_up && { _warm_functions; return 0; }
     sleep 1
   done
 
@@ -141,7 +164,7 @@ ensure_functions_served() {
   _SERVE_STARTED_HERE=1
   trap _stop_functions_served EXIT
   for i in $(seq 1 60); do
-    _functions_up && { sleep 1; return 0; }   # brief settle for lazy worker boot
+    _functions_up && { _warm_functions; return 0; }
     sleep 2
   done
   echo "FATAL: functions serve did not become ready in ~120s; log:" >&2

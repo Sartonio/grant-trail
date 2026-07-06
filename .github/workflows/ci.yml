@@ -163,24 +163,20 @@ jobs:
       - name: Run fast edge-function tests
         run: |
           set -uo pipefail
-          source .github/scripts/edge-fn-ci-lib.sh
           # Dummy, non-empty Stripe secrets so the billing function modules boot
           # (they throw on an empty STRIPE_SECRET_KEY). These never touch prod.
-          # Serving is owned by the tests' own ensure_functions_served (the single
-          # serve/readiness path, shared with local runs); with no
+          # The test serves the functions itself via ensure_functions_served —
+          # the single serve/readiness path shared with local runs — and with no
           # supabase/functions/.env in CI it synthesizes one from these exports.
           export STRIPE_SECRET_KEY="sk_test_dummy_ci"
           export STRIPE_PRICE_BASIC="price_dummy_basic"
           export STRIPE_PRICE_FISCAL_AGENT="price_dummy_fiscal_agent"
           export STRIPE_WEBHOOK_SECRET="whsec_dummy"
           export APP_URL="http://localhost:3000"
-          # FAST tier: local-stack-only tests (no Stripe forwarder, no live Stripe
-          # API). checkout-sessions.test.sh is deliberately NOT here — it makes
-          # real Stripe API calls (a dummy key 401s) and is owned by the
-          # stripe-edge-function-tests job via run-all.sh. Absent files are skipped.
-          mapfile -t FAST_TESTS < <(select_tests \
-            system-logs-failure.test.sh)
-          run_tests "${FAST_TESTS[@]}"
+          # FAST tier: local-stack-only, no live Stripe API (this test NEEDS the
+          # dummy key — it asserts the failure-logging path when Stripe rejects).
+          # The full payment matrix is owned by stripe-edge-function-tests.
+          bash supabase/functions/tests/system-logs-failure.test.sh
 
   # DB-level trigger / function proof tests. These drive the local Supabase
   # Postgres directly (docker exec psql, rolled-back transactions) — no edge

@@ -104,11 +104,23 @@ This job requires TEST-mode Stripe secrets in the GitHub repo's CI secrets;
 `STRIPE_WEBHOOK_SECRET` is derived at runtime via `stripe listen --print-secret`.
 See `.github/workflows/ci.yml` for the exact secret names.
 
-## Shared CI helper
+## One serve/readiness path — and the isolation rule
 
-`.github/scripts/edge-fn-ci-lib.sh` holds the shared "serve functions + wait
-until ready", test-discovery, and test-runner helpers both CI jobs source, so
-the two tiers can't drift.
+There is exactly ONE piece of code that serves the edge functions and decides
+"ready": `ensure_functions_served` in `lib/stripe_test_helpers.sh`. Every
+suite calls it; CI does not pre-serve anything (there is no CI-side serve
+helper — that duplicate leg caused a probe-drift outage and was removed).
+It also warms every function worker before returning, so tests never need
+cold-start retry loops of their own.
+
+The rule that keeps suites from colliding, for anything added later:
+
+> **A suite owns ALL data it touches (create it, tear it down) and may assume
+> NOTHING about serve state beyond what `ensure_functions_served` guarantees.**
+> Suites that share the stack run serially (run-all.sh); only tests with zero
+> shared state may ever run in parallel. `email-resilience` deliberately owns
+> the serve lifecycle (it re-serves with different env) and therefore runs
+> last.
 
 ## Requirements
 

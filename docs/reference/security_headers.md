@@ -68,7 +68,7 @@ password: 'password123'
 - Only JWTs found anywhere in history are the **public Supabase demo keys**
   (`iss: supabase-demo`, anon + service_role) — these are documented defaults
   shipped with every local Supabase install, **not secrets**. They appear in
-  `.github/scripts/edge-fn-ci-lib.sh` as the standard local `ANON_KEY` default.
+  `supabase/functions/tests/lib/stripe_test_helpers.sh` as the standard local `ANON_KEY` default.
 - No `sk_live_…`, `rk_live_…`, `whsec_…` (real), AWS `AKIA…`, GitHub `ghp_…`,
   or PEM private keys found in working tree or history.
 - `Capstone5-3/.../.env:Zone.Identifier` in old history = a Windows binary
