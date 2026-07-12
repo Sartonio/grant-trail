@@ -87,6 +87,23 @@ ROLLBACK;
 SQL
 }
 
+# psql_setup_service <setup_sql> <assert_sql> — plant <setup_sql> as postgres,
+# then run <assert_sql> as the backend `service_role` (no end-user identity:
+# auth.uid() IS NULL, auth.role() = 'service_role'), all in ONE rolled-back
+# transaction. Prints the assert result.
+psql_setup_service() {
+  local setup="$1" assert="$2"
+  docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -tA -v ON_ERROR_STOP=0 <<SQL 2>&1
+BEGIN;
+${setup}
+SELECT set_config('request.jwt.claims',
+  json_build_object('role','service_role')::text, true);
+SET LOCAL ROLE service_role;
+${assert}
+ROLLBACK;
+SQL
+}
+
 # assert_eq / assert_contains are shared (see lib/common.sh).
 . "$(dirname "${BASH_SOURCE[0]}")/lib/common.sh"
 
@@ -424,6 +441,108 @@ out=$(psql_as "$GRANTEE_BRIGHT" "
   SELECT 1;")
 assert_contains "authed user CANNOT forge a notification (F3)" \
   "violates row-level security policy" "$out"
+
+# ============================================================================
+# Security audit B1 — provisioning RPCs must bind to the caller's auth identity
+# ============================================================================
+# provision_self_service_tenant / provision_fiscal_agent_tenant are SECURITY
+# DEFINER. They must: refuse anon (no EXECUTE), refuse p_auth_uid != auth.uid(),
+# refuse a caller who ALREADY has a users row (no duplicate tenants), and derive
+# the email from auth.users (client-supplied p_email is untrusted). The ONLY
+# exception is service_role backend provisioning (auth.uid() IS NULL there),
+# which keeps the trust-the-args path.
+
+FRESH='00000000-0000-0000-0000-0000000000fe'
+FRESH_AUTH="INSERT INTO auth.users (instance_id, id, aud, role, email, encrypted_password, created_at, updated_at)
+  VALUES ('00000000-0000-0000-0000-000000000000','${FRESH}','authenticated','authenticated','Fresh.Signup@Example.COM', crypt('x', gen_salt('bf')), now(), now());"
+
+# anon cannot execute provision_self_service_tenant at all (EXECUTE revoked).
+out=$(psql_setup_anon "" "
+  SELECT provision_self_service_tenant('${FRESH}','x@x.test','A','B','Anon Org','555', NULL);")
+assert_contains "anon CANNOT execute provision_self_service_tenant (B1)" \
+  "permission denied" "$out"
+
+# p_auth_uid must be the caller's own auth.uid() — no provisioning for others.
+out=$(psql_setup_as "$FRESH" "$FRESH_AUTH" "
+  SELECT provision_self_service_tenant('${GRANTEE_TFAC}','x@x.test','A','B','Spoof Org','555', NULL);")
+assert_contains "authed user CANNOT self-service provision for another uid (B1)" \
+  "on behalf of another user" "$out"
+
+out=$(psql_setup_as "$FRESH" "$FRESH_AUTH" "
+  SELECT provision_fiscal_agent_tenant('${GRANTEE_TFAC}','x@x.test','A','B','Spoof Charity','555');")
+assert_contains "authed user CANNOT fiscal-agent provision for another uid (B1)" \
+  "on behalf of another user" "$out"
+
+# A caller who ALREADY has a users row cannot provision a second tenant.
+out=$(psql_as "$GRANTEE_TFAC" "
+  SELECT provision_self_service_tenant('${GRANTEE_TFAC}','whatever@x.test','A','B','Second Org','555', NULL);")
+assert_contains "existing user CANNOT self-service provision a second tenant (B1)" \
+  "already has a user record" "$out"
+
+out=$(psql_as "$ADMIN_BRIGHT" "
+  SELECT provision_fiscal_agent_tenant('${ADMIN_BRIGHT}','whatever@x.test','A','B','Second Charity','555');")
+assert_contains "existing user CANNOT fiscal-agent provision a second tenant (B1)" \
+  "already has a user record" "$out"
+
+# Legit first-time signup still works, and the stored email is the AUTH identity
+# (lowercased) — the forged p_email is ignored for trust purposes.
+out=$(psql_setup_as "$FRESH" "$FRESH_AUTH" "
+  SELECT provision_self_service_tenant('${FRESH}','forged@evil.test','New','Bie','Fresh Org','555', NULL)->>'email';")
+assert_contains "first-time self-service signup uses auth-derived lowercased email (B1)" \
+  "fresh.signup@example.com" "$out"
+
+out=$(psql_setup_as "$FRESH" "$FRESH_AUTH" "
+  SELECT provision_fiscal_agent_tenant('${FRESH}','forged@evil.test','New','Bie','Fresh Charity','555')->>'email';")
+assert_contains "first-time fiscal-agent signup uses auth-derived lowercased email (B1)" \
+  "fresh.signup@example.com" "$out"
+
+# …and the fiscal-agent path still yields the tenant admin role.
+out=$(psql_setup_as "$FRESH" "$FRESH_AUTH" "
+  SELECT provision_fiscal_agent_tenant('${FRESH}','forged@evil.test','New','Bie','Fresh Charity','555')->>'role';")
+assert_eq "first-time fiscal-agent signup still creates an admin (B1 positive)" \
+  "admin" "$(echo "$out" | grep -E '^(grantee|admin|super_admin)$' | tail -1)"
+
+# service_role backend provisioning still works with NO end-user JWT: args are
+# trusted as given (webhook/seed path must not regress).
+out=$(psql_setup_service "$FRESH_AUTH" "
+  SELECT provision_self_service_tenant('${FRESH}','svc@example.com','New','Bie','Svc Org','555', NULL)->>'email';")
+assert_contains "service_role can STILL provision on behalf of a user (B1)" \
+  "svc@example.com" "$out"
+
+# ============================================================================
+# Security audit B3 — dead self-INSERT policy on public.users is dropped
+# ============================================================================
+# The policy "Users can insert their own user record" was unreachable (the
+# self-insert guard trigger rejects every direct self-insert; the trusted RPCs
+# bypass RLS as the definer). It must be GONE, and direct self-inserts must
+# STILL be rejected by the guard afterwards.
+out=$(docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -tA -c \
+  "SELECT count(*) FROM pg_policies WHERE schemaname='public' AND tablename='users'
+     AND policyname='Users can insert their own user record';")
+assert_eq "dead self-insert policy on users is DROPPED (B3)" "0" "$(echo "$out" | grep -E '^[0-9]+$' | head -1)"
+
+# A row shaped EXACTLY to the old policy (own uid, grantee, active) still fails.
+out=$(psql_setup_as "$FRESH" "$FRESH_AUTH" "
+  INSERT INTO users (tenant_id, firstname, lastname, organization_name, email, phone_number, user_id, role, is_active)
+  VALUES (3, 'F', 'S', 'org', 'fresh.signup@example.com', '555', '${FRESH}', 'grantee', true);
+  SELECT 1;")
+assert_contains "direct self-INSERT into users STILL fails after policy drop (B3)" \
+  "Direct self-insert into users is not permitted" "$out"
+
+# ============================================================================
+# Security audit B4 — consume_invite refuses EXPIRED invites (defense in depth)
+# ============================================================================
+INV_EXPIRED_SETUP="INSERT INTO invites (tenant_id, token, role, email, expires_at)
+VALUES (1, '55555555-5555-5555-5555-555555555555', 'grantee', 'late@tfac.test', now() - interval '1 day');"
+
+out=$(psql_setup_as "$GRANTEE_TFAC" "$INV_EXPIRED_SETUP" "
+SELECT consume_invite('55555555-5555-5555-5555-555555555555', '${GRANTEE_TFAC}'::uuid);
+RESET ROLE;
+SELECT used_at IS NULL FROM invites WHERE token='55555555-5555-5555-5555-555555555555';")
+assert_eq "consume_invite returns FALSE for an expired invite (B4)" \
+  "f" "$(echo "$out" | grep -E '^[tf]$' | head -1)"
+assert_eq "expired invite's used_at stays NULL after the attempt (B4)" \
+  "t" "$(echo "$out" | grep -E '^[tf]$' | tail -1)"
 
 echo "=============================================================="
 echo " RESULTS: ${pass} passed, ${fail} failed"

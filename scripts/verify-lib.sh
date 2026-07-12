@@ -26,6 +26,25 @@ vf_boot_stack() {
   echo "==> booting local Supabase stack"
   npx --prefix frontend supabase start || exit 1
   npx --prefix frontend supabase db reset || exit 1
+  vf_export_stack_env
+}
+
+# CI parity (ci.yml does the same extraction): the e2e fixtures need the local
+# stack's service-role key, which is deliberately NOT in frontend/.env.local —
+# only browser-safe VITE_* values belong there. Source the keys from the stack
+# we just booted instead; never override values the caller already exported.
+vf_export_stack_env() {
+  local status
+  status="$(npx --prefix frontend supabase status -o env 2>/dev/null)" || {
+    echo "WARN: could not read supabase status — e2e may lack SUPABASE_SERVICE_ROLE_KEY."
+    return 0
+  }
+  _vf_env_from_status() {
+    echo "$status" | grep "^$1=" | head -1 | cut -d= -f2- | tr -d '"'
+  }
+  export SUPABASE_SERVICE_ROLE_KEY="${SUPABASE_SERVICE_ROLE_KEY:-$(_vf_env_from_status SERVICE_ROLE_KEY)}"
+  export VITE_SUPABASE_URL="${VITE_SUPABASE_URL:-$(_vf_env_from_status API_URL)}"
+  export VITE_SUPABASE_KEY="${VITE_SUPABASE_KEY:-$(_vf_env_from_status ANON_KEY)}"
 }
 
 # --- tiers ------------------------------------------------------------------

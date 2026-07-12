@@ -5,8 +5,8 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../supabaseClient';
 import { getInviteByToken, registerInvitedUser } from '../../lib/invites';
 import { startCheckoutSession, MEMBERSHIP_TIERS } from '../../lib/billing';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { FaUser, FaBuilding, FaPhone, FaCalendarAlt, FaCheckCircle } from 'react-icons/fa';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
+import { FaUser, FaBuilding, FaPhone, FaCalendarAlt, FaCheckCircle, FaExclamationTriangle } from 'react-icons/fa';
 import '../../styles/Login.css';
 
 function CompleteProfile({ session, onProfileComplete }) {
@@ -26,15 +26,23 @@ function CompleteProfile({ session, onProfileComplete }) {
   // Invite state
   const [invite, setInvite] = useState(null);
   const [inviteLoading, setInviteLoading] = useState(!!inviteToken);
+  const [inviteError, setInviteError] = useState('');
 
-  // Validate invite token on mount
+  // Validate invite token on mount. An invalid/used/expired invite must render
+  // the dedicated error screen — never fall through to self-service checkout (C2).
   useEffect(() => {
     if (!inviteToken) return;
 
     async function validateInvite() {
-      const { data } = await getInviteByToken(inviteToken);
+      const { data, error } = await getInviteByToken(inviteToken);
 
-      if (data && !data.used_at) {
+      if (error || !data) {
+        setInviteError('Invalid invite link.');
+      } else if (data.used_at) {
+        setInviteError('This invite has already been used.');
+      } else if (new Date(data.expires_at) < new Date()) {
+        setInviteError('This invite has expired.');
+      } else {
         setInvite(data);
       }
       setInviteLoading(false);
@@ -65,6 +73,14 @@ function CompleteProfile({ session, onProfileComplete }) {
       const user = session?.user;
       if (!user) {
         setErrorMsg('No authenticated user found. Please log in again.');
+        setLoading(false);
+        return;
+      }
+
+      // Defense in depth (C2): an invite token that never resolved to a valid
+      // invite must not fall through to self-service tenant provisioning.
+      if (inviteToken && !invite) {
+        setErrorMsg("This invite is no longer valid. Please ask your organization's admin for a new invite link.");
         setLoading(false);
         return;
       }
@@ -166,6 +182,28 @@ function CompleteProfile({ session, onProfileComplete }) {
       <div className="signup">
         <div className="signup-container wide">
           <p>Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Dedicated dead-end for a bad invite: no form, no path into the
+  // self-service provisioning/checkout branch.
+  if (inviteError) {
+    return (
+      <div className="signup">
+        <div className="signup-container wide">
+          <div style={{ textAlign: 'center', marginBottom: '1em' }}>
+            <FaExclamationTriangle style={{ fontSize: '2rem', color: 'var(--color-error)' }} />
+          </div>
+          <h2>Invite No Longer Valid</h2>
+          <p className="signup-subtitle">{inviteError}</p>
+          <p className="signup-subtitle">
+            Please ask your organization's admin for a new invite link.
+          </p>
+          <p className="signup-footer">
+            Already have an account? <Link to="/login">Log in</Link>
+          </p>
         </div>
       </div>
     );
