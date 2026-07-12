@@ -54,17 +54,26 @@ Both live in `supabase/functions/.env`.
 Auth emails (magic links, password resets) go through Supabase's built-in **Inbucket** at
 `http://localhost:54324` — no setup needed.
 
-### Running the billing stack locally (four terminals)
+### Running the billing stack locally (two terminals)
 
 ```bash
-npm run db:start                                                                   # 1. stack
-npx --prefix frontend supabase functions serve --env-file ./supabase/functions/.env  # 2. edge fns
-stripe listen --forward-to http://127.0.0.1:54321/functions/v1/stripe-webhook      # 3. webhook fwd
-npm run dev                                                                         # 4. app
+npm run db:start   # 1. Supabase stack (Docker)
+npm run dev        # 2. edge functions + Stripe webhook forwarder + Vite
 ```
 
-Terminal 3 prints a `whsec_…` — paste it into `STRIPE_WEBHOOK_SECRET` and restart terminal 2.
-The secret changes every `stripe listen` session; a stale one → every webhook 400s. Test card
+`npm run dev` ([`scripts/dev.sh`](../../scripts/dev.sh)) owns all three dev processes and tears them
+down together on Ctrl-C. The `supabase start` stack does **not** load `supabase/functions/.env`, so
+the functions are served separately with `--env-file`; the forwarder reuses the same
+`STRIPE_SECRET_KEY`, so there is nothing extra to configure.
+
+Get the signing secret once (it is stable per machine) and put it in `supabase/functions/.env`:
+
+```bash
+stripe listen --print-secret   # -> whsec_…  → STRIPE_WEBHOOK_SECRET
+```
+
+If it does not match what the forwarder is using, every webhook 400s (`No signatures found
+matching…`) — `npm run dev` checks this at startup and prints the correct value. Test card
 `4242 4242 4242 4242` (any future expiry/CVC); see [Local Stripe Testing](local_stripe_testing.md)
 for the full card matrix, the automated suite, and the debugging table.
 
