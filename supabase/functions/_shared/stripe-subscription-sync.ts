@@ -306,6 +306,23 @@ export async function upsertSubscriptionFromStripe(subscription: Stripe.Subscrip
     if (mirrorError) {
       throw new Error(`Unable to mirror legacy premium into tenant membership: ${mirrorError.message}`);
     }
+  } else if (userTenantId) {
+    // Downgrade path: if THIS subscription previously mirrored premium into
+    // tenant_memberships and is now non-premium, deactivate that mirror row —
+    // otherwise the tenant keeps a stale active premium entitlement
+    // (is_membership_exempt reads tenant_memberships) after premium -> basic.
+    // Keyed on subscription_id so a genuine tenant-owned membership (backed by
+    // its own subscriptions row) is never touched.
+    const { error: demoteError } = await adminSupabase
+      .from('tenant_memberships')
+      .update({ is_active: false })
+      .eq('tenant_id', userTenantId)
+      .eq('subscription_id', subscriptionRow?.id ?? -1)
+      .eq('source', 'stripe');
+
+    if (demoteError) {
+      throw new Error(`Unable to deactivate stale premium tenant mirror: ${demoteError.message}`);
+    }
   }
 
   // Auto-unlist on premium lapse / re-publish on reactivation (TASK A5). Keyed

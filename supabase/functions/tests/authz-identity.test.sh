@@ -3,9 +3,10 @@
 # Edge-function authorization baseline — identity is derived from the JWT, never
 # from the request body.
 #
-# The billing functions must act ONLY on the caller's own Stripe customer, which
-# is resolved server-side from the verified JWT (requireAuthenticatedProfile ->
-# getOrCreateStripeCustomer keyed on the caller's public.users.id). This suite
+# The billing functions must act ONLY on a Stripe customer the caller is
+# entitled to, resolved server-side from the verified JWT:
+# requireAuthenticatedProfile -> getOrCreateStripeCustomer (per-user, basic) or
+# getOrCreateStripeCustomerForTenant (the caller's OWN tenant, premium). This suite
 # proves there is no IDOR / identity-spoofing surface by having an authenticated
 # caller (user A) submit ANOTHER user's identifiers (user B's user_id /
 # customer_id / email) in the request body and asserting:
@@ -19,7 +20,8 @@
 #
 # Functions exercised: create-checkout-session, create-billing-portal-session.
 # (Both flow through the same shared identity/customer-resolution helpers, so a
-# pass here covers sync-my-subscription, which resolves identity identically.)
+# pass here covers sync-my-subscription's per-user leg, which resolves identity
+# identically; its tenant-customer leg is exercised in portal-and-sync.test.sh.)
 #
 # Prereqs: local Supabase up + functions served with supabase/functions/.env.
 # Stripe TEST mode only. No webhook forwarder needed.
@@ -34,9 +36,9 @@ ensure_functions_served || exit 1
 
 # An unauthenticated/invalid request must be REJECTED. With verify_jwt=true the
 # Supabase gateway rejects an invalid bearer with 401 *before* the function runs,
-# while a missing-token request that reaches the function is rejected with 400
-# (requireAuthenticatedProfile throws "Unauthorized"). Either proves the body
-# identity was never honored.
+# while a missing-token request that reaches the function is rejected with 401
+# (requireAuthenticatedProfile throws AuthError, mapped to 401 by every billing
+# handler). Either proves the body identity was never honored.
 assert_rejected() {
   if [ "$1" == "400" ] || [ "$1" == "401" ]; then pass "$2 (HTTP $1)"; else fail "$2 expected 400/401 got $1"; fi
 }
@@ -58,9 +60,11 @@ B_UUID=$(auth_uuid_for "$B_ID")
 info "A=$A_ID ($A_CUS)  B=$B_ID ($B_CUS)"
 
 # =========================================================================
-# (b)/(c) CHECKOUT: A authenticates but the body claims to be B. The session
-# must be created against A's OWN customer, and the Stripe metadata.user_id must
-# be A's id — never B's. This proves the body identity is ignored end-to-end.
+# (b)/(c) CHECKOUT: A authenticates but the body claims to be B. Premium
+# checkout is TENANT-owned, so the session must be created against A's OWN
+# tenant's customer (minted on first premium checkout), and the Stripe
+# metadata.user_id must be A's id — never B's identifiers. This proves the body
+# identity is ignored end-to-end.
 # =========================================================================
 info "[checkout] A-token + B's identity in body -> session bound to A, not B"
 RESP=$(curl -s -X POST "$FUNCTIONS_URL/create-checkout-session" \
@@ -74,7 +78,10 @@ if [ -n "$CS" ]; then
   SESS_CUS=$(echo "$SESS" | json_field customer)
   SESS_UID=$(echo "$SESS" | python3 -c "import sys,json; print(json.load(sys.stdin).get('metadata',{}).get('user_id',''))")
   SESS_REF=$(echo "$SESS" | json_field client_reference_id)
-  assert_eq "$SESS_CUS" "$A_CUS" "[checkout] session.customer is A's customer (not B's)"
+  # Premium binds the TENANT-owned customer for A's tenant (created by this
+  # call), never A's per-user customer and never anything of B's.
+  A_TENANT_CUS=$(dbq "SELECT bc.stripe_customer_id FROM billing_customers bc JOIN users u ON u.tenant_id = bc.tenant_id WHERE u.id=$A_ID;")
+  assert_eq "$SESS_CUS" "$A_TENANT_CUS" "[checkout] session.customer is A's tenant-owned customer (not B's)"
   assert_eq "$SESS_UID" "$A_ID"  "[checkout] metadata.user_id is A (body B ignored)"
   assert_eq "$SESS_REF" "$A_ID"  "[checkout] client_reference_id is A (body B ignored)"
   # Explicit negative assertions: nothing about B leaked into A's session.
@@ -102,10 +109,11 @@ ERRMSG=$(echo "$RESP" | json_field error)
 case "$URL" in
   https://billing.stripe.com/*)
     pass "[portal] portal url issued for caller A"
-    # The function resolves the customer from A's JWT (getOrCreateStripeCustomer)
-    # before ever calling Stripe, so a successful issue against A — with B's
-    # identifiers in the body — already proves the body was ignored. B's mapped
-    # row is also asserted untouched below.
+    # The function resolves the customer from A's JWT (tenant-owned customer
+    # preferred for admins, else getOrCreateStripeCustomer) before ever calling
+    # Stripe, so a successful issue against A — with B's identifiers in the
+    # body — already proves the body was ignored. B's mapped row is also
+    # asserted untouched below.
     ;;
   *)
     # Some restricted Stripe TEST keys (e.g. Checkout-only keys) can't reach the
@@ -146,7 +154,10 @@ RESP=$(curl -s -X POST "$FUNCTIONS_URL/create-checkout-session" \
 CS=$(echo "$RESP" | session_id_from_resp)
 if [ -n "$CS" ]; then
   SESS_CUS=$(sapi checkout sessions retrieve "$CS" | json_field customer)
-  assert_eq "$SESS_CUS" "$B_CUS" "[control] B's session bound to B's own customer"
+  # Premium is tenant-owned: B's session binds B's OWN tenant's customer.
+  B_TENANT_CUS=$(dbq "SELECT bc.stripe_customer_id FROM billing_customers bc JOIN users u ON u.tenant_id = bc.tenant_id WHERE u.id=$B_ID;")
+  assert_eq "$SESS_CUS" "$B_TENANT_CUS" "[control] B's session bound to B's own tenant customer"
+  if [ -n "$A_TENANT_CUS" ] && [ "$SESS_CUS" == "$A_TENANT_CUS" ]; then fail "[control] LEAK: B's session bound to A's tenant customer"; else pass "[control] A's tenant customer NOT used for B"; fi
 else
   fail "[control] B could not create its own session: $(echo "$RESP" | head -c 160)"
 fi

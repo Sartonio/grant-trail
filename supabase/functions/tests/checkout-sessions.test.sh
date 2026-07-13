@@ -7,7 +7,8 @@
 # correctly; that the session is created in `subscription` mode against the price
 # selected from the feature key (basic_membership -> STRIPE_PRICE_BASIC / tier
 # 'basic'; everything else -> STRIPE_PRICE_FISCAL_AGENT / tier 'premium'); and
-# that a `billing_customers` row is created/reused for the authenticated user.
+# that a `billing_customers` row is created/reused per owner — per-USER for the
+# basic tier, per-TENANT (user_id NULL) for the tenant-owned premium tier.
 # Auth and input-validation guards are checked too (no token => 401-style
 # Unauthorized from the platform-root auth guard, before the function's own 400;
 # wrong feature key => 400).
@@ -79,9 +80,10 @@ else
   fail "premium checkout did not return a session url: $(echo "$RESP" | head -c 160)"
 fi
 
-# The second call must REUSE the billing_customers row, not create a duplicate
-# (unique on user_id; a second insert would error).
-assert_eq "$(dbq "SELECT count(*) FROM billing_customers WHERE user_id=$ADMIN_ID;")" "1" "billing_customers reused across checkout calls"
+# Premium checkout is TENANT-owned: it must not touch the per-user row created
+# by the basic call, and it creates exactly one tenant-owned row for the org.
+assert_eq "$(dbq "SELECT count(*) FROM billing_customers WHERE user_id=$ADMIN_ID;")" "1" "per-user billing_customers row untouched by premium checkout"
+assert_eq "$(dbq "SELECT count(*) FROM billing_customers WHERE tenant_id=(SELECT tenant_id FROM users WHERE id=$ADMIN_ID);")" "1" "tenant-owned billing_customers row created once for premium"
 
 # ---- default feature key -------------------------------------------------
 
