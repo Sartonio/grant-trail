@@ -7,23 +7,11 @@ import { supabase } from '../../supabaseClient';
 import { getInviteByToken } from '../../lib/invites';
 import { Link, useSearchParams } from 'react-router-dom';
 import { FaEnvelope, FaLock, FaCheckCircle } from 'react-icons/fa';
+import VerifyEmailNotice from './VerifyEmailNotice';
 import '../../styles/Login.css';
-
-const RESEND_COOLDOWN_SECONDS = 15;
 
 // Heuristic for "an account with this email already exists" signUp errors.
 const EXISTING_ACCOUNT_ERROR = /already registered|already exists|user already/i;
-
-// Rate-limit shapes from supabase.auth.resend (429s / "security purposes" copy).
-const RATE_LIMIT_ERROR = /rate limit|too many|security purposes/i;
-
-// resend({type:'signup'}) fails with this when the account's email is already
-// verified — the discriminator between existing-unconfirmed and existing-confirmed.
-const CONFIRMED_ACCOUNT_ERROR = /already (been )?confirmed/i;
-
-function isRateLimitError(err) {
-  return err?.status === 429 || RATE_LIMIT_ERROR.test(err?.message || '');
-}
 
 function SignUp() {
   const [searchParams] = useSearchParams();
@@ -36,13 +24,11 @@ function SignUp() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
-  const [infoMsg, setInfoMsg] = useState('');
   const [loading, setLoading] = useState(false);
   const [verifyScreen, setVerifyScreen] = useState(false);
-  // Existing account with a verified email — route them to login instead.
+  // An account with this email already exists (confirmed OR unconfirmed) —
+  // route them to login. Unconfirmed users get the confirm-email screen there.
   const [accountExists, setAccountExists] = useState(false);
-  // Seconds until "Resend verification email" is clickable again (A2).
-  const [cooldown, setCooldown] = useState(0);
 
   // Invite state
   const [invite, setInvite] = useState(null);
@@ -72,15 +58,6 @@ function SignUp() {
     validateInvite();
   }, [inviteToken]);
 
-  // Tick the resend cooldown down to 0, one second at a time.
-  useEffect(() => {
-    if (cooldown <= 0) return undefined;
-    const timer = setInterval(() => {
-      setCooldown((s) => (s > 0 ? s - 1 : 0));
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [cooldown]);
-
   function buildRedirectUrl() {
     let redirectUrl = `${window.location.origin}/complete-profile`;
     if (inviteToken) {
@@ -95,14 +72,12 @@ function SignUp() {
     return value.trim().toLowerCase();
   }
 
-  async function resendVerificationEmail(targetEmail = email) {
-    const redirectUrl = buildRedirectUrl();
-    const normalizedEmail = getNormalizedEmail(targetEmail);
+  async function resendVerificationEmail() {
     const { error } = await supabase.auth.resend({
       type: 'signup',
-      email: normalizedEmail,
+      email: getNormalizedEmail(),
       options: {
-        emailRedirectTo: redirectUrl,
+        emailRedirectTo: buildRedirectUrl(),
       },
     });
 
@@ -111,41 +86,9 @@ function SignUp() {
     }
   }
 
-  // Existing-account routing (product decision: disclose confirmed accounts and
-  // send them to login rather than a dead-end verify screen). The resend attempt
-  // is the discriminator — it succeeds for an unconfirmed account and fails with
-  // "already confirmed" for a verified one. Raw errors are never surfaced.
-  //   'unconfirmed' -> resend worked, show the verify screen
-  //   'confirmed'   -> show the "you already have an account" login screen
-  //   'unknown'     -> ambiguous (rate limit, network): safe default is verify
-  async function classifyExistingAccount(targetEmail) {
-    try {
-      await resendVerificationEmail(targetEmail);
-      return 'unconfirmed';
-    } catch (err) {
-      if (CONFIRMED_ACCOUNT_ERROR.test(err?.message || '')) return 'confirmed';
-      return 'unknown';
-    }
-  }
-
-  async function handleExistingAccount(targetEmail) {
-    const status = await classifyExistingAccount(targetEmail);
-    if (status === 'confirmed') {
-      setAccountExists(true);
-    } else {
-      showVerifyScreen();
-    }
-  }
-
-  function showVerifyScreen() {
-    setVerifyScreen(true);
-    setCooldown(RESEND_COOLDOWN_SECONDS);
-  }
-
   async function handleSignup(e) {
     e.preventDefault();
     setErrorMsg('');
-    setInfoMsg('');
 
     if (password.length < 6) {
       setErrorMsg('Password must be at least 6 characters.');
@@ -167,8 +110,8 @@ function SignUp() {
 
       if (error) {
         if (EXISTING_ACCOUNT_ERROR.test(error.message || '')) {
-          // Existing account: confirmed -> login screen, else verify screen.
-          await handleExistingAccount(normalizedEmail);
+          // Existing account — confirmed or not, send them to log in.
+          setAccountExists(true);
           setLoading(false);
           return;
         }
@@ -188,45 +131,22 @@ function SignUp() {
       } else {
         // Email confirmation is ON.
         // When Supabase returns a user with an EMPTY identities array, it is an
-        // existing-account placeholder (confirmed OR unconfirmed) — classify it
-        // via the resend and route accordingly.
+        // existing-account placeholder (confirmed OR unconfirmed). Product
+        // decision: both cases read as "you already have an account" — the
+        // login flow shows the confirm-email screen for the unconfirmed case.
         const isExistingAccount =
           Array.isArray(data?.user?.identities) && data.user.identities.length === 0;
 
         if (isExistingAccount) {
-          await handleExistingAccount(normalizedEmail);
+          setAccountExists(true);
         } else {
-          showVerifyScreen();
+          setVerifyScreen(true);
         }
       }
     } catch (err) {
       setErrorMsg(err?.message || 'Unexpected error during signup');
     } finally {
       setLoading(false);
-    }
-  }
-
-  async function handleResendVerification() {
-    setErrorMsg('');
-    setInfoMsg('');
-    setLoading(true);
-
-    try {
-      await resendVerificationEmail();
-      setInfoMsg('We sent a fresh verification link to your email address.');
-    } catch (err) {
-      // Never surface raw auth errors; keep messaging friendly. An
-      // already-confirmed response means they should just log in.
-      if (CONFIRMED_ACCOUNT_ERROR.test(err?.message || '')) {
-        setAccountExists(true);
-      } else if (isRateLimitError(err)) {
-        setErrorMsg('Please wait a moment before requesting another email.');
-      } else {
-        setErrorMsg('Unable to resend verification email. Please try again shortly.');
-      }
-    } finally {
-      setLoading(false);
-      setCooldown(RESEND_COOLDOWN_SECONDS);
     }
   }
 
@@ -259,8 +179,9 @@ function SignUp() {
     );
   }
 
-  // Existing, already-verified account: send them to login instead of a
-  // dead-end verification screen.
+  // Existing account (confirmed or unconfirmed): send them to login instead of
+  // re-signing up. If their email still needs verifying, logging in shows the
+  // confirm-email screen; password reset works either way.
   if (accountExists) {
     return (
       <div className="signup">
@@ -270,8 +191,10 @@ function SignUp() {
           </div>
           <h2>You Already Have an Account</h2>
           <p style={{ color: '#6b7280', lineHeight: 1.6, marginBottom: '1.5em' }}>
-            An account for <strong>{email}</strong> already exists and its email is verified.
-            <br />Log in to continue — or reset your password from the login page if you've forgotten it.
+            An account for <strong>{email}</strong> already exists.
+            <br />Log in to continue — if your email hasn't been verified yet, we'll
+            help you confirm it after you log in. Forgotten your password? You can
+            reset it from the login page.
           </p>
           {inviteToken && (
             <p style={{ color: '#6b7280', lineHeight: 1.6, marginBottom: '1.5em' }}>
@@ -290,52 +213,26 @@ function SignUp() {
   // Show "check your email" screen after signup when confirmation is required
   if (verifyScreen) {
     return (
-      <div className="signup">
-        <div className="signup-container" style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '3rem', color: 'var(--color-primary)', marginBottom: '0.5em' }}>
-            <FaCheckCircle />
-          </div>
-          <h2>Check Your Email</h2>
-          <p style={{ color: '#6b7280', lineHeight: 1.6, marginBottom: '1.5em' }}>
-            We've sent a verification link to <strong>{email}</strong>.
-            <br />Click the link in the email to verify your account, then you'll be asked to complete your profile.
-          </p>
-          {infoMsg && (
-            <div className="success-message" style={{ marginBottom: '1em' }}>
-              {infoMsg}
-            </div>
-          )}
-          {errorMsg && (
-            <div className="error" style={{ marginBottom: '1em' }}>
-              <span className="error-icon">⚠️</span>
-              <span>{errorMsg}</span>
-            </div>
-          )}
-          {inviteToken && (
+      <VerifyEmailNotice
+        email={email}
+        onResend={resendVerificationEmail}
+        onAlreadyConfirmed={() => setAccountExists(true)}
+        wrapper="signup"
+        note={
+          inviteToken ? (
             <p style={{ color: '#6b7280', lineHeight: 1.6, marginBottom: '1.5em' }}>
               Note: invite links can only be redeemed by new accounts. If you already
               have a GrantTrail account, please ask your admin how to proceed.
             </p>
-          )}
-          <button
-            type="button"
-            onClick={handleResendVerification}
-            disabled={loading || cooldown > 0}
-          >
-            <span>
-              {cooldown > 0
-                ? `Resend available in ${cooldown}s`
-                : loading
-                  ? 'Sending link…'
-                  : 'Resend verification email'}
-            </span>
-          </button>
+          ) : null
+        }
+        footer={
           <div className="signup-footer">
             Already have an account?{' '}
             <Link to="/login">Log in or reset your password</Link>.
           </div>
-        </div>
-      </div>
+        }
+      />
     );
   }
 
