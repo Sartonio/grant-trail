@@ -115,7 +115,11 @@ Deno.serve(async (request) => {
       case 'customer.subscription.created':
       case 'customer.subscription.updated':
       case 'customer.subscription.deleted': {
-        await upsertSubscriptionFromStripe(event.data.object);
+        // Pass the Stripe event's `created` timestamp as the ordering marker:
+        // an out-of-order delivery (older event arriving after a newer one, or
+        // after .deleted) is skipped inside upsertSubscriptionFromStripe via an
+        // atomic conditional check-and-set, instead of resurrecting stale state.
+        await upsertSubscriptionFromStripe(event.data.object, new Date(event.created * 1000));
         break;
       }
       case 'invoice.payment_failed': {

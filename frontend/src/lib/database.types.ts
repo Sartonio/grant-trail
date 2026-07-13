@@ -895,6 +895,24 @@ export type Database = {
           },
         ]
       }
+      stripe_subscription_event_cursors: {
+        Row: {
+          last_event_at: string
+          stripe_subscription_id: string
+          updated_at: string
+        }
+        Insert: {
+          last_event_at: string
+          stripe_subscription_id: string
+          updated_at?: string
+        }
+        Update: {
+          last_event_at?: string
+          stripe_subscription_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       subscriptions: {
         Row: {
           cancel_at_period_end: boolean
@@ -1311,6 +1329,10 @@ export type Database = {
           total_remaining: number
           total_spent: number
         }[]
+      }
+      claim_stripe_subscription_event: {
+        Args: { p_event_at: string; p_stripe_subscription_id: string }
+        Returns: boolean
       }
       consume_invite: {
         Args: { p_token: string; p_user_id: string }

@@ -236,6 +236,40 @@ dbx "UPDATE tenant_memberships SET is_active=false WHERE tenant_id=(SELECT tenan
 assert_eq "$(dbq "SELECT has_basic_membership($DBUID)::text;")" "false" "[lapse] has_basic_membership false after lapse"
 
 # =========================================================================
+# 6b. OUT-OF-ORDER delivery guard: an OLDER customer.subscription.created
+#     event (status=active) re-delivered AFTER customer.subscription.deleted
+#     must NOT resurrect the canceled subscription. The stripe_event_id dedup
+#     row is deleted first so the delivery passes idempotency and exercises
+#     the ordering marker (stripe_subscription_event_cursors /
+#     claim_stripe_subscription_event) alone.
+# =========================================================================
+info "[out-of-order] stale .created after .deleted does not resurrect entitlement"
+OOEVID=$(event_id_for "customer.subscription.created" "$DELSUB")
+if [ -z "$OOEVID" ]; then
+  fail "[out-of-order] could not locate created event id for $DELSUB"
+else
+  # The deleted event advanced the ordering cursor past the created event.
+  assert_eq "$(dbq "SELECT count(*) FROM stripe_subscription_event_cursors WHERE stripe_subscription_id='$DELSUB';")" "1" "[out-of-order] ordering cursor row exists"
+  # Drop the dedup row so the resend is NOT swallowed as a duplicate.
+  dbx "DELETE FROM billing_webhook_events WHERE stripe_event_id='$OOEVID';"
+  sapi events resend "$OOEVID" >/dev/null
+  # Wait until the (re)delivered event is recorded, proving the webhook ran...
+  wait_for_sql "SELECT count(*) FROM billing_webhook_events WHERE stripe_event_id='$OOEVID';" "1" "[out-of-order] stale event delivered + recorded"
+  # ...then assert the stale write was REJECTED: still canceled, still lapsed.
+  assert_eq "$(dbq "SELECT status FROM subscriptions WHERE stripe_subscription_id='$DELSUB';")" "canceled" "[out-of-order] subscription NOT resurrected (still canceled)"
+  assert_eq "$(dbq "SELECT is_active::text FROM user_memberships WHERE user_id=$DBUID;")" "false" "[out-of-order] membership NOT resurrected (still inactive)"
+fi
+
+# Pure-SQL semantics of the atomic claim: newer wins, equal is allowed
+# (redelivery), older is rejected.
+info "[out-of-order] claim_stripe_subscription_event ordering semantics"
+assert_eq "$(dbq "SELECT claim_stripe_subscription_event('sub_ordertest', '2026-01-02T00:00:00Z')::text;")" "true"  "[claim] first event claims"
+assert_eq "$(dbq "SELECT claim_stripe_subscription_event('sub_ordertest', '2026-01-02T00:00:00Z')::text;")" "true"  "[claim] equal timestamp (redelivery) allowed"
+assert_eq "$(dbq "SELECT claim_stripe_subscription_event('sub_ordertest', '2026-01-01T00:00:00Z')::text;")" "false" "[claim] older event rejected"
+assert_eq "$(dbq "SELECT claim_stripe_subscription_event('sub_ordertest', '2026-01-03T00:00:00Z')::text;")" "true"  "[claim] newer event claims"
+dbx "DELETE FROM stripe_subscription_event_cursors WHERE stripe_subscription_id='sub_ordertest';"
+
+# =========================================================================
 # 7. lapse -> REACTIVATE: a fresh active subscription restores membership.
 # =========================================================================
 info "[reactivate] new subscription after lapse restores access"
