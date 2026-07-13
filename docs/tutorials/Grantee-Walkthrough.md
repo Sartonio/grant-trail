@@ -36,8 +36,8 @@ This guide walks through every task a grantee can perform in GrantTrail, with sc
 | **Export expenses to CSV** | Expenses page → Export CSV | Downloads the current filtered expense list as a CSV file |
 | **Upload a supporting document** | Grant → View Details → Grant Attachments | Choose file, pick a category, add an optional description, click Upload |
 | **See all my expenses** | Expense Reports (nav bar) | Use the grant filter or date range to narrow results |
-| **Export expenses to Excel** | Expenses page → Export Excel | Premium subscription required — downloads a multi-sheet Excel workbook |
-| **View my subscription** | Subscription (nav bar) | See your current plan, purchase or upgrade, or manage billing |
+| **Export expenses to Excel** | Expenses page → Export Excel | Active subscription required — downloads a multi-sheet Excel workbook |
+| **View my subscription** | Manage Subscription (nav bar) | See your current access, finish or renew payment, or manage billing |
 | **Reset my password** | Login page → Forgot password? | Enter your email and check your inbox for a reset link |
 
 **Status meanings:**
@@ -68,15 +68,15 @@ Signup is a two-step process. First you create your account (email and password)
 4. Click **Create Account**
 5. If email verification is enabled, you'll see a "Check your email" screen. Click the verification link in your inbox, which takes you to the next step
 6. You land on the **Complete Your Profile** page. The subtitle reads: **"Welcome! Your grants will be managed by [Tenant Name]. Just a few more details to get started."** Fill in:
-   - **First Name** and **Last Name**
+   - **First Name** and **Last Name** (required)
    - **Tax Filing Month** (Optional dropdown. Enables a dashboard reminder when your tax month is approaching)
-   - **Phone Number**
-   - **Organization**
+   - **Phone Number** (required)
+   - **Organization** (required)
 
    <img src="../images/16-01-signup-form-filled.png" alt="Complete profile form" style="max-width: 450px" />
 
 7. Click **Complete Setup**
-8. If your account requires a subscription, you'll land on the **Subscription** page to choose a plan (see Section 14). Otherwise, you're redirected to your dashboard.
+8. Invited grantees have their subscription covered by the inviting organization, so you're taken straight to your dashboard — no checkout step.
 
    <img src="../images/16-01-dashboard-empty-state.png" alt="Dashboard empty state after first login" style="max-width: 700px" />
 
@@ -90,14 +90,14 @@ Signup is a two-step process. First you create your account (email and password)
 3. Enter your **Email** and choose a **Password** (min 6 characters)
 4. Click **Create Account**
 5. If email verification is enabled, check your email and click the verification link
-6. You land on the **Complete Your Profile** page. The subtitle reads: **"One more step — tell us about yourself to set up your workspace."** Fill in:
-   - **First Name** and **Last Name**
+6. You land on the **Complete Your Profile** page. The subtitle reads: **"One more step - tell us about yourself to set up your workspace."** Fill in:
+   - **First Name** and **Last Name** (required)
    - **Tax Filing Month** (optional dropdown)
-   - **Phone Number**
-   - **Organization**: This becomes your workspace name
+   - **Phone Number** (required)
+   - **Organization** (required): This becomes your workspace name
 7. Click **Complete Setup**
 8. A new workspace is automatically created for you with all records auto-approved
-9. If a subscription is required, you'll land on the **Subscription** page to choose a plan (see Section 14). Otherwise, you land on your dashboard.
+9. You're taken straight to Stripe checkout for the **Basic** plan — the last step of signup. Complete payment and you'll return to the **Subscription** page, then click **Refresh Access Status** to unlock the app (see Section 14). If your tenant is subscription-exempt or your subscription is waived, checkout is skipped.
 
 ---
 
@@ -240,7 +240,7 @@ The grants list is paginated. Use the **Previous** and **Next** buttons at the b
 
 4. A tip below the info box reminds you that supporting documents (proposals, budgets, reports) can be uploaded from the grant detail page after saving.
 
-5. Click **Submit Application**
+5. Click **Submit Grant**
 
 6. You'll see a success message and be redirected to your grants list
 
@@ -271,8 +271,8 @@ If the grant's spend period has ended, a banner appears at the top: *"This grant
 
 <img src="../images/16-06-grant-info-section.png" alt="Grant information section" style="max-width: 500px" />
 
-- All financial details: Grant Amount, Disbursed Funds, Total Spent, Remaining Balance
-- Dates: Start/End Spend Period, Release Date, Submitted, Last Reviewed
+- Financial details: Grant Amount, Spent, Remaining Balance
+- Dates: Start/End Spend Period, Expected Release, Submitted, Last Reviewed
 - Approval Notes (if admin has left any)
 
 ### Status History
@@ -301,8 +301,8 @@ Upload and view supporting documents (proposals, budgets, reports). See Section 
 
 ### Navigation Links
 - **Back to Grants**: Return to the grants list
-- **Edit Application**: Visible when the grant has "Needs Changes" status (*managed tenants*) or any time (*self-service tenants*)
-- **View Budget & Expenses**: Go to the budget breakdown
+- **Edit Grant**: Visible when the grant has "Needs Changes" status (*managed tenants*) or any time (*self-service tenants*)
+- **View Breakdown**: Go to the budget breakdown
 
 <img src="../images/16-06-grant-nav.png" alt="Grant navigation links" style="max-width: 600px" />
 
@@ -319,7 +319,7 @@ When an admin returns your grant with a "Needs Changes" status:
 
    <img src="../images/16-07-admin-comments.png" alt="Admin comments for changes needed" style="max-width: 400px" />
 
-3. Click **Edit Application**
+3. Click **Edit Grant**
 
    <img src="../images/16-07-edit-grant-form.png" alt="Edit grant form pre-filled" style="max-width: 400px" />
 
@@ -332,7 +332,7 @@ When an admin returns your grant with a "Needs Changes" status:
 
 Since self-service tenants don't have an approval workflow, you can edit any of your grants at any time:
 
-1. Go to the grant detail page and click **Edit Application**
+1. Go to the grant detail page and click **Edit Grant**
 2. Update any fields (name, dates, amount, description)
 3. Click **Save Changes**
 4. Your changes are saved immediately. The grant stays approved and no re-review is needed
@@ -341,9 +341,9 @@ Since self-service tenants don't have an approval workflow, you can edit any of 
 
 ## 8. Managing Budget Items
 
-1. From a grant detail page, click **View Budget & Expenses**
+1. From a grant detail page, click **View Breakdown**
 
-   <img src="../images/16-08-view-budget-expenses.png" alt="View Budget and Expenses" style="max-width: 150px" />
+   <img src="../images/16-08-view-budget-expenses.png" alt="View Breakdown" style="max-width: 150px" />
 
 2. If the grant's spend period has ended, an **expired grant banner** appears at the top (same as the grant detail page).
 
@@ -380,7 +380,7 @@ Since self-service tenants don't have an approval workflow, you can edit any of 
    - **Item Name** (e.g. "Staff Salaries")
    - **Description** (optional)
    - **Budget Allocated** (dollar amount)
-3. Click **Save**
+3. Click **Add Budget Item**
 4. The item appears in the list
 
    <img src="../images/16-08-budget-items-list.png" alt="Budget items list" style="max-width: 600px" />
@@ -429,7 +429,7 @@ Since self-service tenants don't have an approval workflow, you can edit any of 
 
    <img src="../images/16-09-expense-budget-box.png" alt="Budget info box" style="max-width: 400px" />
 
-5. Click **Save**
+5. Click **Add Expense**
 6. The expense appears in the table under the budget item
 
    <img src="../images/16-09-expenses-table.png" alt="Expenses table with status badge" style="max-width: 600px" />
@@ -469,9 +469,9 @@ Since self-service tenants don't have an approval workflow, you can edit any of 
 
    <img src="../images/16-10-attachments-upload.png" alt="Grant attachments upload area" style="max-width: 500px" />
 
-2. Choose a **Category**: Proposal, Budget, Report, or General
-3. Add a **Description** (optional)
-4. Click **Choose File** and select your document (PDF, JPG, PNG, DOC, DOCX, XLS, XLSX — max 5 MB)
+2. Click the drop zone (**"Click to choose a file"**) and select your document (PDF, Word, Excel, JPG, or PNG — max 5 MB)
+3. Choose a **Category**: General, Proposal, Budget, or Report
+4. Add a **Description** (optional)
 5. Click **Upload**
 
    <img src="../images/16-10-uploaded-document.png" alt="Uploaded document in list" style="max-width: 500px" />
@@ -515,7 +515,7 @@ Since self-service tenants don't have an approval workflow, you can edit any of 
 Two export options are available:
 
 - **Export CSV**: Downloads the currently filtered and sorted expenses as a CSV file. Available to all users.
-- **Export Excel**: Downloads a multi-sheet Excel workbook with one sheet per month, including grant metadata, budget vs actual comparisons, and running totals. Requires a **Premium subscription** (see Section 14). If you don't have Premium, the button reads "Upgrade for Excel" and links to the Subscription page.
+- **Export Excel**: Downloads a multi-sheet Excel workbook with one sheet per month, including grant metadata, budget vs actual comparisons, and running totals. Requires an **active subscription** (any paid Basic grantee, waived, or exempt account qualifies — see Section 14). If you don't have access, the button reads "View Subscription" and links to the Subscription page.
 
 <img src="../images/16-11-export-csv-button.png" alt="Export buttons on expense reports" style="max-width: 700px" />
 
@@ -581,7 +581,7 @@ The footer appears at the bottom of every page and shows:
 
 ## 14. Subscription & Membership
 
-A subscription is required to use GrantTrail's grant and expense features. The **Subscription** link in the navigation bar takes you to the membership page.
+A subscription is required to use GrantTrail's grant and expense features. As a grantee, your plan is the single **Basic** plan, and it is chosen once for you during signup. The **Manage Subscription** link in the navigation bar takes you to the membership page.
 
 ### Who needs a subscription?
 
@@ -591,42 +591,42 @@ A subscription is required to use GrantTrail's grant and expense features. The *
 | Tenant admins | Yes, for non-TFAC admins (unless waived by an admin or the tenant is exempt). TFAC admins are automatically exempt. |
 | Super admins | No (automatically exempt) |
 
-### Plans
+### The Basic plan
 
-| Plan | What's included |
-|------|----------------|
-| **Basic** | Full access to grants, budgets, expenses, receipts, and standard reporting |
-| **Premium** | Everything in Basic, plus Excel export for expense breakdowns |
+As a grantee, the Basic plan gives you full access to grants, budgets, expenses, receipts, and reporting — including CSV and Excel export of your expense breakdowns. There is no separate grantee "Premium" tier: an active Basic subscription (or a waived/exempt account) unlocks every grantee feature.
 
 ### The Subscription Page
 
-   <img src="../images/16-14-subscription-page.png" alt="Subscription page with plan cards" style="max-width: 500px" />
+The Subscription page is a **manage-only** page — the plan choice already happened at signup, so this page is not a plan chooser. It surfaces your current access, a resume-pay button for the Basic plan your account needs (covers an abandoned signup checkout or a lapsed subscription), and the Stripe billing portal for managing an active subscription.
+
+   <img src="../images/16-14-subscription-page.png" alt="Subscription page" style="max-width: 500px" />
 
 The page shows:
 
-- **Status chip**: Your current access level (e.g. "No active subscription", "Basic (Paid)", "Premium (Paid)", "Premium (subscription waived by your administrator)", or "Full Access (subscription not required for your account)")
-- **Plan cards**: Basic and Premium with feature lists. Disabled if you already have that plan or higher.
-- **Manage Subscription**: Opens the Stripe billing portal to update payment method, view invoices, or cancel (only shown for Stripe subscriptions)
+- **Headline**: "Manage Basic Subscription"
+- **Status chip** — "Current access: …" showing your current level, one of: "No active subscription", "Basic (Paid)", "Basic (waived by your administrator)", or "Full Access (subscription not required for your account)"
+- **Complete Basic payment**: A resume-pay button shown only when your account still needs payment (never paid, or a lapsed subscription). It sends you to Stripe checkout.
+- **Manage Subscription**: Opens the Stripe billing portal to update your payment method, view invoices, or cancel (shown only when you have an active paid subscription)
 - **Refresh Access Status**: Reloads your membership status from the server (useful after an admin waives your subscription or you complete a purchase)
 
-### Purchasing a Plan
+### Completing payment
 
-1. Click **Purchase Basic** or **Purchase Premium**
+1. If your account needs payment, click **Complete Basic payment**
 2. You're redirected to the Stripe checkout page
 
    <img src="../images/16-14-stripe-checkout-basic.png" alt="Stripe checkout basic page" style="max-width: 500px" />
 
 3. Enter your payment details and complete the purchase
-4. You're redirected back to the Subscription page
-5. Click **Refresh Access Status** to update your access
+4. You're redirected back to the Subscription page, which begins syncing your access automatically
+5. If access still looks locked, click **Refresh Access Status** to update it
 6. You can now navigate to the dashboard and use all features
 
 ### If Your Subscription is Waived
 
 Your administrator can waive the subscription requirement for your account. When waived:
 
-- The status chip shows **"Premium (subscription waived by your administrator)"**
-- Both plan cards are disabled (no purchase needed)
+- The status chip shows **"Basic (waived by your administrator)"**
+- No payment button is shown (no purchase needed)
 - The "Manage Subscription" button is hidden
 - You have full access to all features including Excel export
 
@@ -637,7 +637,7 @@ Your administrator can waive the subscription requirement for your account. When
 A super admin can exempt your entire tenant from requiring subscriptions. When exempt:
 
 - The status chip shows **"Full Access (subscription not required for your account)"**
-- Both plan cards are disabled
+- No payment button is shown
 - You have full access without any purchase
 
    <img src="../images/16-14-subscription-waived-tenant.png" alt="Subscription waived for tenant" style="max-width: 500px" />

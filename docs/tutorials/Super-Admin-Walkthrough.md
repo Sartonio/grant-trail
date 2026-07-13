@@ -110,7 +110,7 @@ Use this for organizations that need formal grant review workflows (like TFAC).
 
    <img src="../images/18-03-create-tenant-form.png" alt="Create tenant form" style="max-width: 700px" />
 
-2. Enter the **Organization Name** (e.g. "Hope Foundation")
+2. Enter the **Tenant Name** (e.g. "Hope Foundation")
 3. Enter the **Admin Email**: The first administrator for this tenant
 
    <img src="../images/18-03-form-filled-managed.png" alt="Create form filled with name and admin email" style="max-width: 700px" />
@@ -156,7 +156,7 @@ When a user signs up at `/signup` without an invite token:
    <img src="../images/18-06-self-service-signup.png" alt="Self-service signup page" style="max-width: 300px" />
 
 2. If email verification is enabled, they verify their email first
-3. They're taken to the **Complete Your Profile** page where they enter their name, phone, and organization name
+3. They're taken to the **Complete Your Profile** page where they enter their first/last name, tax filing month, phone, and organization name
 4. On completing their profile, the system calls `provision_self_service_tenant()` which atomically creates:
    - A new **tenant** (type: `self_service`)
    - **Tenant settings** (all approvals off)
@@ -186,8 +186,8 @@ When a tenant admin generates an invite link:
 
 5. User enters their **email and password** and clicks **Create Account**
 6. If email verification is enabled, they verify their email first
-7. They complete their profile (name, phone, organization) on the **Complete Your Profile** page
-8. The invite is marked as used (can't be reused)
+7. They complete their profile (first/last name, tax filing month, phone, organization) on the **Complete Your Profile** page
+8. The invite is marked as used (can't be reused). Invite links also expire (7 days by default); an expired link is rejected and the admin must generate a new one
 9. If the tenant requires a subscription, the grantee lands on the **Subscription** page. The tenant admin can waive this per user (see the Admin Walkthrough Section 13).
 10. The user appears in the tenant's user list with the correct role
 
@@ -245,7 +245,7 @@ All users in the disabled tenant will be signed out and blocked from logging in.
 
 ## 9. Platform Default Settings
 
-The super admin can set default support contact information that appears in the footer for tenants that haven't configured their own.
+The super admin can set default support contact information that appears in the footer for tenants that haven't configured their own, plus a platform-wide alerting webhook.
 
 1. Scroll to the **Platform Defaults** section below the tenant table
 
@@ -255,9 +255,11 @@ The super admin can set default support contact information that appears in the 
 
    <img src="../images/18-09-platform-defaults-filled.png" alt="Platform defaults filled in" style="max-width: 400px" />
 
-3. Click **Save Platform Defaults** (the button is disabled until you make a change)
+3. Optionally enter an **Alerting Webhook URL**. When set, the platform sends an HTTP POST alert to this URL for critical system failures (e.g. Stripe webhook processing failures) via database webhooks. Leave it blank to disable alerting. This field is visible only to super admins.
 
-4. Refresh the page to see the updated footer
+4. Click **Save Platform Defaults** (the button is disabled until you make a change)
+
+5. Refresh the page to see the updated footer
 
    <img src="../images/18-09-updated-footer.png" alt="Updated footer" style="max-width: 600px" />
 
