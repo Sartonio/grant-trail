@@ -129,6 +129,10 @@ info "[waiver] exemption overrides live subscription"
 # attributable to the waiver flag ALONE, then restore it; the Stripe-synced
 # `subscriptions` row is never touched.
 dbx "UPDATE user_memberships SET is_active=false WHERE user_id=$DBUID;"
+# The step-3 upgrade also MIRRORED premium into tenant_memberships (legacy
+# user-owned premium sub). is_membership_exempt() reads that row too, so park
+# it as well; both are restored below.
+dbx "UPDATE tenant_memberships SET is_active=false WHERE tenant_id=(SELECT tenant_id FROM users WHERE id=$DBUID);"
 dbx "UPDATE tenant_settings SET require_subscription=true WHERE tenant_id=(SELECT tenant_id FROM users WHERE id=$DBUID);"
 assert_eq "$(dbq "SELECT is_membership_exempt($DBUID)::text;")" "false" "[waiver] not exempt before"
 dbx "UPDATE tenant_settings SET require_subscription=false WHERE tenant_id=(SELECT tenant_id FROM users WHERE id=$DBUID);"
@@ -141,6 +145,7 @@ assert_eq "$(dbq "SELECT status FROM subscriptions WHERE stripe_subscription_id=
 dbx "UPDATE tenant_settings SET require_subscription=true WHERE tenant_id=(SELECT tenant_id FROM users WHERE id=$DBUID);"
 assert_eq "$(dbq "SELECT is_membership_exempt($DBUID)::text;")" "false" "[waiver] exemption removed cleanly"
 dbx "UPDATE user_memberships SET is_active=true WHERE user_id=$DBUID;"
+dbx "UPDATE tenant_memberships SET is_active=true WHERE tenant_id=(SELECT tenant_id FROM users WHERE id=$DBUID);"
 
 # =========================================================================
 # 5. past_due (invoice.payment_failed) -- renewal fails via a test clock.
@@ -223,6 +228,11 @@ wait_for_sql "SELECT is_active::text FROM user_memberships WHERE user_id=$DBUID;
 cancel_subscription "$DELSUB"
 wait_for_sql "SELECT status FROM subscriptions WHERE stripe_subscription_id='$DELSUB';" "canceled" "[deleted] subscriptions.status canceled"
 wait_for_sql "SELECT is_active::text FROM user_memberships WHERE user_id=$DBUID;" "false" "[lapse] membership inactive after cancel"
+# SUB (the user-owned PREMIUM sub from step 3) is still active, so its
+# tenant_memberships mirror keeps the tenant exempt (is_membership_exempt) and
+# would mask this per-user lapse. Park the mirror to observe the lapse; step
+# 7's premium reactivation re-activates it via the mirror upsert.
+dbx "UPDATE tenant_memberships SET is_active=false WHERE tenant_id=(SELECT tenant_id FROM users WHERE id=$DBUID);"
 assert_eq "$(dbq "SELECT has_basic_membership($DBUID)::text;")" "false" "[lapse] has_basic_membership false after lapse"
 
 # =========================================================================

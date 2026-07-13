@@ -3,10 +3,12 @@
 # WS5 / Lane F — payment-flow test runner.
 #
 # Orchestrates the Stripe payment-flow integration tests against TEST mode:
-#   1. checkout-sessions.test.sh   (b)  -- both checkout fns, both tiers
-#   2. webhook-matrix.test.sh      (a,d)-- live webhook loop, idempotency,
-#                                          lapse->reactivate, waiver
-#   3. portal-and-sync.test.sh     (c)  -- billing portal + sync reconciliation
+#   1. checkout-sessions.test.sh   (b)  -- checkout fn, both tiers, dedup
+#   2. authz-identity.test.sh           -- JWT-derived identity, no body IDOR
+#   3. webhook-matrix.test.sh      (a,d)-- live webhook loop, idempotency,
+#                                          lapse->reactivate, waiver, tenant-owned
+#   4. portal-and-sync.test.sh     (c)  -- billing portal + sync reconciliation
+#   5. email-resilience.test.sh         -- isolated dunning email (if present)
 #
 # This runner owns the `stripe listen --forward-to` forwarder lifecycle:
 # it starts one for the webhook-matrix test (which needs the live loop) and

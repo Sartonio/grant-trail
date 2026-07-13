@@ -162,7 +162,7 @@ export async function getOrCreateStripeCustomer(profile: {
  * Get-or-create the TENANT's Stripe customer for tenant-owned premium billing.
  *
  * The premium ("Fiscal Agents Plan") tier is tenant-owned: one Stripe customer
- * per tenant (billing_customers.tenant_id, partial-unique per the migration),
+ * per tenant (billing_customers.tenant_id, UNIQUE per the migration),
  * so any admin of the org drives the same customer / invoices / portal and a
  * second admin can never double-provision. Mirrors getOrCreateStripeCustomer's
  * lookup + race handling, keyed on tenant_id instead of user_id. The
@@ -211,10 +211,10 @@ export async function getOrCreateStripeCustomerForTenant(profile: {
     },
   });
 
-  // Upsert on the tenant_id partial-unique index: get-or-create is not atomic
+  // Upsert on the tenant_id UNIQUE constraint: get-or-create is not atomic
   // (the Stripe round-trip sits between the SELECT and this write), so a
   // concurrent second admin or a leftover row would make a plain INSERT die on
-  // idx_billing_customers_tenant_id. Last writer wins; both hold a freshly
+  // the tenant_id unique constraint. Last writer wins; both hold a freshly
   // created customer for the same tenant. user_id stays NULL (the one-owner
   // CHECK requires exactly one of user_id / tenant_id).
   const { error: insertError } = await adminSupabase.from('billing_customers').upsert(
