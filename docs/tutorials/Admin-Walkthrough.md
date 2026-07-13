@@ -43,7 +43,7 @@ This guide walks through every task a tenant administrator can perform in GrantT
 | **Export grants to CSV** | All Grants → Export CSV | Downloads the current filtered grant list as a CSV file |
 | **Check who made a change** | Profile menu → Audit Log | Filter by table, user, and/or date range; click a row to see field changes |
 | **Waive a grantee's subscription** | Profile menu → Users → Actions column | Click Waive next to the grantee (see Section 13) |
-| **Check a grantee's subscription** | Profile menu → Users → Subscription column | Badge shows None, Basic (Paid), Premium (Paid), Waived, or Exempt |
+| **Check a grantee's subscription** | Profile menu → Users → Subscription column | Badge shows None, Basic (Paid), Fiscal Agents Plan (Paid), Waived, or Exempt |
 
 **ℹ️ What counts toward spending totals:** Only **approved** expenses are included in a grant's Total Spent and Remaining Balance. Pending and rejected expenses are tracked but excluded from all totals.
 
@@ -310,8 +310,8 @@ The **Subscription** column shows a color-coded badge for each grantee's members
 
 | Badge | Color | Meaning |
 |-------|-------|---------|
-| **Exempt** | Gray | User is an admin or super_admin (automatic) |
-| **Premium (Paid)** | Gold | Active Stripe premium subscription |
+| **Exempt** | Gray | A super_admin, or an admin on the platform-root tenant (automatic) |
+| **Fiscal Agents Plan (Paid)** | Gold | Active Stripe premium ("Fiscal Agents Plan") subscription — a paying admin |
 | **Basic (Paid)** | Green | Active Stripe basic subscription |
 | **Waived** | Purple | Subscription waived by admin (see Section 13) |
 | **None** | Red | No subscription — user is blocked from grants and expenses |
@@ -405,7 +405,7 @@ The invited user's signup is a two-step process. See the *Grantee Walkthrough* d
    <img src="../images/17-09-toggle-changed-save.png" alt="Settings toggle changed with save" style="max-width: 500px" />
 
 5. Click **Save Settings** (the button is disabled until you make a change)
-6. Success message: "Settings saved. Changes apply to newly created records."
+6. Success message: "Settings saved."
 
 > ℹ️ Changes only affect newly created records. Existing pending records are not retroactively approved.
 
@@ -459,6 +459,8 @@ The notification bell works the same as for grantees. As an admin, you'll receiv
 
    <img src="../images/17-11-new-grant-notification.png" alt="Admin notification new grant" style="max-width: 250px" />
 
+- Your tenant's Charity Directory listing is verified (goes live) or not approved by the platform
+
 See the Grantee Walkthrough Section 12 for full notification panel details.
 
 ---
@@ -483,7 +485,7 @@ If left blank, the platform-wide defaults (set by the super admin) are shown ins
 
 Grantees need an active subscription (Basic or Premium) to access grants and expenses. As a tenant admin, you can view each grantee's subscription status and waive the requirement for individual users.
 
-> ℹ️ Super admins and TFAC admins are automatically exempt from subscription requirements. Other tenant admins require a Premium subscription unless their account or tenant is exempt.
+> ℹ️ Super admins and platform-root (TFAC) admins are automatically exempt from subscription requirements. Other tenant admins require a Fiscal Agents Plan subscription unless their account or tenant is exempt.
 
 ### Viewing Subscription Status
 
@@ -494,13 +496,14 @@ The **Subscription** column on the User Management page shows each grantee's cur
 
 ### Waiving a Subscription
 
-If a grantee should have access without paying (e.g. a sponsored user or a test account):
+If a user should have access without paying (e.g. a sponsored user or a test account):
 
 1. Go to **Users** from the profile dropdown
-2. Find the grantee in the table
+2. Find the user in the table
 3. Click **Waive** in the Actions column
+4. A confirmation appears — *"Waive subscription for [Name]? They will get full access without a paid subscription."* — click **Yes**
 
-The grantee's Subscription badge changes to **Waived** (purple) and they receive full access (Premium-level) without a Stripe subscription. The grantee's Subscription page will show: *"Premium (subscription waived by your administrator)"*.
+Waiving is available for grantees and for admins outside the platform-root tenant (platform-root admins are already Exempt). The user's Subscription badge changes to **Waived** (purple) and they receive access without a Stripe subscription: a waived grantee gets Basic-level access, and a waived admin gets Fiscal-Agents-Plan-level access. The grantee's Subscription page will show: *"Premium (subscription waived by your administrator)"*.
 
 <img src="../images/16-14-subscription-waived.png" alt="Subscription waived" style="max-width: 500px" />
 
@@ -509,11 +512,12 @@ The grantee's Subscription badge changes to **Waived** (purple) and they receive
 
 ### Removing a Waiver
 
-1. Find the waived grantee in the user table (Subscription badge shows "Waived")
+1. Find the waived user in the user table (Subscription badge shows "Waived")
 2. Click **Remove Waiver** in the Actions column
-3. The grantee's badge changes to **None** and they will need to purchase a subscription to regain access
+3. A confirmation appears — *"Remove subscription waiver for [Name]? This will cut off their access if they have no active subscription."* — click **Yes**
+4. The user's badge changes to **None** and they will need to purchase a subscription to regain access
 
-> ⚠️ Removing a waiver takes effect immediately. The grantee will be redirected to the Subscription page on their next page load.
+> ⚠️ Removing a waiver takes effect immediately. The user will be redirected to the Subscription page on their next page load.
 
 ### What Admins Cannot Do
 
@@ -522,11 +526,11 @@ The grantee's Subscription badge changes to **Waived** (purple) and they receive
 
 ### If Your Own Subscription Lapses (Read-Only Mode)
 
-The subscription requirement also applies to **your own** admin account. If your Premium subscription lapses or is cancelled — and you are not exempt (TFAC admin or super admin) or waived — the admin console switches to **read-only mode** rather than locking you out:
+The subscription requirement also applies to **your own** admin account. If your Fiscal Agents Plan subscription lapses or is cancelled — and you are not exempt (platform-root admin or super admin) or waived — the admin console switches to **read-only mode** rather than locking you out:
 
 - You can still **view everything**: the dashboard, all grants and reviews, the audit log, user management, and settings, and you can still **export** data (CSV/Excel).
 - **Actions are disabled.** A yellow banner — *"Your subscription has lapsed — this view is read-only. Reactivate your subscription to make changes."* — appears at the top of admin pages, and the controls that change data are greyed out: status changes and budget/expense approve/reject, adding comments, setting disbursed funds, changing a user's role or active state, waiving or removing a waiver, generating invites, and saving settings.
 - Clicking a disabled action or the banner's **Manage billing** link takes you to your **Subscription** page to reactivate.
-- **Reactivating** a Premium subscription restores full write access immediately (refresh the page if a control still appears disabled).
+- **Reactivating** a Fiscal Agents Plan subscription restores full write access immediately (refresh the page if a control still appears disabled).
 
 > ℹ️ This is a billing nudge, not a permissions change — your admin role is unchanged. Read-only access to the audit log and export means you keep compliance and offboarding visibility even while billing is being sorted out.
