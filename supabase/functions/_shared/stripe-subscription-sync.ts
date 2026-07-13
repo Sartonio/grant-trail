@@ -115,7 +115,56 @@ async function resolveUserTenantId(userId: number): Promise<number | null> {
   return (user?.tenant_id as number | undefined) ?? null;
 }
 
-export async function upsertSubscriptionFromStripe(subscription: Stripe.Subscription) {
+/**
+ * Event-ordering guard (atomic at the DB level). Stripe does not guarantee
+ * webhook delivery order, so before applying an event we advance a monotonic
+ * per-subscription marker via the claim_stripe_subscription_event RPC — a
+ * single conditional INSERT ... ON CONFLICT DO UPDATE ... WHERE. If the RPC
+ * returns false, a NEWER event for this subscription has already been
+ * processed and this (stale) one must be skipped, otherwise an out-of-order
+ * `customer.subscription.updated` arriving after a newer update (or after
+ * `customer.subscription.deleted`) would transiently resurrect a stale
+ * entitlement.
+ *
+ * Returns true if the event was claimed (caller should apply it), false if it
+ * is stale.
+ */
+async function claimSubscriptionEvent(
+  stripeSubscriptionId: string,
+  eventCreatedAt: Date,
+): Promise<boolean> {
+  const { data, error } = await adminSupabase.rpc('claim_stripe_subscription_event', {
+    p_stripe_subscription_id: stripeSubscriptionId,
+    p_event_at: eventCreatedAt.toISOString(),
+  });
+  if (error) {
+    throw new Error(`Unable to claim subscription event ordering marker: ${error.message}`);
+  }
+  return Boolean(data);
+}
+
+/**
+ * Persist a Stripe subscription into the local projection.
+ *
+ * `eventCreatedAt` is the ordering marker for the out-of-order-delivery guard:
+ *   - webhook deliveries pass the Stripe event's `created` timestamp;
+ *   - authoritative fresh API fetches (sync-my-subscription, the
+ *     checkout.session.completed retrieve) omit it — the fetch time is used,
+ *     which both wins over any older queued webhook and advances the marker so
+ *     late-arriving stale webhooks are subsequently skipped.
+ *
+ * Returns true if the state was applied, false if it was skipped as stale.
+ */
+export async function upsertSubscriptionFromStripe(
+  subscription: Stripe.Subscription,
+  eventCreatedAt?: Date,
+): Promise<boolean> {
+  const claimed = await claimSubscriptionEvent(subscription.id, eventCreatedAt ?? new Date());
+  if (!claimed) {
+    console.warn(`Skipping stale subscription event for ${subscription.id} (out-of-order delivery).`);
+    return false;
+  }
+
   await ensurePlatformMembershipProductIds();
 
   const stripeCustomerId = String(subscription.customer);
@@ -253,7 +302,7 @@ export async function upsertSubscriptionFromStripe(subscription: Stripe.Subscrip
     // Listing publication + accepts_sponsorships key DIRECTLY off the tenant.
     await syncListingPublicationFromSubscription(ownerTenantId, membershipTier, subscription.status);
     await syncTenantSponsorshipEntitlement(ownerTenantId, membershipTier, subscription.status);
-    return;
+    return true;
   }
 
   // ── User-owned (legacy per-user) path ─────────────────────────────────────
@@ -332,4 +381,5 @@ export async function upsertSubscriptionFromStripe(subscription: Stripe.Subscrip
 
   // Tenant entitlement flag (accepts_sponsorships) tracks the same lifecycle.
   await syncTenantSponsorshipEntitlement(userTenantId ?? 0, membershipTier, subscription.status);
+  return true;
 }
