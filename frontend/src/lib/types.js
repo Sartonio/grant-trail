@@ -61,6 +61,9 @@
  * @property {boolean} hasPremiumAccess - Active premium "Fiscal Agents Plan".
  * @property {Object|null} membership - Latest active `user_memberships` row, or null.
  * @property {Object|null} activeSubscription - Latest active/trialing/past_due `subscriptions` row, or null.
+ * @property {Object|null} [tenantMembership] - The caller's tenant's active
+ *   `tenant_memberships` row (tenant-owned premium plan), or null. Present when
+ *   the caller belongs to a tenant that holds the Fiscal Agents Plan.
  */
 
 /**
@@ -99,6 +102,7 @@
  * @typedef {import('./database.types').Database['public']['Tables']['users']['Row']} UserTableRow
  * @typedef {import('./database.types').Database['public']['Tables']['users']['Update']} UserTableUpdate
  * @typedef {import('./database.types').Database['public']['Tables']['user_memberships']['Row']} UserMembershipRow
+ * @typedef {import('./database.types').Database['public']['Tables']['tenant_memberships']['Row']} TenantMembershipRow
  * @typedef {import('./database.types').Database['public']['Tables']['invites']['Insert']} InviteInsert
  */
 

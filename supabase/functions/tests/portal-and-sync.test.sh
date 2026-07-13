@@ -105,9 +105,48 @@ OUT=$(call_sync "$TOKEN")
 assert_eq "$(echo "$OUT" | json_field reason)" "no_subscriptions_found" "sync reports no_subscriptions_found"
 wait_for_sql "SELECT is_active::text FROM user_memberships WHERE user_id=$DBUID;" "false" "sync no-subs -> membership inactive"
 
+# =========================================================================
+# TENANT-OWNED: a NON-PAYER admin opens the portal for the tenant customer.
+#   The tenant has a tenant-owned billing customer (mapped directly here); a
+#   second admin who never paid must still get a portal URL for the ORG plan.
+# =========================================================================
+info "tenant-owned: non-payer admin opens the org billing portal"
+PAYER_ID=$(create_test_user "lanef-org-payer@example.com" "admin")
+TENANT_ID=$(tenant_id_for "$PAYER_ID")
+NONPAYER_ID=$(create_test_user_in_tenant "lanef-org-nonpayer@example.com" "$TENANT_ID" "admin")
+NONPAYER_TOKEN=$(get_token "lanef-org-nonpayer@example.com")
+TCUS=$(new_stripe_customer "lanef-org@example.com")
+map_tenant_customer "$TENANT_ID" "$TCUS"
+
+RESP=$(curl -s -X POST "$FUNCTIONS_URL/create-billing-portal-session" \
+  -H "Authorization: Bearer $NONPAYER_TOKEN" -H "apikey: $ANON_KEY" \
+  -H "Content-Type: application/json" -d '{"returnPath":"/billing"}')
+URL=$(echo "$RESP" | json_field url)
+case "$URL" in
+  https://billing.stripe.com/*) pass "non-payer admin issued a portal url for the tenant customer" ;;
+  *) fail "non-payer admin portal url not issued: $(echo "$RESP" | head -c 160)" ;;
+esac
+
+# =========================================================================
+# TENANT-OWNED: sync-my-subscription reconciles the tenant-owned subscription.
+#   Any admin's sync must refresh the ORG plan: tenant_memberships + the
+#   tenant's accepts_sponsorships flag.
+# =========================================================================
+info "tenant-owned: sync reconciles the org subscription"
+TSUB=$(create_tenant_subscription "$TCUS" "$STRIPE_PRICE_FISCAL_AGENT" "$TENANT_ID" "$PAYER_ID")
+OUT=$(call_sync "$NONPAYER_TOKEN")
+# tenant_synced is reported when the tenant leg had something to reconcile.
+assert_eq "$(echo "$OUT" | python3 -c 'import sys,json; d=json.load(sys.stdin); print((d.get("tenant_synced") or {}).get("status",""))')" "active" "sync reports tenant sub active"
+wait_for_sql "SELECT status FROM subscriptions WHERE stripe_subscription_id='$TSUB';" "active" "sync wrote tenant-owned subscription"
+wait_for_sql "SELECT tenant_id::text FROM subscriptions WHERE stripe_subscription_id='$TSUB';" "$TENANT_ID" "tenant-owned subscription keyed by tenant_id"
+wait_for_sql "SELECT is_active::text FROM tenant_memberships WHERE tenant_id=$TENANT_ID;" "true" "sync wrote tenant_memberships active"
+wait_for_sql "SELECT membership_tier FROM tenant_memberships WHERE tenant_id=$TENANT_ID;" "premium" "tenant membership tier premium"
+wait_for_sql "SELECT accepts_sponsorships::text FROM tenants WHERE id=$TENANT_ID;" "true" "tenant accepts_sponsorships set by sync"
+
 # ---- teardown ------------------------------------------------------------
 info "portal-and-sync: teardown"
 cancel_subscription "$SUB"
+cancel_subscription "$TSUB"
 cleanup_test_users
 
 echo

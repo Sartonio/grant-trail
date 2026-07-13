@@ -8,6 +8,7 @@ const EXEMPT_MEMBERSHIP = {
   hasPremiumAccess: true,
   membership: null,
   activeSubscription: null,
+  tenantMembership: null,
 };
 
 // Fetch failed: fail closed, deny every gate until a successful load.
@@ -17,6 +18,7 @@ const RESTRICTED_MEMBERSHIP = {
   hasPremiumAccess: false,
   membership: null,
   activeSubscription: null,
+  tenantMembership: null,
 };
 
 // Membership helpers. `loadMembershipStatus` resolves the membership status for a

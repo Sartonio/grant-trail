@@ -1,6 +1,10 @@
 import { adminSupabase, buildRedirectUrl, corsHeaders, getOrCreateStripeCustomer, requireAuthenticatedProfile, stripe } from '../_shared/stripe-client.ts';
 import { assertPostRequest, AuthError, parseJsonBody, validateReturnOrigin, validateReturnPath, ValidationError } from '../_shared/validation.ts';
 
+// Admin roles that may manage the org plan. super_admin is billing-exempt but is
+// still an org admin and may open the tenant portal if one happens to exist.
+const ADMIN_ROLES = ['admin', 'super_admin'];
+
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -12,7 +16,29 @@ Deno.serve(async (request) => {
     const body = await parseJsonBody(request);
     const returnPath = validateReturnPath(body.returnPath);
     const returnOrigin = validateReturnOrigin(body.returnOrigin);
-    const customerId = await getOrCreateStripeCustomer(profile);
+
+    // "Any current admin manages the org plan in one place": if the caller's
+    // tenant has a tenant-owned billing customer AND the caller is an admin, open
+    // the portal for the TENANT customer — even an admin who never paid. Look up
+    // (not get-or-create) the tenant customer; a missing one falls through to the
+    // caller's per-user customer (current behavior + its no-customer error path).
+    let customerId: string | null = null;
+    if (ADMIN_ROLES.includes(profile.role) && profile.tenantId) {
+      const { data: tenantCustomer, error: tenantCustomerError } = await adminSupabase
+        .from('billing_customers')
+        .select('stripe_customer_id')
+        .eq('tenant_id', profile.tenantId)
+        .maybeSingle();
+      if (tenantCustomerError) {
+        throw new Error(`Unable to load tenant billing customer: ${tenantCustomerError.message}`);
+      }
+      customerId = tenantCustomer?.stripe_customer_id ?? null;
+    }
+
+    if (!customerId) {
+      customerId = await getOrCreateStripeCustomer(profile);
+    }
+
     const portalConfigurationId = Deno.env.get('STRIPE_BILLING_PORTAL_CONFIGURATION_ID') || undefined;
 
     const session = await stripe.billingPortal.sessions.create({

@@ -1,12 +1,22 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import * as Sentry from '@sentry/react';
-import { FaShieldAlt, FaSyncAlt, FaExclamationTriangle, FaArrowRight } from 'react-icons/fa';
+import { FaShieldAlt, FaSyncAlt, FaExclamationTriangle, FaArrowRight, FaUsers } from 'react-icons/fa';
 import {
   MEMBERSHIP_TIERS,
   startBillingPortalSession,
   startCheckoutSession,
 } from '../../lib/billing';
+import { getRole, ROLES } from '../../lib/policy';
 import './SubscriptionPage.css';
+
+// The premium ("Fiscal Agents Plan") tier is tenant-owned: one subscription
+// covers the whole organization. An org holds the plan when its
+// tenant_memberships row is active and not past its end date.
+function hasActiveOrgPlan(tenantMembership) {
+  if (!tenantMembership || !tenantMembership.is_active) return false;
+  if (!tenantMembership.ends_at) return true;
+  return new Date(tenantMembership.ends_at).getTime() > Date.now();
+}
 
 // Billing Edge Function calls go through Stripe; if Stripe is unreachable the
 // request can hang, so cap how long we wait before treating it as unavailable.
@@ -32,8 +42,12 @@ function withTimeout(promise, ms) {
 // Stripe billing portal for managing an active subscription.
 function SubscriptionPage({ session, onMembershipUpdated }) {
   const membership = session?.membership;
-  const role = session?.userRecord?.role;
-  const isAdmin = role === 'admin';
+  const role = getRole(session);
+  const isAdmin = role === ROLES.ADMIN;
+  // Premium is tenant-owned: an admin whose org holds the active plan sees the
+  // "organization plan" panel and manages the shared subscription; other admins
+  // and grantees don't pay for it.
+  const orgPlanActive = isAdmin && hasActiveOrgPlan(membership?.tenantMembership);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [portalLoading, setPortalLoading] = useState(false);
   const [billingUnavailable, setBillingUnavailable] = useState(false);
@@ -98,14 +112,14 @@ function SubscriptionPage({ session, onMembershipUpdated }) {
   const headline = isAdmin ? 'Manage Fiscal Agents Subscription' : 'Manage Basic Subscription';
 
   const description = isAdmin
-    ? 'Review your current fiscal agent access, finish or renew payment if needed, or open the billing portal to manage an existing subscription.'
+    ? 'The Fiscal Agents Plan is an organization subscription — one plan covers your whole org. Review your access, start or renew the plan if needed, or open the billing portal to manage it.'
     : 'Review your current basic access, finish or renew payment if needed, or open the billing portal to manage an existing subscription.';
 
   const requiredMessage = isAdmin
-    ? 'Your admin account needs an active Fiscal Agents plan before you can use the admin dashboard.'
+    ? 'Your organization needs an active Fiscal Agents Plan before your admins can use the admin dashboard. One subscription covers the whole organization.'
     : 'Your account needs an active Basic plan before using grants and expenses.';
 
-  const resumeLabel = isAdmin ? 'Complete Fiscal Agents payment' : 'Complete Basic payment';
+  const resumeLabel = isAdmin ? 'Start Fiscal Agents Plan for your organization' : 'Complete Basic payment';
 
   const handleResumePayment = async () => {
     setBillingUnavailable(false);
@@ -186,6 +200,30 @@ function SubscriptionPage({ session, onMembershipUpdated }) {
         )}
       </div>
 
+      {orgPlanActive && (
+        <div className="subscription-org-plan">
+          <div className="subscription-org-plan-icon">
+            <FaUsers />
+          </div>
+          <div className="subscription-org-plan-body">
+            <div className="subscription-hero-topline">Organization plan</div>
+            <h3>Your organization holds the Fiscal Agents Plan</h3>
+            <p>
+              One subscription covers your whole organization — every admin gets
+              access and no one else has to pay. Any admin can update the payment
+              method, download invoices, or manage the plan from the billing portal.
+            </p>
+            <button
+              className="subscription-manage-btn"
+              onClick={handleManageBilling}
+              disabled={portalLoading}
+            >
+              <FaSyncAlt /> {portalLoading ? 'Opening Billing...' : 'Manage Organization Plan'}
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="subscription-actions-row">
         {needsPayment && (
           <button className="subscription-plan-btn" onClick={handleResumePayment} disabled={checkoutLoading}>
@@ -193,7 +231,7 @@ function SubscriptionPage({ session, onMembershipUpdated }) {
           </button>
         )}
 
-        {!isWaived && !membership?.isExempt && hasAccess && (
+        {!isWaived && !membership?.isExempt && hasAccess && !orgPlanActive && (
           <button className="subscription-manage-btn" onClick={handleManageBilling} disabled={portalLoading}>
             <FaSyncAlt /> {portalLoading ? 'Opening Billing...' : 'Manage Subscription'}
           </button>

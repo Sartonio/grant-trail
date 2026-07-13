@@ -544,6 +544,171 @@ assert_eq "consume_invite returns FALSE for an expired invite (B4)" \
 assert_eq "expired invite's used_at stays NULL after the attempt (B4)" \
   "t" "$(echo "$out" | grep -E '^[tf]$' | tail -1)"
 
+# ============================================================================
+# Vuln 1 — tenant admin cannot escalate a user to super_admin
+# ============================================================================
+# enforce_user_self_update_guard previously early-returned (unrestricted) for
+# ANY is_admin() caller. A tenant admin could therefore PATCH a same-tenant user
+# (or self) up to role='super_admin'. The guard now allows admins to assign only
+# grantee/admin; only super_admin/service_role may grant super_admin.
+ADMIN_TFAC='00000000-0000-0000-0000-000000000004'   # tenant 1, admin (eric.hobbs)
+
+# Admin escalating a same-tenant grantee to super_admin -> REJECTED.
+out=$(psql_as "$ADMIN_TFAC" "
+  UPDATE users SET role='super_admin'
+  WHERE tenant_id=1 AND email='maria.smith@example.com';
+  SELECT role FROM users WHERE email='maria.smith@example.com';")
+assert_contains "tenant admin CANNOT promote a same-tenant user to super_admin (Vuln1)" \
+  "Only a super admin can assign the super_admin role" "$out"
+
+# Admin escalating SELF to super_admin -> REJECTED.
+out=$(psql_as "$ADMIN_TFAC" "
+  UPDATE users SET role='super_admin' WHERE user_id='${ADMIN_TFAC}';
+  SELECT role FROM users WHERE user_id='${ADMIN_TFAC}';")
+assert_contains "tenant admin CANNOT self-promote to super_admin (Vuln1)" \
+  "Only a super admin can assign the super_admin role" "$out"
+
+# No regression: admin CAN still flip a same-tenant user between grantee <-> admin.
+out=$(psql_as "$ADMIN_TFAC" "
+  UPDATE users SET role='admin'
+  WHERE tenant_id=1 AND email='maria.smith@example.com';
+  SELECT role FROM users WHERE email='maria.smith@example.com';")
+assert_contains "tenant admin CAN still promote a grantee to admin (no regression)" \
+  "admin" "$out"
+
+out=$(psql_as "$ADMIN_TFAC" "
+  UPDATE users SET role='grantee'
+  WHERE tenant_id=1 AND email='eric.hobbs@example.com';
+  SELECT role FROM users WHERE email='eric.hobbs@example.com';")
+assert_contains "tenant admin CAN still demote an admin to grantee (no regression)" \
+  "grantee" "$out"
+
+# Super admin CAN assign super_admin (positive control).
+out=$(psql_as "$SUPER_TFAC" "
+  UPDATE users SET role='super_admin'
+  WHERE tenant_id=1 AND email='maria.smith@example.com';
+  SELECT role FROM users WHERE email='maria.smith@example.com';")
+assert_contains "super_admin CAN assign the super_admin role (positive control)" \
+  "super_admin" "$out"
+
+# ============================================================================
+# Vuln 2 — tenant admin cannot flip tenant_settings.require_subscription
+# ============================================================================
+# require_subscription=false is the tenant-wide paywall waiver read by
+# is_membership_exempt. A tenant admin's own-tenant UPDATE on tenant_settings
+# must NOT be able to touch that column; only super_admin/service_role may.
+out=$(psql_as "$ADMIN_TFAC" "
+  UPDATE tenant_settings SET require_subscription=false WHERE tenant_id=1;
+  SELECT require_subscription FROM tenant_settings WHERE tenant_id=1;")
+assert_contains "tenant admin CANNOT flip require_subscription (Vuln2)" \
+  "Only a super admin can change require_subscription" "$out"
+
+# No regression: admin CAN still update OTHER tenant_settings columns.
+out=$(psql_as "$ADMIN_TFAC" "
+  UPDATE tenant_settings SET require_grant_approval=false WHERE tenant_id=1;
+  SELECT require_grant_approval FROM tenant_settings WHERE tenant_id=1;")
+assert_contains "tenant admin CAN still update a non-waiver setting (no regression)" \
+  "f" "$out"
+
+# Super admin CAN flip require_subscription (positive control).
+out=$(psql_as "$SUPER_TFAC" "
+  UPDATE tenant_settings SET require_subscription=false WHERE tenant_id=1;
+  SELECT require_subscription FROM tenant_settings WHERE tenant_id=1;")
+assert_contains "super_admin CAN flip require_subscription (positive control)" \
+  "f" "$out"
+
+# ============================================================================
+# tenant_memberships — tenant-scoped RLS (read isolation + no authed writes)
+# ============================================================================
+# The seed gives amara's tenant (bright-horizons, tenant 2) an active premium
+# tenant_memberships row. Prove: a member of that tenant reads it, a user from
+# another tenant sees zero rows, and authenticated INSERT/UPDATE/DELETE are all
+# denied (only service_role writes).
+
+# A member of amara's tenant (admin_bright, tenant 2) CAN read its row.
+out=$(psql_as "$ADMIN_BRIGHT" "SELECT count(*) FROM tenant_memberships WHERE tenant_id=2;")
+assert_eq "member of amara's tenant CAN read its tenant_membership" "1" \
+  "$(echo "$out" | grep -E '^[0-9]+$' | head -1)"
+
+# A user from another tenant (grantee_tfac, tenant 1) sees ZERO rows.
+out=$(psql_as "$GRANTEE_TFAC" "SELECT count(*) FROM tenant_memberships WHERE tenant_id=2;")
+assert_eq "user from another tenant sees ZERO tenant_memberships rows" "0" \
+  "$(echo "$out" | grep -E '^[0-9]+$' | head -1)"
+
+# Authenticated INSERT is denied (no authenticated write policy).
+out=$(psql_as "$ADMIN_BRIGHT" "
+  INSERT INTO tenant_memberships (tenant_id, membership_tier, source)
+  VALUES (2, 'premium', 'manual');")
+assert_contains "authenticated INSERT into tenant_memberships is denied" \
+  "row-level security" "$out"
+
+# Authenticated UPDATE affects 0 rows (USING denies every row).
+out=$(psql_as "$ADMIN_BRIGHT" "
+  UPDATE tenant_memberships SET is_active=false WHERE tenant_id=2; GET DIAGNOSTICS;")
+assert_contains "authenticated UPDATE on tenant_memberships affects 0 rows" \
+  "UPDATE 0" "$out"
+
+# Authenticated DELETE affects 0 rows.
+out=$(psql_as "$ADMIN_BRIGHT" "
+  DELETE FROM tenant_memberships WHERE tenant_id=2; GET DIAGNOSTICS;")
+assert_contains "authenticated DELETE on tenant_memberships affects 0 rows" \
+  "DELETE 0" "$out"
+
+# super_admin (tenant-agnostic) CAN read another tenant's membership row.
+out=$(psql_as "$SUPER_TFAC" "SELECT count(*) FROM tenant_memberships WHERE tenant_id=2;")
+assert_eq "super_admin CAN read another tenant's tenant_membership" "1" \
+  "$(echo "$out" | grep -E '^[0-9]+$' | head -1)"
+
+# ============================================================================
+# Vuln 3 — tenant admin cannot mint a PREMIUM user_membership (paywall bypass)
+# ============================================================================
+# "Admins can manage memberships in their tenant" is FOR ALL with WITH CHECK, so
+# without the guard a tenant admin could INSERT (or UPDATE basic into)
+# membership_tier='premium' for a same-tenant user; the premium clause in
+# is_membership_exempt would then exempt the WHOLE tenant with no Stripe sub.
+# enforce_premium_membership_guard restricts premium writes to service_role /
+# super_admin / direct DB (seeds). amara (tenant 2 admin) has NO user_memberships
+# row in the converted seed, so she is a clean same-tenant target.
+
+# Tenant admin INSERTing a premium membership -> REJECTED by the guard.
+out=$(psql_as "$ADMIN_BRIGHT" "
+  INSERT INTO user_memberships (user_id, membership_tier, is_active, source)
+  VALUES ((SELECT id FROM users WHERE email='amara.okafor@example.com'), 'premium', true, 'manual');")
+assert_contains "tenant admin CANNOT mint a premium user_membership (Vuln3)" \
+  "Only a super admin or the billing backend can assign premium memberships" "$out"
+
+# Tenant admin UPDATE-escalating a basic row to premium -> REJECTED.
+out=$(psql_as "$ADMIN_BRIGHT" "
+  INSERT INTO user_memberships (user_id, membership_tier, is_active, source)
+  VALUES ((SELECT id FROM users WHERE email='amara.okafor@example.com'), 'basic', true, 'manual');
+  UPDATE user_memberships SET membership_tier='premium'
+  WHERE user_id=(SELECT id FROM users WHERE email='amara.okafor@example.com');")
+assert_contains "tenant admin CANNOT escalate a basic membership to premium (Vuln3)" \
+  "Only a super admin or the billing backend can assign premium memberships" "$out"
+
+# No regression: tenant admin CAN still manage a BASIC/manual membership.
+out=$(psql_as "$ADMIN_BRIGHT" "
+  INSERT INTO user_memberships (user_id, membership_tier, is_active, source)
+  VALUES ((SELECT id FROM users WHERE email='amara.okafor@example.com'), 'basic', true, 'manual');
+  SELECT membership_tier FROM user_memberships
+  WHERE user_id=(SELECT id FROM users WHERE email='amara.okafor@example.com');")
+assert_contains "tenant admin CAN still grant a basic manual membership (no regression)" \
+  "basic" "$out"
+
+# Positive control: a direct DB connection (no JWT, auth.role() IS NULL — how
+# seeds/fixtures run) CAN still write premium rows.
+out=$(docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -tA -v ON_ERROR_STOP=0 <<'SQL' 2>&1
+BEGIN;
+INSERT INTO user_memberships (user_id, membership_tier, is_active, source)
+VALUES ((SELECT id FROM users WHERE email='amara.okafor@example.com'), 'premium', true, 'manual');
+SELECT membership_tier FROM user_memberships
+WHERE user_id=(SELECT id FROM users WHERE email='amara.okafor@example.com');
+ROLLBACK;
+SQL
+)
+assert_contains "direct DB connection CAN still write premium (seeds/fixtures control)" \
+  "premium" "$out"
+
 echo "=============================================================="
 echo " RESULTS: ${pass} passed, ${fail} failed"
 echo "=============================================================="

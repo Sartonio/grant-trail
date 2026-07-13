@@ -8,10 +8,10 @@ Shell-based integration tests for the Supabase Edge Functions. They run against 
 | Script | Covers | Needs Stripe |
 |---|---|---|
 | `system-logs-failure.test.sh` | Each billing fn logs a `critical` `system_logs` row on failure (#4) | no |
-| `checkout-sessions.test.sh` | Checkout fn across tiers, success/cancel paths, auth + input guards (WS5 b) | yes |
+| `checkout-sessions.test.sh` | Checkout fn across tiers, success/cancel paths, auth + input guards; tenant-owned premium customer reuse + alreadyActive dedup across two admins of one tenant (WS5 b) | yes |
 | `authz-identity.test.sh` | Identity is taken from the JWT, never the request body: caller A cannot bind a checkout/customer to caller B's id/email; unauthenticated/invalid-JWT rejected | yes |
-| `webhook-matrix.test.sh` | Live webhook loop: created/updated/past_due/deleted -> DB end-state; idempotency; lapse->reactivate; waiver x live sub (WS5 a, d) | yes + `stripe listen` |
-| `portal-and-sync.test.sh` | Billing portal URL; `sync-my-subscription` upgrade/downgrade/cancel/no-sub reconciliation (WS5 c) | yes |
+| `webhook-matrix.test.sh` | Live webhook loop: created/updated/past_due/deleted -> DB end-state; idempotency; lapse->reactivate; waiver x live sub; tenant-owned premium lifecycle (tenant_memberships + accepts_sponsorships + listing) + legacy user-owned mirror (WS5 a, d) | yes + `stripe listen` |
+| `portal-and-sync.test.sh` | Billing portal URL (incl. non-payer admin opening the tenant/org portal); `sync-my-subscription` upgrade/downgrade/cancel/no-sub reconciliation + tenant-owned org-sub reconciliation (WS5 c) | yes |
 | `email-resilience.test.sh` | Payment-confirmation email is isolated: disabled-without-creds (send skipped, warning logged) and failure-isolation (unreachable Resend endpoint → webhook still 200, sub still synced, one `payment_confirmation_email_failure` row) | yes (no forwarder; self-serves) |
 | `run-all.sh` | Orchestrates the five Stripe suites and owns the `stripe listen` forwarder lifecycle | yes |
 

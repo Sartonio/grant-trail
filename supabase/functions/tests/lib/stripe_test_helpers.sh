@@ -239,6 +239,28 @@ create_test_user() {
   dbq "SELECT id FROM users WHERE email = '${email}';"
 }
 
+# create_test_user_in_tenant <email> <tenant_id> [role] -> echoes public.users.id
+#
+# Like create_test_user but joins an EXISTING tenant instead of minting a fresh
+# one. Used to prove tenant-owned billing across two admins of the SAME tenant
+# (customer reuse via the partial-unique index, alreadyActive dedup). Role
+# defaults to admin. cleanup_test_users still sweeps these by the lanef-% email.
+create_test_user_in_tenant() {
+  local email="$1" tenant_id="$2" role="${3:-admin}"
+  local uuid
+  uuid=$(curl -s -X POST "${API_URL}/auth/v1/admin/users" \
+    -H "apikey: ${SERVICE_ROLE_KEY}" -H "Authorization: Bearer ${SERVICE_ROLE_KEY}" \
+    -H "Content-Type: application/json" \
+    -d "{\"email\":\"${email}\",\"password\":\"${TEST_PASSWORD}\",\"email_confirm\":true}" \
+    | json_field id)
+  dbx "INSERT INTO users (user_id, tenant_id, firstname, lastname, organization_name, email, phone_number, role)
+       VALUES ('${uuid}', ${tenant_id}, 'Lane', 'F', 'Lane F Test Org', '${email}', '555-000-0000', '${role}');"
+  dbq "SELECT id FROM users WHERE email = '${email}';"
+}
+
+# tenant_id_for <public.users.id> -> echoes the user's tenant_id
+tenant_id_for() { dbq "SELECT tenant_id FROM users WHERE id = ${1};"; }
+
 # get_token <email> -> echoes a real GoTrue access token for the user
 get_token() {
   curl -s -X POST "${API_URL}/auth/v1/token?grant_type=password" \
@@ -272,6 +294,16 @@ map_customer() {
        ON CONFLICT (user_id) DO UPDATE SET stripe_customer_id = EXCLUDED.stripe_customer_id;"
 }
 
+# Map a Stripe customer id to a TENANT in billing_customers (tenant-owned
+# premium). user_id stays NULL (the exactly-one-owner CHECK); onConflict keys on
+# the partial-unique tenant_id index.
+map_tenant_customer() {
+  local tenant_id="$1" customer_id="$2"
+  dbx "INSERT INTO billing_customers (tenant_id, user_id, stripe_customer_id)
+       VALUES (${tenant_id}, NULL, '${customer_id}')
+       ON CONFLICT (tenant_id) DO UPDATE SET stripe_customer_id = EXCLUDED.stripe_customer_id;"
+}
+
 # auth uuid for a public.users.id
 auth_uuid_for() { dbq "SELECT user_id FROM users WHERE id = ${1};"; }
 
@@ -292,6 +324,20 @@ create_subscription() {
   local cus="$1" price="$2" tier="$3"
   sapi subscriptions create -d customer="$cus" -d "items[0][price]=$price" \
     -d "metadata[membership_tier]=$tier" -d "metadata[user_id]=0" \
+    | json_field id
+}
+
+# create_tenant_subscription <cus> <price> <tenant_id> [user_id] -> echoes sub_xxx
+#
+# A tenant-owned premium subscription: metadata carries tenant_id (the org) and
+# user_id (the initiating admin, default 0), mirroring create-checkout-session's
+# premium metadata. tier is always premium for tenant-owned subs.
+create_tenant_subscription() {
+  local cus="$1" price="$2" tenant_id="$3" user_id="${4:-0}"
+  sapi subscriptions create -d customer="$cus" -d "items[0][price]=$price" \
+    -d "metadata[membership_tier]=premium" \
+    -d "metadata[tenant_id]=$tenant_id" \
+    -d "metadata[user_id]=$user_id" \
     | json_field id
 }
 

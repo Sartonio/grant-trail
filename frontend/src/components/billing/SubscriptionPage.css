@@ -394,6 +394,46 @@
   font-size: 1.9rem;
 }
 
+/* Organization-plan panel — premium is tenant-owned, so this signals the whole
+   org is covered and any admin can manage the shared subscription. */
+.subscription-org-plan {
+  margin-top: 1rem;
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+  padding: 1.2rem;
+  border-radius: 22px;
+  background: #ffffff;
+  border: 1px solid #16a34a;
+  box-shadow: 0 14px 30px rgba(16, 24, 40, 0.06);
+}
+
+.subscription-org-plan-icon {
+  width: 2.8rem;
+  height: 2.8rem;
+  flex-shrink: 0;
+  border-radius: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(6, 63, 30, 0.08);
+  color: #0f766e;
+  font-size: 1.2rem;
+}
+
+.subscription-org-plan-body h3 {
+  margin: 0.35rem 0 0;
+  font-family: var(--font-heading);
+  font-size: 1.35rem;
+  color: #111827;
+}
+
+.subscription-org-plan-body p {
+  margin: 0.55rem 0 0.9rem;
+  color: #374151;
+  line-height: 1.6;
+}
+
 .subscription-actions-row {
   margin-top: 1rem;
   display: flex;

@@ -83,21 +83,31 @@ export type Database = {
           created_at: string
           id: number
           stripe_customer_id: string
-          user_id: number
+          tenant_id: number | null
+          user_id: number | null
         }
         Insert: {
           created_at?: string
           id?: number
           stripe_customer_id: string
-          user_id: number
+          tenant_id?: number | null
+          user_id?: number | null
         }
         Update: {
           created_at?: string
           id?: number
           stripe_customer_id?: string
-          user_id?: number
+          tenant_id?: number | null
+          user_id?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "billing_customers_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "billing_customers_user_id_fkey"
             columns: ["user_id"]
@@ -900,8 +910,9 @@ export type Database = {
           stripe_price_id: string
           stripe_product_id: string
           stripe_subscription_id: string
+          tenant_id: number | null
           updated_at: string
-          user_id: number
+          user_id: number | null
         }
         Insert: {
           cancel_at_period_end?: boolean
@@ -917,8 +928,9 @@ export type Database = {
           stripe_price_id: string
           stripe_product_id: string
           stripe_subscription_id: string
+          tenant_id?: number | null
           updated_at?: string
-          user_id: number
+          user_id?: number | null
         }
         Update: {
           cancel_at_period_end?: boolean
@@ -934,10 +946,18 @@ export type Database = {
           stripe_price_id?: string
           stripe_product_id?: string
           stripe_subscription_id?: string
+          tenant_id?: number | null
           updated_at?: string
-          user_id?: number
+          user_id?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "subscriptions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "subscriptions_user_id_fkey"
             columns: ["user_id"]
@@ -976,6 +996,60 @@ export type Database = {
           severity?: string
         }
         Relationships: []
+      }
+      tenant_memberships: {
+        Row: {
+          created_at: string
+          ends_at: string | null
+          id: number
+          is_active: boolean
+          membership_tier: string
+          source: string
+          starts_at: string
+          subscription_id: number | null
+          tenant_id: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          ends_at?: string | null
+          id?: number
+          is_active?: boolean
+          membership_tier: string
+          source?: string
+          starts_at?: string
+          subscription_id?: number | null
+          tenant_id: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          ends_at?: string | null
+          id?: number
+          is_active?: boolean
+          membership_tier?: string
+          source?: string
+          starts_at?: string
+          subscription_id?: number | null
+          tenant_id?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_memberships_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "subscriptions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_memberships_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       tenant_settings: {
         Row: {

@@ -30,6 +30,12 @@
 #
 # Also proves: cancelling a PREMIUM subscription auto-unlists the owner's
 # 'published' fiscal_agent_listings row (lapse -> status='unlisted').
+#
+# TENANT-OWNED premium (the redesign): a tenant-owned billing customer (user_id
+# NULL, tenant_id set) drives the ORG plan through tenant_memberships +
+# tenants.accepts_sponsorships + the tenant's listing — active/past_due/canceled/
+# reactivate lifecycle, keyed directly off tenant_id. A legacy USER-owned premium
+# sub additionally MIRRORS its entitlement into tenant_memberships.
 
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -232,6 +238,14 @@ wait_for_sql "SELECT membership_tier FROM user_memberships WHERE user_id=$DBUID;
 assert_eq "$(dbq "SELECT has_premium_membership($DBUID)::text;")" "true" "[reactivate] has_premium_membership true"
 wait_for_sql "SELECT accepts_sponsorships::text FROM tenants WHERE id=(SELECT tenant_id FROM users WHERE id=$DBUID);" "true" "[reactivate] tenant sponsorship entitlement set"
 
+# LEGACY MIRROR: RESUB is a premium sub on a USER-owned customer (map_customer).
+# upsertSubscriptionFromStripe must ALSO mirror the entitlement into
+# tenant_memberships (onConflict tenant_id) so legacy premium subs keep the new
+# tenant-scoped entitlement fresh during the transition.
+RECUS_TENANT=$(dbq "SELECT tenant_id FROM users WHERE id=$DBUID;")
+wait_for_sql "SELECT is_active::text FROM tenant_memberships WHERE tenant_id=$RECUS_TENANT;" "true" "[mirror] legacy user-owned premium mirrored into tenant_memberships"
+assert_eq "$(dbq "SELECT membership_tier FROM tenant_memberships WHERE tenant_id=$RECUS_TENANT;")" "premium" "[mirror] tenant membership tier premium"
+
 # =========================================================================
 # 8. premium lapse -> published listing auto-unlisted.
 #    syncListingPublicationFromSubscription: cancelling the premium sub must
@@ -247,9 +261,98 @@ wait_for_sql "SELECT status FROM subscriptions WHERE stripe_subscription_id='$RE
 wait_for_sql "SELECT status FROM fiscal_agent_listings WHERE tenant_id=$DBTENANT;" "unlisted" "[unlist] listing auto-unlisted on lapse"
 wait_for_sql "SELECT accepts_sponsorships::text FROM tenants WHERE id=$DBTENANT;" "false" "[unlist] tenant sponsorship entitlement cleared on lapse"
 
+# =========================================================================
+# 9. TENANT-OWNED premium lifecycle (the redesign's core path).
+#    A tenant-owned billing customer (user_id NULL, tenant_id set) drives the
+#    ORG plan: active -> tenant_memberships.is_active + tenants.accepts_
+#    sponsorships + published listing; past_due -> accepts_sponsorships cleared
+#    + listing unlisted (membership stays active in grace); canceled -> cleared;
+#    reactivation restores. Entitlement is keyed DIRECTLY off tenant_id, never a
+#    per-user membership row.
+# =========================================================================
+info "[tenant] tenant-owned premium lifecycle"
+TADMIN=$(create_test_user "lanef-tenant-webhook@example.com" "admin")
+TTENANT=$(dbq "SELECT tenant_id FROM users WHERE id=$TADMIN;")
+TCUS=$(new_stripe_customer "lanef-tenant-webhook@example.com")
+map_tenant_customer "$TTENANT" "$TCUS"
+# Seed a published listing so lapse can auto-unlist it.
+dbx "INSERT INTO fiscal_agent_listings (tenant_id, managed_by_user_id, name, status)
+     VALUES ($TTENANT, $TADMIN, 'Lanef Tenant Charity', 'published');"
+
+info "[tenant] active -> tenant membership + accepts_sponsorships + listing"
+TSUB=$(create_tenant_subscription "$TCUS" "$STRIPE_PRICE_FISCAL_AGENT" "$TTENANT" "$TADMIN")
+wait_for_sql "SELECT status FROM subscriptions WHERE stripe_subscription_id='$TSUB';" "active" "[tenant] subscription active"
+wait_for_sql "SELECT tenant_id::text FROM subscriptions WHERE stripe_subscription_id='$TSUB';" "$TTENANT" "[tenant] subscription keyed by tenant_id"
+# The initiating admin rides along in metadata.user_id.
+assert_eq "$(dbq "SELECT user_id::text FROM subscriptions WHERE stripe_subscription_id='$TSUB';")" "$TADMIN" "[tenant] subscription records initiating admin as user_id"
+wait_for_sql "SELECT is_active::text FROM tenant_memberships WHERE tenant_id=$TTENANT;" "true" "[tenant] tenant_memberships active"
+wait_for_sql "SELECT membership_tier FROM tenant_memberships WHERE tenant_id=$TTENANT;" "premium" "[tenant] tenant membership tier premium"
+wait_for_sql "SELECT accepts_sponsorships::text FROM tenants WHERE id=$TTENANT;" "true" "[tenant] accepts_sponsorships set"
+# No per-user membership row is written for tenant-owned subs.
+assert_eq "$(dbq "SELECT count(*) FROM user_memberships WHERE user_id=$TADMIN;")" "0" "[tenant] no per-user membership row for tenant-owned sub"
+# Entitlement is live for the admin via the tenant path.
+assert_eq "$(dbq "SELECT has_premium_membership($TADMIN)::text;")" "true" "[tenant] has_premium via tenant membership"
+
+info "[tenant] past_due -> accepts_sponsorships cleared + listing unlisted"
+# Republish the listing (active above already restored 'unlisted'->'published';
+# ensure it's published before forcing the lapse).
+dbx "UPDATE fiscal_agent_listings SET status='published' WHERE tenant_id=$TTENANT;"
+TPDCLOCK=$(sapi test_helpers test_clocks create -d frozen_time=$(date +%s) | json_field id)
+TPDCUS=$(sapi customers create --email "lanef-tenant-pastdue@example.com" -d test_clock="$TPDCLOCK" | json_field id)
+map_tenant_customer "$TTENANT" "$TPDCUS"   # remap SAME tenant to the clock customer
+TPDPM=$(sapi payment_methods create --type card -d "card[token]=tok_visa" | json_field id)
+sapi payment_methods attach "$TPDPM" -d customer="$TPDCUS" >/dev/null
+sapi customers update "$TPDCUS" -d "invoice_settings[default_payment_method]=$TPDPM" >/dev/null
+TPDSUB=$(create_tenant_subscription "$TPDCUS" "$STRIPE_PRICE_FISCAL_AGENT" "$TTENANT" "$TADMIN")
+wait_for_sql "SELECT status FROM subscriptions WHERE stripe_subscription_id='$TPDSUB';" "active" "[tenant] past_due seed sub active"
+TPDEND=$(sapi subscriptions retrieve "$TPDSUB" | python3 -c "import sys,json;print(json.load(sys.stdin)['items']['data'][0]['current_period_end'])")
+TPDFAIL=$(sapi payment_methods create --type card -d "card[token]=tok_chargeCustomerFail" | json_field id)
+sapi payment_methods attach "$TPDFAIL" -d customer="$TPDCUS" >/dev/null
+sapi customers update "$TPDCUS" -d "invoice_settings[default_payment_method]=$TPDFAIL" >/dev/null
+sapi test_helpers test_clocks advance "$TPDCLOCK" -d frozen_time=$((TPDEND+3600)) >/dev/null
+for _ in $(seq 1 30); do
+  [ "$(sapi test_helpers test_clocks retrieve "$TPDCLOCK" | json_field status)" == "ready" ] && break
+  sleep 2
+done
+wait_for_sql "SELECT status FROM subscriptions WHERE stripe_subscription_id='$TPDSUB';" "past_due" "[tenant] subscription past_due"
+# Grace: tenant membership stays active on past_due, but the directory
+# entitlement (accepts_sponsorships) is cleared and the listing unlisted.
+wait_for_sql "SELECT is_active::text FROM tenant_memberships WHERE tenant_id=$TTENANT;" "true" "[tenant] tenant membership active during grace"
+wait_for_sql "SELECT accepts_sponsorships::text FROM tenants WHERE id=$TTENANT;" "false" "[tenant] accepts_sponsorships cleared on past_due"
+wait_for_sql "SELECT status FROM fiscal_agent_listings WHERE tenant_id=$TTENANT;" "unlisted" "[tenant] listing unlisted on past_due"
+
+info "[tenant] canceled -> tenant membership inactive"
+# The tenant is currently mapped to the clock customer ($TPDCUS), but a cancel on
+# a clock customer is processed ASYNC by the clock. Do the cancel deterministically
+# on a fresh NON-clock customer mapped to the SAME tenant: create an active
+# tenant sub, then cancel it so customer.subscription.deleted fires immediately.
+TDELCUS=$(new_stripe_customer "lanef-tenant-delete@example.com")
+map_tenant_customer "$TTENANT" "$TDELCUS"
+TDELSUB=$(create_tenant_subscription "$TDELCUS" "$STRIPE_PRICE_FISCAL_AGENT" "$TTENANT" "$TADMIN")
+wait_for_sql "SELECT status FROM subscriptions WHERE stripe_subscription_id='$TDELSUB';" "active" "[tenant] cancel seed sub active"
+wait_for_sql "SELECT is_active::text FROM tenant_memberships WHERE tenant_id=$TTENANT;" "true" "[tenant] tenant membership active before cancel"
+cancel_subscription "$TDELSUB"
+wait_for_sql "SELECT status FROM subscriptions WHERE stripe_subscription_id='$TDELSUB';" "canceled" "[tenant] subscription canceled"
+wait_for_sql "SELECT is_active::text FROM tenant_memberships WHERE tenant_id=$TTENANT;" "false" "[tenant] tenant membership inactive after cancel"
+assert_eq "$(dbq "SELECT has_premium_membership($TADMIN)::text;")" "false" "[tenant] has_premium false after cancel"
+
+info "[tenant] reactivation restores tenant entitlement"
+TRECUS=$(new_stripe_customer "lanef-tenant-reactivate@example.com")
+map_tenant_customer "$TTENANT" "$TRECUS"
+TRESUB=$(create_tenant_subscription "$TRECUS" "$STRIPE_PRICE_FISCAL_AGENT" "$TTENANT" "$TADMIN")
+wait_for_sql "SELECT status FROM subscriptions WHERE stripe_subscription_id='$TRESUB';" "active" "[tenant] reactivation subscription active"
+wait_for_sql "SELECT is_active::text FROM tenant_memberships WHERE tenant_id=$TTENANT;" "true" "[tenant] tenant membership active again"
+wait_for_sql "SELECT accepts_sponsorships::text FROM tenants WHERE id=$TTENANT;" "true" "[tenant] accepts_sponsorships restored"
+wait_for_sql "SELECT status FROM fiscal_agent_listings WHERE tenant_id=$TTENANT;" "published" "[tenant] listing re-published on reactivation"
+
 # ---- teardown ------------------------------------------------------------
 info "webhook-matrix: teardown (cancel Stripe subs, delete clocks + users)"
 dbx "DELETE FROM fiscal_agent_listings WHERE tenant_id=$DBTENANT;"
+dbx "DELETE FROM fiscal_agent_listings WHERE tenant_id=$TTENANT;"
+cancel_subscription "$TSUB"       # active sub on the now-orphaned first tenant customer
+cancel_subscription "$TRESUB"
+# $TPDSUB is cancelled implicitly when its test clock is deleted.
+sapi test_helpers test_clocks delete "$TPDCLOCK" >/dev/null 2>&1
 cancel_subscription "$SUB"
 # $PDSUB is cancelled implicitly when its test clock is deleted.
 sapi test_helpers test_clocks delete "$PDCLOCK" >/dev/null 2>&1

@@ -34,7 +34,7 @@ const ACTIVE_STATUSES = ['active', 'trialing'];
  * subscription churn never touches listings.
  */
 async function syncListingPublicationFromSubscription(
-  userId: number,
+  tenantId: number,
   membershipTier: string,
   status: string,
 ) {
@@ -53,22 +53,14 @@ async function syncListingPublicationFromSubscription(
     return;
   }
 
-  // Listings are tenant-owned: resolve the subscriber's tenant and sync that
-  // tenant's listing rather than a per-user owner column.
-  const { data: user, error: userError } = await adminSupabase
-    .from('users')
-    .select('tenant_id')
-    .eq('id', userId)
-    .maybeSingle();
-  if (userError) {
-    throw new Error(`Unable to resolve tenant for user ${userId}: ${userError.message}`);
-  }
-  if (!user?.tenant_id) return;
+  // Listings are tenant-owned: the caller resolves the tenant (directly for a
+  // tenant-owned customer, via the payer's tenant on the legacy per-user path).
+  if (!tenantId) return;
 
   const { error } = await adminSupabase
     .from('fiscal_agent_listings')
     .update({ status: toStatus })
-    .eq('tenant_id', user.tenant_id)
+    .eq('tenant_id', tenantId)
     .eq('status', fromStatus);
 
   if (error) {
@@ -84,7 +76,7 @@ async function syncListingPublicationFromSubscription(
  * (policy.canOwnListing) — no 'fiscal_agent' pseudo-tier exists anywhere.
  */
 async function syncTenantSponsorshipEntitlement(
-  userId: number,
+  tenantId: number,
   membershipTier: string,
   status: string,
 ) {
@@ -95,24 +87,32 @@ async function syncTenantSponsorshipEntitlement(
   else if (LAPSE_STATUSES.includes(status)) accepts = false;
   else return;
 
-  const { data: user, error: userError } = await adminSupabase
-    .from('users')
-    .select('tenant_id')
-    .eq('id', userId)
-    .single();
-
-  if (userError || !user?.tenant_id) {
-    throw new Error(`Unable to resolve tenant for sponsorship entitlement sync: ${userError?.message ?? 'no tenant'}`);
+  if (!tenantId) {
+    throw new Error('Unable to resolve tenant for sponsorship entitlement sync: no tenant');
   }
 
   const { error } = await adminSupabase
     .from('tenants')
     .update({ accepts_sponsorships: accepts })
-    .eq('id', user.tenant_id);
+    .eq('id', tenantId);
 
   if (error) {
     throw new Error(`Unable to sync tenant sponsorship entitlement: ${error.message}`);
   }
+}
+
+// Resolve a user's tenant_id (legacy per-user path). Returns null if the user
+// row or its tenant is missing.
+async function resolveUserTenantId(userId: number): Promise<number | null> {
+  const { data: user, error } = await adminSupabase
+    .from('users')
+    .select('tenant_id')
+    .eq('id', userId)
+    .maybeSingle();
+  if (error) {
+    throw new Error(`Unable to resolve tenant for user ${userId}: ${error.message}`);
+  }
+  return (user?.tenant_id as number | undefined) ?? null;
 }
 
 export async function upsertSubscriptionFromStripe(subscription: Stripe.Subscription) {
@@ -129,13 +129,19 @@ export async function upsertSubscriptionFromStripe(subscription: Stripe.Subscrip
 
   const { data: billingCustomer, error: customerError } = await adminSupabase
     .from('billing_customers')
-    .select('user_id')
+    .select('user_id, tenant_id')
     .eq('stripe_customer_id', stripeCustomerId)
     .single();
 
   if (customerError || !billingCustomer) {
     throw new Error('No billing customer found for Stripe customer id.');
   }
+
+  // Ownership: exactly one of user_id / tenant_id is set on a billing_customers
+  // row (CHECK chk_billing_customers_one_owner). Tenant-owned => premium org
+  // plan; user-owned => legacy per-user (basic today, or grandfathered premium).
+  const ownerTenantId = (billingCustomer.tenant_id as number | null) ?? null;
+  const isTenantOwned = ownerTenantId !== null;
 
   const metadata = subscription.metadata ?? {};
   let membershipTier = String(metadata.membership_tier ?? '').toLowerCase();
@@ -169,20 +175,35 @@ export async function upsertSubscriptionFromStripe(subscription: Stripe.Subscrip
     throw new Error('Unable to determine membership tier from subscription metadata/product.');
   }
 
+  // On a tenant-owned customer the initiating admin rides along in
+  // metadata.user_id (a numeric string), else null. A user-owned customer keeps
+  // its billing_customers.user_id.
+  const metaUserId = (() => {
+    const raw = String(metadata.user_id ?? '').trim();
+    if (!/^\d+$/.test(raw)) return null;
+    const n = Number(raw);
+    return Number.isSafeInteger(n) && n > 0 ? n : null;
+  })();
+  const subscriptionUserId = isTenantOwned ? metaUserId : (billingCustomer.user_id as number | null);
+
+  const currentPeriodStart = subscription.items.data[0]?.current_period_start
+    ? new Date(subscription.items.data[0].current_period_start * 1000).toISOString()
+    : null;
+  const currentPeriodEnd = subscription.items.data[0]?.current_period_end
+    ? new Date(subscription.items.data[0].current_period_end * 1000).toISOString()
+    : null;
+
   const payload = {
-    user_id: billingCustomer.user_id,
+    user_id: subscriptionUserId,
+    tenant_id: ownerTenantId,
     stripe_customer_id: stripeCustomerId,
     stripe_subscription_id: subscription.id,
     stripe_product_id: productId,
     stripe_price_id: priceId,
     membership_tier: membershipTier,
     status: subscription.status,
-    current_period_start: subscription.items.data[0]?.current_period_start
-      ? new Date(subscription.items.data[0].current_period_start * 1000).toISOString()
-      : null,
-    current_period_end: subscription.items.data[0]?.current_period_end
-      ? new Date(subscription.items.data[0].current_period_end * 1000).toISOString()
-      : null,
+    current_period_start: currentPeriodStart,
+    current_period_end: currentPeriodEnd,
     cancel_at_period_end: Boolean(subscription.cancel_at_period_end),
     canceled_at: subscription.canceled_at ? new Date(subscription.canceled_at * 1000).toISOString() : null,
     metadata,
@@ -199,14 +220,55 @@ export async function upsertSubscriptionFromStripe(subscription: Stripe.Subscrip
   }
 
   const isActive = isSubscriptionActive(subscription.status);
+  const startsAt = currentPeriodStart ?? new Date().toISOString();
+
+  if (isTenantOwned) {
+    // Tenant-owned premium: entitlement lives in tenant_memberships (keyed by
+    // tenant). The tier CHECK rejects anything but 'premium', so a non-premium
+    // tier on a tenant customer is a misconfiguration — fail loudly rather than
+    // let the upsert 23514 with an opaque message.
+    if (membershipTier !== 'premium') {
+      throw new Error(`Tenant-owned billing customer carries non-premium tier '${membershipTier}'.`);
+    }
+
+    const { error: tenantMembershipError } = await adminSupabase
+      .from('tenant_memberships')
+      .upsert(
+        {
+          tenant_id: ownerTenantId,
+          subscription_id: subscriptionRow?.id ?? null,
+          membership_tier: 'premium',
+          is_active: isActive,
+          starts_at: startsAt,
+          ends_at: currentPeriodEnd,
+          source: 'stripe',
+        },
+        { onConflict: 'tenant_id' },
+      );
+
+    if (tenantMembershipError) {
+      throw new Error(`Unable to sync tenant membership: ${tenantMembershipError.message}`);
+    }
+
+    // Listing publication + accepts_sponsorships key DIRECTLY off the tenant.
+    await syncListingPublicationFromSubscription(ownerTenantId, membershipTier, subscription.status);
+    await syncTenantSponsorshipEntitlement(ownerTenantId, membershipTier, subscription.status);
+    return;
+  }
+
+  // ── User-owned (legacy per-user) path ─────────────────────────────────────
+  const userId = billingCustomer.user_id as number | null;
+  if (!userId) {
+    throw new Error('User-owned billing customer is missing user_id.');
+  }
 
   const membershipPayload = {
-    user_id: billingCustomer.user_id,
+    user_id: userId,
     subscription_id: subscriptionRow?.id ?? null,
     membership_tier: membershipTier,
     is_active: isActive,
-    starts_at: payload.current_period_start ?? new Date().toISOString(),
-    ends_at: payload.current_period_end,
+    starts_at: startsAt,
+    ends_at: currentPeriodEnd,
     source: 'stripe',
   };
 
@@ -218,11 +280,39 @@ export async function upsertSubscriptionFromStripe(subscription: Stripe.Subscrip
     throw new Error(`Unable to sync user membership: ${membershipError.message}`);
   }
 
+  // Resolve the payer's tenant for the listing / sponsorship / mirror syncs.
+  const userTenantId = await resolveUserTenantId(userId);
+
+  // Transition mirror: a legacy user-owned PREMIUM sub also refreshes the new
+  // tenant_memberships row (onConflict tenant_id) so the tenant-scoped
+  // entitlement stays current until live premium subs are migrated onto tenant
+  // customers. Basic never mirrors (tier CHECK is premium-only).
+  if (membershipTier === 'premium' && userTenantId) {
+    const { error: mirrorError } = await adminSupabase
+      .from('tenant_memberships')
+      .upsert(
+        {
+          tenant_id: userTenantId,
+          subscription_id: subscriptionRow?.id ?? null,
+          membership_tier: 'premium',
+          is_active: isActive,
+          starts_at: startsAt,
+          ends_at: currentPeriodEnd,
+          source: 'stripe',
+        },
+        { onConflict: 'tenant_id' },
+      );
+
+    if (mirrorError) {
+      throw new Error(`Unable to mirror legacy premium into tenant membership: ${mirrorError.message}`);
+    }
+  }
+
   // Auto-unlist on premium lapse / re-publish on reactivation (TASK A5). Keyed
   // off the Stripe status directly (note: past_due keeps membership.is_active
   // true for the read-only grace window above, but still unlists the listing).
-  await syncListingPublicationFromSubscription(billingCustomer.user_id, membershipTier, subscription.status);
+  await syncListingPublicationFromSubscription(userTenantId ?? 0, membershipTier, subscription.status);
 
   // Tenant entitlement flag (accepts_sponsorships) tracks the same lifecycle.
-  await syncTenantSponsorshipEntitlement(billingCustomer.user_id, membershipTier, subscription.status);
+  await syncTenantSponsorshipEntitlement(userTenantId ?? 0, membershipTier, subscription.status);
 }

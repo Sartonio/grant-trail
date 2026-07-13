@@ -97,6 +97,9 @@ export async function requireAuthenticatedProfile(authHeader: string | null) {
     profile: {
       profileTable: 'users' as const,
       profileId: userRecord.id as number,
+      // select('*') already pulls tenant_id off public.users — surface it so the
+      // tenant-owned premium billing helpers don't need a second round-trip.
+      tenantId: (userRecord.tenant_id ?? null) as number | null,
       role: (userRecord.role ?? 'grantee') as string,
       record: userRecord as Record<string, unknown>,
     },
@@ -150,6 +153,81 @@ export async function getOrCreateStripeCustomer(profile: {
 
   if (insertError) {
     throw new Error(`Unable to save billing customer: ${insertError.message}`);
+  }
+
+  return customer.id;
+}
+
+/**
+ * Get-or-create the TENANT's Stripe customer for tenant-owned premium billing.
+ *
+ * The premium ("Fiscal Agents Plan") tier is tenant-owned: one Stripe customer
+ * per tenant (billing_customers.tenant_id, partial-unique per the migration),
+ * so any admin of the org drives the same customer / invoices / portal and a
+ * second admin can never double-provision. Mirrors getOrCreateStripeCustomer's
+ * lookup + race handling, keyed on tenant_id instead of user_id. The
+ * billing_customers CHECK requires exactly one owner, so the inserted row sets
+ * tenant_id and leaves user_id NULL.
+ */
+export async function getOrCreateStripeCustomerForTenant(profile: {
+  tenantId: number | null;
+  record: Record<string, unknown>;
+}) {
+  const tenantId = profile.tenantId;
+  if (!tenantId) {
+    throw new Error('No tenant on the authenticated profile for tenant billing.');
+  }
+
+  const { data: existingCustomer, error } = await adminSupabase
+    .from('billing_customers')
+    .select('stripe_customer_id')
+    .eq('tenant_id', tenantId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Unable to load tenant billing customer: ${error.message}`);
+  }
+
+  if (existingCustomer?.stripe_customer_id) {
+    return existingCustomer.stripe_customer_id;
+  }
+
+  // Name the Stripe customer after the org/tenant; fall back to the caller's
+  // organization_name if the tenant name lookup comes back empty.
+  const { data: tenant } = await adminSupabase
+    .from('tenants')
+    .select('name')
+    .eq('id', tenantId)
+    .maybeSingle();
+
+  const email = String(profile.record.email ?? '');
+  const tenantName = String(tenant?.name ?? profile.record.organization_name ?? '');
+
+  const customer = await stripe.customers.create({
+    email,
+    name: tenantName,
+    metadata: {
+      tenant_id: String(tenantId),
+    },
+  });
+
+  // Upsert on the tenant_id partial-unique index: get-or-create is not atomic
+  // (the Stripe round-trip sits between the SELECT and this write), so a
+  // concurrent second admin or a leftover row would make a plain INSERT die on
+  // idx_billing_customers_tenant_id. Last writer wins; both hold a freshly
+  // created customer for the same tenant. user_id stays NULL (the one-owner
+  // CHECK requires exactly one of user_id / tenant_id).
+  const { error: insertError } = await adminSupabase.from('billing_customers').upsert(
+    {
+      tenant_id: tenantId,
+      user_id: null,
+      stripe_customer_id: customer.id,
+    },
+    { onConflict: 'tenant_id' },
+  );
+
+  if (insertError) {
+    throw new Error(`Unable to save tenant billing customer: ${insertError.message}`);
   }
 
   return customer.id;

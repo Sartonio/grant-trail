@@ -1,4 +1,4 @@
-import { adminSupabase, corsHeaders, buildRedirectUrl, ensurePlatformMembershipProductIds, getOrCreateStripeCustomer, requireAuthenticatedProfile, stripe } from '../_shared/stripe-client.ts';
+import { adminSupabase, corsHeaders, buildRedirectUrl, ensurePlatformMembershipProductIds, getOrCreateStripeCustomer, getOrCreateStripeCustomerForTenant, requireAuthenticatedProfile, stripe } from '../_shared/stripe-client.ts';
 import { assertPostRequest, AuthError, parseJsonBody, validateFeatureKey, validateReturnOrigin, validateReturnPath, ValidationError } from '../_shared/validation.ts';
 import { isSubscriptionActive } from '../_shared/subscription-status.ts';
 
@@ -35,11 +35,19 @@ Deno.serve(async (request) => {
 
     await ensurePlatformMembershipProductIds();
 
-    const customerId = await getOrCreateStripeCustomer(profile);
+    // Premium ("Fiscal Agents Plan") is TENANT-owned: route to the tenant's one
+    // Stripe customer so any admin drives the same org plan and a second admin
+    // can never double-provision. Basic stays per-user (unchanged).
+    const isPremium = tier === 'premium';
+    const customerId = isPremium
+      ? await getOrCreateStripeCustomerForTenant(profile)
+      : await getOrCreateStripeCustomer(profile);
 
     // Idempotency: never open a second checkout for a customer who already has a
     // live subscription. Stale client-side membership state (e.g. an un-refreshed
     // session right after onboarding) would otherwise let them subscribe twice.
+    // For premium this customer is the TENANT's, so a SECOND admin of an already-
+    // subscribed org hits this same alreadyActive redirect (dedup across admins).
     // Send them to the success return instead, where membership re-syncs.
     const existing = await stripe.subscriptions.list({ customer: customerId, status: 'all', limit: 100 });
     if (existing.data.some((sub) => isSubscriptionActive(sub.status))) {
@@ -49,6 +57,16 @@ Deno.serve(async (request) => {
       });
     }
 
+    // Premium subs carry tenant_id so the sync layer keys tenant_memberships /
+    // subscriptions off the org; user_id stays as the initiating admin. Basic
+    // subs stay per-user (no tenant_id).
+    const checkoutMetadata = {
+      user_id: String(profile.profileId),
+      feature_key: featureKey,
+      membership_tier: tier,
+      ...(isPremium && profile.tenantId ? { tenant_id: String(profile.tenantId) } : {}),
+    };
+
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
       customer: customerId,
@@ -57,17 +75,9 @@ Deno.serve(async (request) => {
       success_url: buildRedirectUrl(returnPath, '?checkout=success', returnOrigin),
       cancel_url: buildRedirectUrl(returnPath, '?checkout=canceled', returnOrigin),
       client_reference_id: String(profile.profileId),
-      metadata: {
-        user_id: String(profile.profileId),
-        feature_key: featureKey,
-        membership_tier: tier,
-      },
+      metadata: checkoutMetadata,
       subscription_data: {
-        metadata: {
-          user_id: String(profile.profileId),
-          feature_key: featureKey,
-          membership_tier: tier,
-        },
+        metadata: checkoutMetadata,
       },
     });
 

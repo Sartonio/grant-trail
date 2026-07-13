@@ -101,9 +101,13 @@ m_basic()  { echo "INSERT INTO user_memberships (user_id, membership_tier, is_ac
   ON CONFLICT (user_id) DO UPDATE SET membership_tier='basic', is_active=true;"; }
 m_fa()   { echo "INSERT INTO user_memberships (user_id, membership_tier, is_active) VALUES ($1, 'premium', true)
   ON CONFLICT (user_id) DO UPDATE SET membership_tier='premium', is_active=true;"; }
-# Simulate a lapsed listing owner: the seed gives user 8 an active premium row, so
-# deactivate it to drop has_premium_membership() (the read-only-degrade case).
-m_lapse() { echo "UPDATE user_memberships SET is_active=false WHERE user_id=$1;"; }
+# Simulate a lapsed listing owner (read-only-degrade case). Premium is now
+# TENANT-owned (tenant_memberships), so a real lapse must deactivate BOTH the
+# user's own user_memberships row AND their tenant's tenant_membership —
+# otherwise the tenant-owned premium entitlement keeps the tenant exempt.
+m_lapse() { echo "UPDATE user_memberships SET is_active=false WHERE user_id=$1;
+  UPDATE tenant_memberships SET is_active=false
+    WHERE tenant_id=(SELECT tenant_id FROM users WHERE id=$1);"; }
 
 echo "=============================================================="
 echo " Charity Directory — RLS + paywall proof tests"

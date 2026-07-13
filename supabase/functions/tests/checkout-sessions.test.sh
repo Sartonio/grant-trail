@@ -99,6 +99,67 @@ else
   fail "default checkout did not return a session url: $(echo "$RESP" | head -c 160)"
 fi
 
+# ---- tenant-owned premium: customer reuse + dedup across two admins ------
+#
+# Premium ("Fiscal Agents Plan") is TENANT-owned: the checkout fn routes premium
+# to getOrCreateStripeCustomerForTenant, which creates ONE billing_customers row
+# keyed on tenant_id (user_id NULL). A second admin of the SAME tenant must reuse
+# that Stripe customer (no second row — partial unique index) and, once the org
+# has a live sub, hit the alreadyActive redirect.
+
+info "tenant-owned premium: two admins of one tenant"
+# Admin #1 mints a fresh managed tenant; admin #2 joins the SAME tenant.
+ADMIN1_ID=$(create_test_user "lanef-tenant-admin1@example.com" "admin")
+ADMIN1_TOKEN=$(get_token "lanef-tenant-admin1@example.com")
+TENANT_ID=$(tenant_id_for "$ADMIN1_ID")
+ADMIN2_ID=$(create_test_user_in_tenant "lanef-tenant-admin2@example.com" "$TENANT_ID" "admin")
+ADMIN2_TOKEN=$(get_token "lanef-tenant-admin2@example.com")
+
+# Admin #1 premium checkout -> a tenant-owned billing_customers row (user_id NULL).
+RESP=$(curl -s -X POST "$FUNCTIONS_URL/create-checkout-session" \
+  -H "Authorization: Bearer $ADMIN1_TOKEN" -H "apikey: $ANON_KEY" \
+  -H "Content-Type: application/json" -d '{"returnPath":"/upgrade","featureKey":"premium_membership"}')
+CS=$(echo "$RESP" | session_id_from_resp)
+if [ -n "$CS" ]; then
+  pass "admin#1 premium checkout returns a session url"
+  SESS=$(sapi checkout sessions retrieve "$CS")
+  TENANT_META=$(echo "$SESS" | python3 -c "import sys,json; s=json.load(sys.stdin); print(s.get('metadata',{}).get('tenant_id',''))")
+  assert_eq "$TENANT_META" "$TENANT_ID" "premium session metadata.tenant_id stamped"
+else
+  fail "admin#1 premium checkout did not return a session url: $(echo "$RESP" | head -c 160)"
+fi
+assert_eq "$(dbq "SELECT count(*) FROM billing_customers WHERE tenant_id=$TENANT_ID;")" "1" "tenant-owned billing_customers row created"
+assert_eq "$(dbq "SELECT count(*) FROM billing_customers WHERE tenant_id=$TENANT_ID AND user_id IS NULL;")" "1" "tenant-owned row has NULL user_id (one-owner CHECK)"
+TENANT_CUS=$(dbq "SELECT stripe_customer_id FROM billing_customers WHERE tenant_id=$TENANT_ID;")
+
+# Admin #2 premium checkout -> reuses the SAME Stripe customer, no second row.
+RESP=$(curl -s -X POST "$FUNCTIONS_URL/create-checkout-session" \
+  -H "Authorization: Bearer $ADMIN2_TOKEN" -H "apikey: $ANON_KEY" \
+  -H "Content-Type: application/json" -d '{"returnPath":"/upgrade","featureKey":"premium_membership"}')
+CS=$(echo "$RESP" | session_id_from_resp)
+if [ -n "$CS" ]; then
+  SESS=$(sapi checkout sessions retrieve "$CS")
+  assert_eq "$(echo "$SESS" | json_field customer)" "$TENANT_CUS" "admin#2 reuses the tenant Stripe customer"
+else
+  fail "admin#2 premium checkout did not return a session url: $(echo "$RESP" | head -c 160)"
+fi
+assert_eq "$(dbq "SELECT count(*) FROM billing_customers WHERE tenant_id=$TENANT_ID;")" "1" "no second tenant billing_customers row (partial unique index)"
+
+# Give the tenant a LIVE subscription, then admin #2's checkout must dedup to the
+# alreadyActive redirect (the idempotency check runs against the tenant customer).
+info "tenant-owned premium: alreadyActive dedup across admins"
+TSUB=$(create_tenant_subscription "$TENANT_CUS" "$STRIPE_PRICE_FISCAL_AGENT" "$TENANT_ID" "$ADMIN1_ID")
+# poll Stripe until the sub is active so the idempotency check sees it
+for _ in $(seq 1 20); do
+  [ "$(sapi subscriptions retrieve "$TSUB" | json_field status)" == "active" ] && break
+  sleep 1
+done
+RESP=$(curl -s -X POST "$FUNCTIONS_URL/create-checkout-session" \
+  -H "Authorization: Bearer $ADMIN2_TOKEN" -H "apikey: $ANON_KEY" \
+  -H "Content-Type: application/json" -d '{"returnPath":"/upgrade","featureKey":"premium_membership"}')
+assert_eq "$(echo "$RESP" | python3 -c 'import sys,json; print(str(json.load(sys.stdin).get("alreadyActive","")).lower())')" "true" "admin#2 gets alreadyActive redirect (dedup across admins)"
+cancel_subscription "$TSUB"
+
 # ---- auth + validation guards -------------------------------------------
 
 info "guards: unauthenticated + invalid input"

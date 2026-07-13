@@ -55,11 +55,16 @@ Deno.serve(async (request) => {
                   .select('user_id')
                   .eq('stripe_customer_id', stripeCustomerId)
                   .maybeSingle();
-                if (billingCustomer?.user_id) {
+                // Tenant-owned premium customers have a NULL user_id — greet the
+                // initiating admin recorded in the subscription metadata instead.
+                const metaUserId = String(subscription.metadata?.user_id ?? '').trim();
+                const greetUserId = billingCustomer?.user_id
+                  ?? (/^\d+$/.test(metaUserId) ? Number(metaUserId) : null);
+                if (greetUserId) {
                   const { data: userRecord } = await adminSupabase
                     .from('users')
                     .select('firstname')
-                    .eq('id', billingCustomer.user_id)
+                    .eq('id', greetUserId)
                     .maybeSingle();
                   firstName = String(userRecord?.firstname ?? '');
                 }

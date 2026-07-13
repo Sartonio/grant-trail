@@ -1,7 +1,10 @@
 import { supabase } from '../supabaseClient';
-// The app has exactly two tiers. Charity listing ownership is NOT a tier — it
-// is a tenant-level entitlement (tenants.accepts_sponsorships) set by the
-// billing sync while the ORG_ADMIN ('premium', "Fiscal Agents Plan")
+import { getMyTenantMembership } from './data/tenantMemberships';
+// The app has exactly two tiers. The premium ("Fiscal Agents Plan", ORG_ADMIN)
+// tier is TENANT-owned — one subscription covers the whole organization, so any
+// admin manages it and other admins/grantees don't pay. Basic stays per-user.
+// Charity listing ownership is NOT a tier — it is a tenant-level entitlement
+// (tenants.accepts_sponsorships) set by the billing sync while the premium
 // subscription is active. See policy.canOwnListing.
 export const MEMBERSHIP_TIERS = {
   BASIC: 'basic',
@@ -240,7 +243,12 @@ export async function fetchSessionContext() {
     accepts_sponsorships: !!tenant?.accepts_sponsorships,
   };
 
-  const membership = data.membership || null;
+  // get_session_context() returns the caller's tenant's active tenant_memberships
+  // row (premium is tenant-owned) alongside the per-user membership signals.
+  // Pass it straight through so the SPA can show the "organization plan" state.
+  const membership = data.membership
+    ? { ...data.membership, tenantMembership: data.membership.tenantMembership || null }
+    : null;
 
   return {
     userRecord: data.user,
@@ -257,6 +265,7 @@ export async function fetchMembershipStatus() {
     premiumRes,
     membershipRes,
     subscriptionsRes,
+    tenantMembershipRes,
   ] = await Promise.all([
     supabase.rpc('is_membership_exempt'),
     supabase.rpc('has_basic_membership'),
@@ -268,12 +277,18 @@ export async function fetchMembershipStatus() {
       .order('updated_at', { ascending: false })
       .limit(1)
       .maybeSingle(),
+    // No user_id filter — premium subscriptions are tenant-owned and RLS now
+    // returns the org's row to any of its admins. Filtering by user_id would
+    // hide the org subscription from admins who didn't personally pay.
     supabase
       .from('subscriptions')
       .select('*')
       .in('status', ['active', 'trialing', 'past_due'])
       .order('updated_at', { ascending: false })
       .limit(1),
+    // The caller's tenant's active premium membership row (tenant-owned), via
+    // the lib/data access layer. Surfaced so the SPA renders the org-plan state.
+    getMyTenantMembership(),
   ]);
 
   if (exemptRes.error || basicRes.error || premiumRes.error) {
@@ -288,6 +303,7 @@ export async function fetchMembershipStatus() {
     hasPremiumAccess: !!premiumRes.data,
     membership: membershipRes.data || null,
     activeSubscription,
+    tenantMembership: tenantMembershipRes?.data || null,
   };
 }
 

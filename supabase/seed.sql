@@ -436,7 +436,10 @@ WHERE grant_id IN (SELECT id FROM grant_record WHERE status = 'approved');
 -- SECTION 8: SEED SUBSCRIPTIONS & MEMBERSHIPS
 -- ==========================================
 
--- Seeding Stripe customers for mock users
+-- Seeding Stripe customers. Basic (per-user) customers stay user-owned. Premium
+-- is TENANT-owned (tenant_owned_premium_billing migration), so amara's premium
+-- customer is keyed to her TENANT, not her user — the exactly-one-owner CHECK on
+-- billing_customers requires user_id XOR tenant_id.
 INSERT INTO billing_customers (user_id, stripe_customer_id) VALUES
   ((SELECT id FROM users WHERE email = 'maria.smith@example.com'), 'cus_maria123'),
   ((SELECT id FROM users WHERE email = 'jacob.soto@example.com'), 'cus_jacob123'),
@@ -444,8 +447,10 @@ INSERT INTO billing_customers (user_id, stripe_customer_id) VALUES
   ((SELECT id FROM users WHERE email = 'priya.sharma@example.com'), 'cus_priya123'),
   ((SELECT id FROM users WHERE email = 'david.chen@example.com'), 'cus_david123'),
   ((SELECT id FROM users WHERE email = 'carlos.lopez@example.com'), 'cus_carlos123'),
-  ((SELECT id FROM users WHERE email = 'nadia.park@example.com'), 'cus_nadia123'),
-  ((SELECT id FROM users WHERE email = 'amara.okafor@example.com'), 'cus_amara123');
+  ((SELECT id FROM users WHERE email = 'nadia.park@example.com'), 'cus_nadia123');
+
+INSERT INTO billing_customers (tenant_id, stripe_customer_id) VALUES
+  ((SELECT tenant_id FROM users WHERE email = 'amara.okafor@example.com'), 'cus_amara123');
 
 -- Configure the membership product IDs for local/dev. In production these are
 -- synced from the Stripe price env vars by the Edge Functions; the schema no
@@ -456,7 +461,9 @@ SET basic_membership_product_id = 'prod_UPriYIVgR8sgXz',
     premium_membership_product_id = 'prod_UPriKcjudCymTU'
 WHERE id = 1;
 
--- Seeding Stripe subscriptions for mock users
+-- Seeding Stripe subscriptions for mock users. Basic subs are user-owned;
+-- amara's premium sub is tenant-owned (tenant_id set) with user_id kept as the
+-- initiating admin (both owners allowed by chk_subscriptions_has_owner).
 INSERT INTO subscriptions (user_id, stripe_customer_id, stripe_subscription_id, stripe_product_id, stripe_price_id, membership_tier, status, current_period_end) VALUES
   ((SELECT id FROM users WHERE email = 'maria.smith@example.com'), 'cus_maria123', 'sub_maria123', 'prod_UPriYIVgR8sgXz', 'price_maria123', 'basic', 'active', now() + interval '1 year'),
   ((SELECT id FROM users WHERE email = 'jacob.soto@example.com'), 'cus_jacob123', 'sub_jacob123', 'prod_UPriYIVgR8sgXz', 'price_jacob123', 'basic', 'active', now() + interval '1 year'),
@@ -464,10 +471,13 @@ INSERT INTO subscriptions (user_id, stripe_customer_id, stripe_subscription_id, 
   ((SELECT id FROM users WHERE email = 'priya.sharma@example.com'), 'cus_priya123', 'sub_priya123', 'prod_UPriYIVgR8sgXz', 'price_priya123', 'basic', 'active', now() + interval '1 year'),
   ((SELECT id FROM users WHERE email = 'david.chen@example.com'), 'cus_david123', 'sub_david123', 'prod_UPriYIVgR8sgXz', 'price_david123', 'basic', 'active', now() + interval '1 year'),
   ((SELECT id FROM users WHERE email = 'carlos.lopez@example.com'), 'cus_carlos123', 'sub_carlos123', 'prod_UPriYIVgR8sgXz', 'price_carlos123', 'basic', 'active', now() + interval '1 year'),
-  ((SELECT id FROM users WHERE email = 'nadia.park@example.com'), 'cus_nadia123', 'sub_nadia123', 'prod_UPriYIVgR8sgXz', 'price_nadia123', 'basic', 'active', now() + interval '1 year'),
-  ((SELECT id FROM users WHERE email = 'amara.okafor@example.com'), 'cus_amara123', 'sub_amara123', 'prod_UPriKcjudCymTU', 'price_amara123', 'premium', 'active', now() + interval '1 year');
+  ((SELECT id FROM users WHERE email = 'nadia.park@example.com'), 'cus_nadia123', 'sub_nadia123', 'prod_UPriYIVgR8sgXz', 'price_nadia123', 'basic', 'active', now() + interval '1 year');
 
--- Seeding active memberships for mock users
+INSERT INTO subscriptions (user_id, tenant_id, stripe_customer_id, stripe_subscription_id, stripe_product_id, stripe_price_id, membership_tier, status, current_period_end) VALUES
+  ((SELECT id FROM users WHERE email = 'amara.okafor@example.com'), (SELECT tenant_id FROM users WHERE email = 'amara.okafor@example.com'), 'cus_amara123', 'sub_amara123', 'prod_UPriKcjudCymTU', 'price_amara123', 'premium', 'active', now() + interval '1 year');
+
+-- Seeding active basic memberships (per-user). Premium is tenant-owned, so
+-- amara's premium entitlement lives in tenant_memberships below, not here.
 INSERT INTO user_memberships (user_id, subscription_id, membership_tier, is_active, source, starts_at) VALUES
   ((SELECT id FROM users WHERE email = 'maria.smith@example.com'), (SELECT id FROM subscriptions WHERE stripe_subscription_id = 'sub_maria123'), 'basic', true, 'stripe', now()),
   ((SELECT id FROM users WHERE email = 'jacob.soto@example.com'), (SELECT id FROM subscriptions WHERE stripe_subscription_id = 'sub_jacob123'), 'basic', true, 'stripe', now()),
@@ -475,8 +485,11 @@ INSERT INTO user_memberships (user_id, subscription_id, membership_tier, is_acti
   ((SELECT id FROM users WHERE email = 'priya.sharma@example.com'), (SELECT id FROM subscriptions WHERE stripe_subscription_id = 'sub_priya123'), 'basic', true, 'stripe', now()),
   ((SELECT id FROM users WHERE email = 'david.chen@example.com'), (SELECT id FROM subscriptions WHERE stripe_subscription_id = 'sub_david123'), 'basic', true, 'stripe', now()),
   ((SELECT id FROM users WHERE email = 'carlos.lopez@example.com'), (SELECT id FROM subscriptions WHERE stripe_subscription_id = 'sub_carlos123'), 'basic', true, 'stripe', now()),
-  ((SELECT id FROM users WHERE email = 'nadia.park@example.com'), (SELECT id FROM subscriptions WHERE stripe_subscription_id = 'sub_nadia123'), 'basic', true, 'stripe', now()),
-  ((SELECT id FROM users WHERE email = 'amara.okafor@example.com'), (SELECT id FROM subscriptions WHERE stripe_subscription_id = 'sub_amara123'), 'premium', true, 'stripe', now());
+  ((SELECT id FROM users WHERE email = 'nadia.park@example.com'), (SELECT id FROM subscriptions WHERE stripe_subscription_id = 'sub_nadia123'), 'basic', true, 'stripe', now());
+
+-- Tenant-owned premium membership for amara's org (bright-horizons).
+INSERT INTO tenant_memberships (tenant_id, subscription_id, membership_tier, is_active, source, starts_at) VALUES
+  ((SELECT tenant_id FROM users WHERE email = 'amara.okafor@example.com'), (SELECT id FROM subscriptions WHERE stripe_subscription_id = 'sub_amara123'), 'premium', true, 'stripe', now());
 
 
 -- Tenant-level Charity Directory entitlement: mirrors what the Stripe sync
