@@ -1,7 +1,7 @@
 import Stripe from 'npm:stripe@18.1.1';
 import { createClient } from 'npm:@supabase/supabase-js@2.84.0';
 import { AuthError } from './validation.ts';
-import { parseAllowedOrigins, resolveAppOrigin } from './redirect.ts';
+import { parseAllowedOrigins, requireHttpOrigin, resolveAppOrigin } from './redirect.ts';
 
 // Stripe/Supabase client construction + the auth/customer helpers shared by
 // every checkout/portal-session edge function (create-checkout-session,
@@ -11,7 +11,11 @@ const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
 const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
 const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
 const stripeSecretKey = Deno.env.get('STRIPE_SECRET_KEY') ?? '';
-const appUrl = (Deno.env.get('APP_URL') ?? 'http://localhost:3000').replace(/\/+$/, '');
+// APP_URL is the fallback redirect base for Stripe success/cancel URLs. Stripe
+// rejects URLs without an explicit scheme (`url_invalid`), and a scheme-less env
+// (e.g. "www.example.org" instead of "https://www.example.org") otherwise fails
+// silently at checkout time. Validate it at boot so a misconfig fails loudly.
+const appUrl = requireHttpOrigin('APP_URL', Deno.env.get('APP_URL') ?? 'http://localhost:3000');
 // Extra origins the frontend may redirect back to (e.g. Vercel previews).
 // Comma-separated; exact origins or `https://*.<account-scoped-suffix>` wildcards.
 const allowedReturnOrigins = parseAllowedOrigins(Deno.env.get('APP_URL_ALLOWED_ORIGINS'));

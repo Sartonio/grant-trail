@@ -31,27 +31,17 @@ users table row:      userRecord.id = 3                          (integer PK)
 
 ## 2. Session Construction in React
 
-On app initialization, `App.js` loads the Supabase Auth session, resolves the user profile, resolves the tenant settings, determines billing/membership status, and builds a consolidated session object.
+Session bootstrap lives in [`hooks/useSession.js`](../../frontend/src/hooks/useSession.js), not inline in `App.js`. It loads the Supabase Auth user, then resolves the profile, tenant config, and billing/membership status in a **single round trip** (an RPC that returns a consolidated `context`), and builds the session object.
 
 ```js
-// App.js — how the session is constructed
+// hooks/useSession.js — how the session is constructed
 const { data: { user } } = await supabase.auth.getUser();
 
-// 1. Resolve profile
-const { data: userRecord } = await supabase
-  .from('users')
-  .select('*')
-  .eq('user_id', user.id)   // match auth UUID to users table
-  .single();
-
-// 2. Resolve tenant and settings
-const { data: tenant }   = await supabase.from('tenants').select('*').eq('id', userRecord.tenant_id).single();
-const { data: settings } = await supabase.from('tenant_settings').select('*').eq('tenant_id', userRecord.tenant_id).single();
-
-const tenantConfig = { ...settings, type: tenant?.tenant_type, name: tenant?.name };
-
-// 3. Resolve Stripe membership details
-const membership   = await loadMembershipStatus(userRecord); // Stripe access data
+// One RPC returns profile + tenant + settings + membership together
+const { userRecord, tenant, tenantConfig, membership } = context;
+//   userRecord   — users row (matched auth UUID -> users.user_id)
+//   tenantConfig — merged tenant + tenant_settings (adds type, name)
+//   membership   — Stripe access flags (hasBasicAccess, hasPremiumAccess, isExempt)
 
 setSession({ user, userRecord, tenantConfig, membership });
 ```
@@ -88,7 +78,7 @@ For local development, Supabase Auth accounts are seeded deterministically. Duri
 
 A user invited to a managed tenant signs up via `/signup?invite=<token>`. The `invites` table is **no longer readable or writable by `anon` or the just-authenticated user** (D7 security fix — it was previously world-readable, allowing enumeration of every token + email). Both the read and the write go through token-scoped `SECURITY DEFINER` RPCs instead.
 
-Frontend helpers live in [`lib/invites.js`](../../frontend/src/lib/invites.js); the flow spans [`SignUpClean.js`](../../frontend/src/components/SignUpClean.js) and [`CompleteProfile.js`](../../frontend/src/components/CompleteProfile.js):
+Frontend helpers live in [`lib/invites.js`](../../frontend/src/lib/invites.js); the flow spans [`SignUpClean.js`](../../frontend/src/components/auth/SignUpClean.js) and [`CompleteProfile.js`](../../frontend/src/components/auth/CompleteProfile.js):
 
 1. **Read** — `getInviteByToken(token)` calls the `get_invite_by_token(token)` RPC, which returns **only** the single matching invite's fields (tenant_id, role, email, used_at, expires_at, tenant name). No enumeration is possible. `SignUpClean.js` uses this to validate the token and show "invited as `<role>`"; `CompleteProfile.js` uses it to know which tenant/role to create the user in.
 2. **Sign up + complete profile** — after Supabase Auth creates the account, `CompleteProfile.js` inserts the `users` row with `tenant_id` and `role` taken from the invite.

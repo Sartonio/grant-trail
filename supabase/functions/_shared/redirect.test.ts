@@ -3,7 +3,7 @@
 // through or the fallback stops defaulting to APP_URL.
 //
 // Run:  deno test supabase/functions/_shared/redirect.test.ts
-import { isOriginAllowed, parseAllowedOrigins, resolveAppOrigin } from './redirect.ts';
+import { isOriginAllowed, parseAllowedOrigins, requireHttpOrigin, resolveAppOrigin } from './redirect.ts';
 
 function assert(cond: boolean, msg: string) {
   if (!cond) throw new Error(msg);
@@ -48,6 +48,26 @@ Deno.test('lookalike and malicious origins are rejected', () => {
   ];
   for (const origin of bad) {
     assert(!isOriginAllowed(origin, DEFAULT, ALLOWED), `should reject: ${origin}`);
+  }
+});
+
+Deno.test('requireHttpOrigin accepts full http(s) URLs and returns the bare origin', () => {
+  assert(requireHttpOrigin('APP_URL', 'https://www.atkasolutions.org') === 'https://www.atkasolutions.org', 'https origin');
+  assert(requireHttpOrigin('APP_URL', 'https://www.atkasolutions.org/') === 'https://www.atkasolutions.org', 'trailing slash stripped');
+  assert(requireHttpOrigin('APP_URL', 'https://host/path?q=1') === 'https://host', 'path/query dropped');
+  assert(requireHttpOrigin('APP_URL', 'http://localhost:3000') === 'http://localhost:3000', 'localhost with port');
+});
+
+Deno.test('requireHttpOrigin rejects scheme-less / non-http values (the prod url_invalid bug)', () => {
+  const bad = ['www.atkasolutions.org', 'atkasolutions.org', '', 'ftp://host', '//host'];
+  for (const raw of bad) {
+    let threw = false;
+    try {
+      requireHttpOrigin('APP_URL', raw);
+    } catch {
+      threw = true;
+    }
+    assert(threw, `should reject: "${raw}"`);
   }
 });
 

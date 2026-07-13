@@ -53,6 +53,25 @@ export function isOriginAllowed(origin: string, defaultOrigin: string, allowed: 
   return false;
 }
 
+/**
+ * Require an env value to be a full http(s) URL and return its bare origin.
+ * Stripe rejects success/cancel URLs without an explicit scheme (`url_invalid`),
+ * so a scheme-less APP_URL (e.g. "www.example.org") would otherwise fail silently
+ * at checkout time. Throwing here surfaces the misconfig at function boot instead.
+ */
+export function requireHttpOrigin(name: string, raw: string): string {
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    throw new Error(`${name} must be a full http(s) URL with a scheme (got "${raw}").`);
+  }
+  if (url.protocol !== 'https:' && url.protocol !== 'http:') {
+    throw new Error(`${name} must use an http(s) scheme (got "${raw}").`);
+  }
+  return url.origin;
+}
+
 /** Trusted candidate → itself; anything else → the default (APP_URL). */
 export function resolveAppOrigin(
   candidate: string | undefined,

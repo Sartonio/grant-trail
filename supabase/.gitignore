@@ -1,6 +1,8 @@
 # Supabase
 .branches
 .temp
+# Studio scratch snippets — local-only
+snippets/
 
 # dotenvx
 .env

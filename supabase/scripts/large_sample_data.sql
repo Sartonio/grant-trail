@@ -1,11 +1,16 @@
 -- ==========================================
--- TFAC GRANT MANAGEMENT SYSTEM
--- Large Sample Dataset — Pagination / UI Testing
+-- Large Sample Dataset — Pagination / UI Stress Testing
 -- ==========================================
--- Run AFTER 01-Complete-Fresh-Setup.sql
--- Can be run alongside 02-Sample-Data.sql
+-- Hand-run utility (see README.md in this folder). NOT a migration and NOT
+-- part of seed.sql — run it manually against a LOCAL dev DB when you need
+-- volume, e.g.:
+--   npm run db:reset
+--   docker exec -i supabase_db_grant-trail psql -U postgres -d postgres \
+--     < supabase/scripts/large_sample_data.sql
+-- Requires the platform tenant (slug 'tfac') from the bootstrap migration;
+-- safe to run on top of seed.sql.
 --
--- Creates 1 user with:
+-- Creates 1 user (alex.tan@example.com, no auth login) with:
 --   50 grants  (mixed statuses)
 --   150 budget items  (3 per grant)
 --   ~405 expenses  (3 per budget item on approved grants)

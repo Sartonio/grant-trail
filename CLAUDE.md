@@ -30,8 +30,11 @@ frontend/src/
 │   ├── common/             # ReadOnlyBanner, ConfirmDialog, StatusBadge, ErrorFallback
 │   └── landing/            # LandingPage
 ├── lib/                    # policy.js, guards.js, useWriteGuard.js, billing.js,
-│   │                       #   invites.js, inquiries.js (+ co-located .test.js)
-├── hooks/                  # useGrantee.js (session/role/membership)
+│   │                       #   invites.js, inquiries.js, format.js, storage.js
+│   │                       #   (+ co-located .test.js)
+│   └── data/               # per-entity access layer (grants, expenses, ...) — see DoD
+├── hooks/                  # useSession, useMembership, useNotifications, etc.
+│   │                       #   (session/role/membership + data-fetching)
 ├── utils/                  # grantsList.js
 └── styles/                 # global.css, variables.css (design tokens), Forms/Charts/etc.
 

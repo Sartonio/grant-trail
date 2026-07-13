@@ -12,7 +12,11 @@ GrantTrail uses three separate env files, each serving a different runtime:
 |------|---------|-------------|
 | `frontend/.env.local` | Vite dev server (local only) | ✅ Yes |
 | `frontend/.env.production` | N/A — **do not create this file** | — |
-| `supabase/.env` | Supabase Edge Functions (local only) | ✅ Yes |
+| `supabase/functions/.env` | Supabase Edge Functions (local only) | ✅ Yes |
+
+> `supabase/.env` also exists but is a stub — it is **not** read by the Supabase
+> CLI or the Edge Functions. The real local Edge Function secrets live in
+> `supabase/functions/.env` (copy it from `supabase/functions/.env.example`).
 
 > **Production:** There are no env files in production. The frontend variables are injected by Vercel at build time. The Edge Function secrets are stored in Supabase's secrets vault via CLI.
 
@@ -27,10 +31,14 @@ Read by the Vite dev server at startup. Values are statically embedded into the 
 | `VITE_SUPABASE_URL` | ✅ | URL of the Supabase project the frontend connects to | Local: `http://127.0.0.1:54321` (auto-set by `npm run setup`). Production: Supabase Dashboard → Project Settings → API |
 | `VITE_SUPABASE_KEY` | ✅ | Supabase anon/public key — safe to expose in the browser, subject to RLS | Local: pre-filled by `npm run setup`. Production: Supabase Dashboard → Project Settings → API → `anon` key |
 | `VITE_SENTRY_DSN` | ❌ Optional | Sentry DSN for frontend error tracking. Omit or leave blank to disable Sentry. | [sentry.io](https://sentry.io) → Project → Settings → Client Keys |
+| `VITE_STRIPE_PRODUCT_BASIC` | ❌ Optional | Build-time override pinning the Basic Stripe **product** ID. Normally the frontend reads product IDs from `platform_settings` (synced from the `STRIPE_PRICE_*` secrets by the Edge Functions); leave blank. | Stripe Dashboard → Product Catalog → Basic → Product ID (`prod_...`) |
+| `VITE_STRIPE_PRODUCT_PREMIUM` | ❌ Optional | Build-time override pinning the Premium Stripe **product** ID. Leave blank; see above. | Stripe Dashboard → Product Catalog → Premium → Product ID (`prod_...`) |
+
+**Source-map upload (build/CI only).** `SENTRY_ORG`, `SENTRY_PROJECT`, and `SENTRY_AUTH_TOKEN` are read from the build environment (`process.env`), **not** bundled into the client. Set them as CI/hosting secrets to upload source maps; if `SENTRY_AUTH_TOKEN` is unset the upload is skipped. See `frontend/.env.example`.
 
 ---
 
-## `supabase/.env` — Edge Functions (Local Dev)
+## `supabase/functions/.env` — Edge Functions (Local Dev)
 
 Read by the Supabase CLI when serving Edge Functions locally (`supabase functions serve`). These mirror the secrets you must also set in the Supabase secrets vault for production.
 
@@ -42,8 +50,10 @@ Read by the Supabase CLI when serving Edge Functions locally (`supabase function
 | `STRIPE_WEBHOOK_SECRET` | ✅ | Signing secret used to verify that webhook events genuinely came from Stripe | [Stripe Dashboard → Developers → Webhooks](https://dashboard.stripe.com/webhooks) → your endpoint → Signing secret (`whsec_...`) |
 | `STRIPE_BILLING_PORTAL_CONFIGURATION_ID` | ❌ Optional | ID of a custom Stripe Billing Portal configuration. If omitted, Stripe uses the default portal configuration. | [Stripe Dashboard → Billing → Customer Portal](https://dashboard.stripe.com/settings/billing/portal) → Configuration ID (`bpc_...`) |
 | `APP_URL` | ✅ | The frontend URL, used for Stripe redirect URLs after checkout/portal | Local: `http://localhost:3000`. Production: your Vercel URL |
+| `APP_URL_ALLOWED_ORIGINS` | ❌ Optional | Comma-separated extra origins Stripe may redirect back to beyond `APP_URL` (exact origins or account-scoped `https://*.<suffix>` wildcards). Unknown origins fall back to `APP_URL`. Leave empty to keep the default (all returns go to `APP_URL`). | See the notes in `supabase/functions/.env.example` |
 | `RESEND_API_KEY` | ❌ Optional (disables email) | API key for the [Resend](https://resend.com) HTTP API, used to send payment-confirmation emails after a successful Stripe checkout. Leave blank (with `EMAIL_FROM`) to skip email sending. | [Resend Dashboard → API Keys](https://resend.com/api-keys) (`re_...`) |
 | `EMAIL_FROM` | ❌ Optional (required to send) | The `From` address for outgoing emails. Must be on a Resend-**verified** domain (e.g. `GrantTrail <receipts@send.atkasolutions.org>`); `onboarding@resend.dev` only delivers to the Resend account owner. See [Production Setup → Part A](../how_to/prod_setup.md#part-a--one-time-owner-bootstrap). | Resend Dashboard → Domains |
+| `RESEND_API_URL` | ❌ Optional | Override for the Resend API endpoint; defaults to Resend's production URL. Used by tests to point the email sender at a mock. | — |
 
 > **Note:** `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` are automatically injected by the Supabase runtime into every Edge Function. You do not need to set these manually.
 
@@ -124,11 +134,11 @@ The `build-and-test` job in [`.github/workflows/ci.yml`](../../.github/workflows
 | `VITE_SUPABASE_URL` | `frontend/.env.local` | ✅ | — |
 | `VITE_SUPABASE_KEY` | `frontend/.env.local` | ✅ | — |
 | `VITE_SENTRY_DSN` | `frontend/.env.local` | ✅ optional | — |
-| `STRIPE_SECRET_KEY` | `supabase/.env` | — | ✅ |
-| `STRIPE_PRICE_BASIC` | `supabase/.env` | — | ✅ |
-| `STRIPE_PRICE_FISCAL_AGENT` | `supabase/.env` | — | ✅ |
-| `STRIPE_WEBHOOK_SECRET` | `supabase/.env` | — | ✅ |
-| `STRIPE_BILLING_PORTAL_CONFIGURATION_ID` | `supabase/.env` optional | — | ✅ optional |
-| `APP_URL` | `supabase/.env` | — | ✅ |
-| `RESEND_API_KEY` | `supabase/.env` optional | — | ✅ optional |
-| `EMAIL_FROM` | `supabase/.env` optional | — | ✅ optional |
+| `STRIPE_SECRET_KEY` | `supabase/functions/.env` | — | ✅ |
+| `STRIPE_PRICE_BASIC` | `supabase/functions/.env` | — | ✅ |
+| `STRIPE_PRICE_FISCAL_AGENT` | `supabase/functions/.env` | — | ✅ |
+| `STRIPE_WEBHOOK_SECRET` | `supabase/functions/.env` | — | ✅ |
+| `STRIPE_BILLING_PORTAL_CONFIGURATION_ID` | `supabase/functions/.env` optional | — | ✅ optional |
+| `APP_URL` | `supabase/functions/.env` | — | ✅ |
+| `RESEND_API_KEY` | `supabase/functions/.env` optional | — | ✅ optional |
+| `EMAIL_FROM` | `supabase/functions/.env` optional | — | ✅ optional |

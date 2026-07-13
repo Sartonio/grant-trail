@@ -1,6 +1,11 @@
 /// <reference types="vitest" />
 import { defineConfig, transformWithOxc } from 'vite';
 import react from '@vitejs/plugin-react';
+import { sentryVitePlugin } from '@sentry/vite-plugin';
+
+// Upload source maps + create a release only when an auth token is present
+// (production/CI builds). Local dev and token-less builds skip it silently.
+const sentryEnabled = Boolean(process.env.SENTRY_AUTH_TOKEN);
 
 const transformJsxInJs = () => ({
   name: 'transform-jsx-in-js',
@@ -14,7 +19,17 @@ const transformJsxInJs = () => ({
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [react(), transformJsxInJs()],
+  plugins: [
+    react(),
+    transformJsxInJs(),
+    // Keep last so it can post-process the final bundle + maps.
+    sentryEnabled &&
+      sentryVitePlugin({
+        org: process.env.SENTRY_ORG,
+        project: process.env.SENTRY_PROJECT,
+        authToken: process.env.SENTRY_AUTH_TOKEN,
+      }),
+  ],
   optimizeDeps: {
     rolldownOptions: {
       moduleTypes: {
@@ -30,6 +45,9 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
+    // Emit source maps so Sentry can de-minify production stack traces.
+    // The vite-plugin deletes them from the bundle after upload.
+    sourcemap: sentryEnabled,
   },
   test: {
     globals: true,

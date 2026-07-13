@@ -29,6 +29,9 @@ Most of the time you'll bootstrap the whole stack from the repo root instead —
 | `npm run build` | Production build to `dist/` |
 | `npm run preview` | Serve the production build locally |
 | `npm test` | Run the Vitest unit suite once |
+| `npm run lint` | ESLint over `src` |
+| `npm run typecheck` | `tsc --noEmit` over the checkJs scope |
+| `npm run verify` | Fast Definition-of-Done tier: lint + typecheck + unit tests |
 | `npm run e2e` | Run the Playwright end-to-end suite (see [tests/e2e](tests/e2e/README.md)) |
 | `npm run e2e:install` | Install Playwright browsers |
 
@@ -41,6 +44,7 @@ Most of the time you'll bootstrap the whole stack from the repo root instead —
 
 ## Deployment
 
-The SPA deploys to Vercel. `vercel.json` configures the SPA rewrite and a baseline set
-of **security headers** (`X-Content-Type-Options`, `X-Frame-Options: DENY`,
-`Referrer-Policy`, HSTS, and a report-only Content-Security-Policy).
+The SPA deploys to Vercel. The repo-root `vercel.json` configures the SPA rewrite and a
+baseline set of **security headers** (`X-Content-Type-Options`, `X-Frame-Options: DENY`,
+`Referrer-Policy`, HSTS, and a Content-Security-Policy). See
+[Security Headers](../docs/reference/security_headers.md).

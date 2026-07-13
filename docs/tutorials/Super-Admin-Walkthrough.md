@@ -62,7 +62,7 @@ This guide walks through every task a *super admin* can perform in GrantTrail.
 
    <img src="../images/18-01-tenant-management-page.png" alt="Tenant management page" style="max-width: 700px" />
 
-A **user bar** at the top of the page shows your name and a "Super Admin" role badge. The header shows only a **Tenants** nav link. Super admins do not have access to Dashboard, Grants, Users, Audit Log, or Settings. Those features are scoped to individual tenants.
+A **user bar** at the top of the page shows your name and a "Super Admin" role badge. The header shows two nav links: **Tenants** (`/super/tenants`) and **Listings** (`/super/listings`, for verifying Charity Directory listings). Super admins do not have access to Dashboard, Grants, Users, Audit Log, or Settings. Those features are scoped to individual tenants.
 
 ---
 

@@ -255,7 +255,7 @@ AND storage_object_tenant_id(name) = current_tenant_id()
 | `grant-documents` | `attachments/<tenant_id>/<grant_id>/<file>` |
 | `receipts` | `receipts/<tenant_id>/<grant_id>/<expense_id>/<file>` |
 
-`super_admin` keeps a **tenant-agnostic read** (the SELECT policies `OR public.is_super_admin()`); insert and delete stay strictly on the caller's own tenant path. This closed a critical gap (D5) where the object policies only checked `auth.uid() IS NOT NULL`, so any authenticated user of any tenant could read, overwrite, or delete another tenant's files even though the `grant_attachments` / `receipts` *table rows* were tenant-scoped. See [`rls-audit.md`](../roadmap/rls-audit.md).
+`super_admin` keeps a **tenant-agnostic read** (the SELECT policies `OR public.is_super_admin()`); insert and delete stay strictly on the caller's own tenant path. This closed a critical gap (D5) where the object policies only checked `auth.uid() IS NOT NULL`, so any authenticated user of any tenant could read, overwrite, or delete another tenant's files even though the `grant_attachments` / `receipts` *table rows* were tenant-scoped.
 
 ---
 
@@ -275,7 +275,7 @@ Options (implemented as option 1):
 
 Super admin UI is a separate set of pages (tenant list, tenant creation, cross-tenant grant overview).
 
-**Role/tenant integrity is enforced at the DB level.** A `BEFORE UPDATE` trigger on `users` (`enforce_user_self_update_guard`) freezes the privilege-bearing columns — `role`, `tenant_id`, `is_active` — for self-updates. Only `service_role`, `is_admin()`, and `is_super_admin()` contexts may change them, which closed a critical privilege-escalation gap where a grantee could self-promote to `super_admin` (global) or hop tenants. Grant inserts likewise **derive `tenant_id` authoritatively** from the owning user / parent grant, overwriting any client-supplied value. See [`rls-audit.md`](../roadmap/rls-audit.md).
+**Role/tenant integrity is enforced at the DB level.** A `BEFORE UPDATE` trigger on `users` (`enforce_user_self_update_guard`) freezes the privilege-bearing columns — `role`, `tenant_id`, `is_active` — for self-updates. Only `service_role`, `is_admin()`, and `is_super_admin()` contexts may change them, which closed a critical privilege-escalation gap where a grantee could self-promote to `super_admin` (global) or hop tenants. Grant inserts likewise **derive `tenant_id` authoritatively** from the owning user / parent grant, overwriting any client-supplied value.
 
 **The platform-root tenant is config-driven**, not hardcoded. Its slug lives on `platform_settings.platform_root_slug` (default `'tfac'`), read via `platform_root_slug()` and compared via `is_platform_root_tenant(slug, name)`. The platform-root admin is treated as billing-exempt (see [Section 4](#4-authorization-vs-billing-two-orthogonal-axes)). To re-point for another operator: `UPDATE platform_settings SET platform_root_slug = '<new-slug>'`.
 
@@ -616,7 +616,7 @@ Super admin creates tenant
         -> Managed admin can then invite grantees the same way
 ```
 
-The invite is **read** through a token-scoped `SECURITY DEFINER` RPC (`get_invite_by_token`) rather than a direct table select, and **consumed** through `consume_invite(token, user_id)` (token-scoped, enforces `auth.uid()`, idempotent). The `invites` table itself is no longer readable or writable by `anon`/the just-signed-up user. See [authentication_flow.md](authentication_flow.md) and [`rls-audit.md`](../roadmap/rls-audit.md).
+The invite is **read** through a token-scoped `SECURITY DEFINER` RPC (`get_invite_by_token`) rather than a direct table select, and **consumed** through `consume_invite(token, user_id)` (token-scoped, enforces `auth.uid()`, idempotent). The `invites` table itself is no longer readable or writable by `anon`/the just-signed-up user. See [authentication_flow.md](authentication_flow.md).
 
 #### Self-service — open signup
 
@@ -789,7 +789,7 @@ Route access in GrantTrail is decided along **two independent axes**, kept delib
 - `needsSubscription(session)` — authenticated non-super-admin lacking the required subscription
 - `canMutate(session)` / `isReadOnlyAdmin(session)` — the read-only-lapse gate (see [Section 4.3](#43-read-only-degrade-for-lapsed-admins-40))
 
-> Billing exemption is role- and tenant-driven on the backend, not hardcoded. A platform-root tenant's admin is exempt; the platform root is identified config-driven via `platform_settings.platform_root_slug` (default `'tfac'`) and the `is_platform_root_tenant()` helper — see [Section 1.6](#16-roles--super-admin-vs-tenant-admin) and [`rls-audit.md`](../roadmap/rls-audit.md).
+> Billing exemption is role- and tenant-driven on the backend, not hardcoded. A platform-root tenant's admin is exempt; the platform root is identified config-driven via `platform_settings.platform_root_slug` (default `'tfac'`) and the `is_platform_root_tenant()` helper — see [Section 1.6](#16-roles--super-admin-vs-tenant-admin).
 
 ### 4.2 Declarative Guards — `lib/guards.js`
 
@@ -816,7 +816,7 @@ Route access in GrantTrail is decided along **two independent axes**, kept delib
 A lapsed tenant **admin** (role `admin`, not exempt/waived, no premium) is **not** locked out or redirected. Instead the admin views render **read-only**:
 
 - The route still renders (admin guards use `billingMode="readOnly"`).
-- A [`ReadOnlyBanner`](../../frontend/src/components/ReadOnlyBanner.js) explains the lapse and links to billing.
+- A [`ReadOnlyBanner`](../../frontend/src/components/common/ReadOnlyBanner.js) explains the lapse and links to billing.
 - Every mutation handler calls [`useWriteGuard(session)`](../../frontend/src/lib/useWriteGuard.js) — a stable function returning `true` when the write is allowed, or `false` (after navigating to `/subscription`) when blocked. Mutation controls are disabled and route to `/subscription`.
 
 By contrast, an unpaid **grantee** (no basic membership) is still redirected to `/home` on grantee routes — only admins get the read-only degrade.

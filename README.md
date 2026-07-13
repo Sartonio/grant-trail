@@ -43,7 +43,6 @@ grant-trail/
 │   └── seed.sql                   # Local dev seed data
 │
 ├── scripts/                       # CLI automation (deploy, promote admin)
-├── tests/load/                    # k6 load test scripts
 ├── docs/                          # Project documentation
 └── package.json                   # Root-level command delegation
 ```
@@ -96,8 +95,7 @@ Documentation is organized under `docs/` using the [Diátaxis](https://diataxis.
 Task-oriented guides for specific goals:
 - [Dev Practices](docs/how_to/dev_practices.md) — schema changes, resets, promote admin, troubleshooting
 - [Local Stripe / Billing Testing](docs/how_to/local_stripe_testing.md)
-- [Local Email Testing (Resend)](docs/how_to/local_email_testing.md)
-- [Load Testing](docs/how_to/load_testing.md)
+- [Local Email Testing](docs/how_to/local_email_testing.md)
 
 ### Tutorials
 Step-by-step guides for learning by doing:
@@ -108,24 +106,16 @@ Step-by-step guides for learning by doing:
 ### Reference
 Lookup material:
 - [Environment Variables](docs/reference/environment_variables.md)
-- [Database Schema](docs/reference/database_schema.md)
-- [RLS Policy Audit](docs/reference/rls_policy_audit.md)
-- [CSS Design Tokens](docs/reference/css_design_tokens.md)
 - [Conventions](docs/reference/conventions.md)
 - [Pitfalls](docs/reference/pitfalls.md)
-- [AI Setup Prompt](docs/reference/ai_setup_prompt.md)
+- [CSS Design Tokens](docs/reference/css_design_tokens.md)
+- [Security Headers](docs/reference/security_headers.md)
+- [Data Protection](docs/reference/data_protection.md)
+- [Test Users & Signup](docs/reference/test_users_and_signup.md)
 
 ### Explanation
 Background and design rationale:
 - [System Architecture](docs/explanation/system_architecture.md)
 - [Authentication Flow](docs/explanation/authentication_flow.md)
 - [Development Patterns](docs/explanation/development_patterns.md)
-- [Scalability & Performance](docs/explanation/scalability.md)
-
-### Security & Roadmap Analysis
-Hardening reviews behind the recent security work (RLS as the enforcement boundary, fixed privilege-escalation paths, tenant-scoped storage, token-scoped invites):
-- [Role Matrix](docs/roadmap/role-matrix.md)
-- [RLS Audit](docs/roadmap/rls-audit.md)
-- [Security Hygiene](docs/roadmap/security-hygiene.md)
-- [Data Protection Baseline](docs/roadmap/data-protection-baseline.md)
-- [Edge Function Authz Review](docs/roadmap/edge-function-authz-review.md)
+- [Deploy Architecture](docs/explanation/deploy_architecture.md)
