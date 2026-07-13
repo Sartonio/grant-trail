@@ -1,198 +1,25 @@
-# Supabase Functions Setup
+# supabase/
 
-This folder contains the Edge Functions used for Stripe billing flows.
+Everything the Supabase CLI and backend own. The layout of `migrations/`,
+`functions/`, `seed.sql`, and `config.toml` is dictated by the CLI — don't move
+them. Task-oriented guides live in `docs/how_to/` (Diátaxis); this file is just
+the map.
 
-## Install Supabase CLI
+| Path | What it is | Details |
+|---|---|---|
+| `config.toml` | Local-stack CLI config (auth, ports, seed wiring) | — |
+| `migrations/` | Ordered, append-only schema migrations | [migrations/README.md](migrations/README.md) |
+| `functions/` | Deno Edge Functions (Stripe billing, notifications) | [functions/README.md](functions/README.md) |
+| `tests/` | RLS adversarial / trigger / platform-config SQL suites (`npm run verify:rls`) | — |
+| `scripts/` | Ad-hoc, hand-run SQL utilities — never auto-applied | [scripts/README.md](scripts/README.md) |
+| `seed.sql` | Local dev seed (test accounts + sample data), applied by `npm run db:reset` | — |
+| `.env.example` | Template for function secrets used by the local stack | — |
 
-Choose one method below.
+## Where the guides went
 
-### Ubuntu (apt with .deb package)
-
-```bash
-sudo apt update
-sudo apt install -y curl
-DEB_URL=$(curl -s https://api.github.com/repos/supabase/cli/releases/latest | grep -o 'https://[^"]*linux_amd64\.deb' | head -n1)
-curl -L "$DEB_URL" -o supabase_latest_linux_amd64.deb
-sudo apt install -y ./supabase_latest_linux_amd64.deb
-```
-
-### Linux (manual binary install)
-
-```bash
-TAR_URL=$(curl -s https://api.github.com/repos/supabase/cli/releases/latest | grep -o 'https://[^"]*linux_amd64\.tar\.gz' | head -n1)
-curl -L "$TAR_URL" -o supabase_latest_linux_amd64.tar.gz
-tar -xzf supabase_latest_linux_amd64.tar.gz
-sudo install -m 0755 supabase /usr/local/bin/supabase
-```
-
-### macOS (Homebrew)
-
-```bash
-brew install supabase/tap/supabase
-```
-
-### Windows (Scoop)
-
-```powershell
-scoop bucket add supabase https://github.com/supabase/scoop-bucket.git
-scoop install supabase
-```
-
-### npm (fallback)
-
-```bash
-npm install -g supabase
-```
-
-Verify install:
-
-```bash
-supabase --version
-```
-
-## Prerequisites
-
-From repo root:
-
-```bash
-cd <repo-root>
-supabase login
-supabase link --project-ref <your-project-ref>
-```
-
-## Required Secrets
-
-Set these in your linked Supabase project:
-
-```bash
-supabase secrets set \
-  STRIPE_SECRET_KEY=<your-stripe-secret-key> \
-  STRIPE_PRICE_BASIC=<your-basic-stripe-price-id> \
-  STRIPE_PRICE_FISCAL_AGENT=<your-premium-stripe-price-id> \
-  STRIPE_BILLING_PORTAL_CONFIGURATION_ID=<optional-portal-config-id> \
-  APP_URL=http://localhost:3000
-```
-
-Notes:
-- Do not set SUPABASE_* secrets for deployed functions. Supabase provides those automatically.
-- STRIPE_PRICE_BASIC and STRIPE_PRICE_FISCAL_AGENT must be Stripe Price IDs (price_...), not Product IDs (prod_...).
-- STRIPE_BILLING_PORTAL_CONFIGURATION_ID is optional, but recommended if you want to disable upgrades or plan switching in Stripe's customer portal.
-- Use your production app URL for production deploys.
-
-## Set Secrets Without Supabase CLI (curl)
-
-1. Create a personal access token in Supabase Dashboard:
-   Account -> Access Tokens
-2. Export token and project ref:
-
-```bash
-export SUPABASE_ACCESS_TOKEN=<your-personal-access-token>
-export SUPABASE_PROJECT_REF=<your-project-ref>
-```
-
-3. Set secrets:
-
-```bash
-curl -sS -X POST "https://api.supabase.com/v1/projects/${SUPABASE_PROJECT_REF}/secrets" \
-  -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" \
-  -H "Content-Type: application/json" \
-  -d '[
-    {"name":"STRIPE_SECRET_KEY","value":"<your-stripe-secret-key>"},
-    {"name":"STRIPE_PRICE_BASIC","value":"<your-basic-stripe-price-id>"},
-    {"name":"STRIPE_PRICE_FISCAL_AGENT","value":"<your-premium-stripe-price-id>"},
-    {"name":"STRIPE_BILLING_PORTAL_CONFIGURATION_ID","value":"<optional-portal-config-id>"},
-    {"name":"APP_URL","value":"http://localhost:3000"}
-  ]'
-```
-
-4. Verify secrets:
-
-```bash
-curl -sS "https://api.supabase.com/v1/projects/${SUPABASE_PROJECT_REF}/secrets" \
-  -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}"
-```
-
-## Disable Upgrades In Stripe Portal
-
-If you do not want users to upgrade or switch memberships inside Stripe:
-
-1. In Stripe Dashboard, go to Settings -> Billing -> Customer portal.
-2. Create or edit a portal configuration.
-3. Turn off subscription updates or plan switching for that configuration.
-4. Copy the configuration ID.
-5. Save it in Supabase as STRIPE_BILLING_PORTAL_CONFIGURATION_ID.
-6. Redeploy create-billing-portal-session.
-
-That forces the app to use the restricted Stripe portal configuration instead of the Stripe default.
-
-## Deploy Functions
-
-Run from repo root:
-
-```bash
-cd <repo-root>
-supabase functions deploy create-checkout-session --no-verify-jwt
-supabase functions deploy create-billing-portal-session --no-verify-jwt
-supabase functions deploy sync-my-subscription --no-verify-jwt
-supabase functions deploy stripe-webhook --no-verify-jwt
-```
-
-## Local Development
-
-Serve functions locally from repo root:
-
-```bash
-cd <repo-root>
-supabase functions serve --env-file ./supabase/.env.local
-```
-
-Example ./supabase/.env.local values:
-
-```env
-SUPABASE_URL=https://<your-project-ref>.supabase.co
-SUPABASE_ANON_KEY=<your-anon-key>
-SUPABASE_SERVICE_ROLE_KEY=<your-service-role-key>
-STRIPE_SECRET_KEY=<your-stripe-secret-key>
-STRIPE_PRICE_BASIC=<your-basic-price-id>
-STRIPE_PRICE_FISCAL_AGENT=<your-premium-price-id>
-APP_URL=http://localhost:3000
-```
-
-## Stripe Webhook
-
-After deploying stripe-webhook, set your Stripe webhook endpoint to:
-
-```text
-https://<your-project-ref>.functions.supabase.co/stripe-webhook
-```
-
-Recommended events:
-1. customer.subscription.created
-2. customer.subscription.updated
-3. customer.subscription.deleted
-4. checkout.session.completed
-
-Then set the webhook signing secret:
-
-```bash
-supabase secrets set STRIPE_WEBHOOK_SECRET=<your-webhook-signing-secret>
-```
-
-## Automated Tests
-
-- **Payment-flow integration tests** — shell-based suites under `functions/tests/`
-  (checkout, webhook matrix, billing portal + sync, authz/identity, system-log failures).
-  Orchestrate the Stripe suites with `bash functions/tests/run-all.sh`. See
-  [functions/tests/README.md](functions/tests/README.md).
-- **RLS adversarial tests** — `tests/rls-adversarial.test.sh` proves the multi-tenant
-  RLS model holds against an authenticated attacker (no cross-tenant read/write, no
-  role escalation), alongside `tests/platform-root-config.test.sh`.
-
-Both tiers run against a local Supabase stack and are exercised in CI.
-
-## Quick Smoke Test
-
-1. Start frontend and sign in as a grantee user.
-2. Go to Subscription page.
-3. Click Purchase Basic and confirm Stripe checkout opens.
-4. Click Manage Subscription and confirm billing portal opens.
+- Local dev stack + test accounts: [docs/how_to/dev_setup.md](../docs/how_to/dev_setup.md)
+- Local Stripe (serve functions, forward webhooks): [docs/how_to/local_stripe_testing.md](../docs/how_to/local_stripe_testing.md)
+- Local auth email testing: [docs/how_to/local_email_testing.md](../docs/how_to/local_email_testing.md)
+- Staging project + test webhook: [docs/how_to/staging_setup.md](../docs/how_to/staging_setup.md)
+- Production deploy (secrets, migrations, functions — one pipeline, never by hand): [docs/how_to/prod_setup.md](../docs/how_to/prod_setup.md)
+- Every environment variable, including the optional Stripe portal configuration: [docs/reference/environment_variables.md](../docs/reference/environment_variables.md)
