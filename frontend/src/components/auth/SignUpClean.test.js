@@ -73,64 +73,44 @@ describe('SignUpClean — existing-account routing (C1 revised)', () => {
     expect(supabase.auth.resend).not.toHaveBeenCalled();
   });
 
-  test('existing UNCONFIRMED account (empty identities, resend succeeds) shows the verify screen', async () => {
+  test('existing account (empty identities) shows the already-have-an-account screen, no resend', async () => {
     supabase.auth.signUp.mockResolvedValue(EXISTING_ACCOUNT_RESPONSE);
-    supabase.auth.resend.mockResolvedValue({ error: null });
     renderAt();
     await fillAndSubmit();
 
-    expect(screen.getByText(/check your email/i)).toBeInTheDocument();
-    expect(supabase.auth.resend).toHaveBeenCalledTimes(1);
-  });
-
-  test('existing CONFIRMED account (resend says already confirmed) shows the log-in screen instead', async () => {
-    supabase.auth.signUp.mockResolvedValue(EXISTING_ACCOUNT_RESPONSE);
-    supabase.auth.resend.mockResolvedValue({
-      error: { message: 'Email address already confirmed', status: 400 },
-    });
-    renderAt();
-    await fillAndSubmit();
-
+    // Confirmed and unconfirmed both read as "already have an account" —
+    // login handles the unconfirmed case with the confirm-email screen.
     expect(screen.getByText(/you already have an account/i)).toBeInTheDocument();
     expect(screen.queryByText(/check your email/i)).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: /log in/i })).toHaveAttribute(
       'href',
       '/login',
     );
-    // Raw auth error never surfaced verbatim
-    expect(screen.queryByText(/email address already confirmed/i)).not.toBeInTheDocument();
+    // No probing resend against an existing account.
+    expect(supabase.auth.resend).not.toHaveBeenCalled();
   });
 
-  test('existing CONFIRMED account via signUp "already registered" error also shows the log-in screen', async () => {
+  test('existing account via signUp "already registered" error also shows the log-in screen', async () => {
     supabase.auth.signUp.mockResolvedValue({
       data: { user: null, session: null },
       error: { message: 'User already registered' },
-    });
-    supabase.auth.resend.mockResolvedValue({
-      error: { message: 'Email address already confirmed', status: 400 },
     });
     renderAt();
     await fillAndSubmit();
 
     expect(screen.getByText(/you already have an account/i)).toBeInTheDocument();
+    // Raw auth error never surfaced verbatim.
     expect(screen.queryByText(/already registered/i)).not.toBeInTheDocument();
+    expect(supabase.auth.resend).not.toHaveBeenCalled();
   });
 
-  test('existing account with AMBIGUOUS resend failure (rate limit) falls back to the verify screen', async () => {
+  test('already-have-an-account screen mentions confirming email and password reset', async () => {
     supabase.auth.signUp.mockResolvedValue(EXISTING_ACCOUNT_RESPONSE);
-    supabase.auth.resend.mockResolvedValue({
-      error: {
-        message: 'For security purposes, you can only request this once every 60 seconds',
-        status: 429,
-      },
-    });
     renderAt();
     await fillAndSubmit();
 
-    // Can't tell confirmed vs not — safe default is "check your email"
-    expect(screen.getByText(/check your email/i)).toBeInTheDocument();
-    expect(screen.queryByText(/you already have an account/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/security purposes/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/help you confirm it after you log in/i)).toBeInTheDocument();
+    expect(screen.getByText(/reset it from the login page/i)).toBeInTheDocument();
   });
 
   test('manual resend that reports already-confirmed switches to the log-in screen', async () => {
@@ -189,7 +169,7 @@ describe('SignUpClean — invite flow note (C4)', () => {
       },
       error: null,
     });
-    supabase.auth.signUp.mockResolvedValue(EXISTING_ACCOUNT_RESPONSE);
+    supabase.auth.signUp.mockResolvedValue(FRESH_SIGNUP_RESPONSE);
     renderAt('?invite=tok123');
 
     // Wait for invite validation to finish

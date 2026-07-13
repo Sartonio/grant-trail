@@ -4,13 +4,21 @@ import { flushSync } from 'react-dom';
 import { supabase } from '../../supabaseClient';
 import { getUserByAuthId } from '../../lib/data/users';
 import { Link, useNavigate } from 'react-router-dom';
+import VerifyEmailNotice from './VerifyEmailNotice';
 import '../../styles/Login.css';
+
+// signInWithPassword fails with this when the credentials are right but the
+// account's email is still unverified.
+const EMAIL_NOT_CONFIRMED_ERROR = /email not confirmed/i;
 
 function Login({ onLogin }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [loading, setLoading] = useState(false);
+  // Correct credentials but unverified email — show the confirm-email screen;
+  // the user can't do anything else until it's confirmed.
+  const [unconfirmed, setUnconfirmed] = useState(false);
   const navigate = useNavigate();
 
   // Forgot password view
@@ -27,6 +35,14 @@ function Login({ onLogin }) {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
+      if (EMAIL_NOT_CONFIRMED_ERROR.test(error.message || '')) {
+        // Send a fresh link right away so the "check your email" copy is true.
+        // Best-effort: a rate-limit here is fine, the screen has its own resend.
+        await resendVerificationEmail().catch(() => {});
+        setUnconfirmed(true);
+        setLoading(false);
+        return;
+      }
       setErrorMsg(error.message);
       setLoading(false);
     } else {
@@ -42,6 +58,19 @@ function Login({ onLogin }) {
         await onLogin({ user, userRecord });
         navigate(userRecord?.role === 'admin' ? '/admin' : '/');
       }
+    }
+  }
+
+  async function resendVerificationEmail() {
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email: email.trim().toLowerCase(),
+      options: {
+        emailRedirectTo: `${window.location.origin}/complete-profile`,
+      },
+    });
+    if (error) {
+      throw error;
     }
   }
 
@@ -72,6 +101,34 @@ function Login({ onLogin }) {
     setResetSent(false);
     setResetError('');
     setErrorMsg('');
+  }
+
+  // ── Unconfirmed-email view ────────────────────────────────────────
+  // Same "Check Your Email" screen as signup. Password reset stays available
+  // (it works for unconfirmed accounts too), so point back at the login page.
+  if (unconfirmed) {
+    return (
+      <VerifyEmailNotice
+        email={email}
+        onResend={resendVerificationEmail}
+        onAlreadyConfirmed={() => setUnconfirmed(false)}
+        wrapper="login"
+        footer={
+          <div className="login-footer">
+            <a
+              href="#"
+              onClick={e => {
+                e.preventDefault();
+                setUnconfirmed(false);
+                setErrorMsg('');
+              }}
+            >
+              ← Back to login
+            </a>
+          </div>
+        }
+      />
+    );
   }
 
   // ── Forgot password view ──────────────────────────────────────────
