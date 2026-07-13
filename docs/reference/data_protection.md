@@ -4,11 +4,10 @@
 > privacy hygiene. It is **NOT** a GDPR, PIPEDA, or SOC 2 certification, and it
 > is not legal advice. **Analysis + documentation only — no code was changed.**
 >
-> Date: 2026-06-19 · Branch: off merged `main`.
-> Everything below is derived from source; tables/columns cite
-> `supabase/migrations/20260616000000_initial_schema.sql` (the schema snapshot)
-> and `frontend/src/components/*`. Later migrations under
-> `supabase/migrations/2026061912*–17*` are referenced for RLS posture.
+> Everything below is derived from source. Tables/columns are as defined by the
+> squashed schema baseline `supabase/migrations/20260630130000_squashed_schema.sql`
+> and later migrations, plus `frontend/src/components/*`. Line-number citations
+> below are approximate and may drift as migrations evolve.
 
 ---
 
@@ -72,7 +71,7 @@ contact PII), (b) the two storage buckets (arbitrary documents), and (c) the
 What exists is feature-scoped reporting:
 
 - **CSV export** of expenses — `ExpenseReports.js:225` (`downloadCSV`, client-side `Blob`).
-- **Excel export** of expenses — `ExpenseReports.js:244` (`downloadExcel`, gated by the `EXCEL_EXPORT` feature entitlement; uses the `xlsx` lib flagged in `security-hygiene.md`).
+- **Excel export** of expenses — `ExpenseReports.js:244` (`downloadExcel`, gated by the `EXCEL_EXPORT` feature entitlement; uses the `xlsx` library).
 
 These cover **grant/expense financial data only**. They do **not** export the
 user's profile record (`users` row), uploaded attachments/receipts, comments,
@@ -130,31 +129,28 @@ accumulates indefinitely with no defined lifetime:
 
 ## 4. Secrets / Key Handling (summary)
 
-Covered in detail in **`docs/reference/security_headers.md`** — see that document
-for the authoritative findings. In short: Stripe and Supabase service keys are
-handled server-side in the edge functions under `supabase/functions/`; the
-client uses the anon key + RLS as the boundary. The `alert_webhook_url` in
-`platform_settings` drives outbound `pg_net` HTTP calls
-(`handle_critical_log_alert`, schema:252) and should be treated as sensitive
-config. Refer to `security_headers.md` for the dependency-scan results (notably
-the flagged `xlsx` advisory used by the Excel export) and key-rotation notes.
+Stripe and Supabase service keys are handled server-side in the edge functions
+under `supabase/functions/`; the client uses the anon key + RLS as the boundary.
+The `alert_webhook_url` in `platform_settings` drives outbound `pg_net` HTTP
+calls (`handle_critical_log_alert`) and should be treated as sensitive config.
+See [`environment_variables.md`](environment_variables.md) for the authoritative
+inventory of secrets and where each is set, and
+[`security_headers.md`](security_headers.md) for the secrets-sweep findings.
 
 ---
 
 ## 5. Access Boundaries
 
 **Row-Level Security (RLS) is the enforcement layer**, not the frontend route
-guards — see `docs/reference/role_matrix.md`, which documents the
-`super_admin` / `admin` / `grantee` roles and states explicitly that React route
-guards are not a security boundary while Postgres RLS is. Tenancy is enforced
-via `current_tenant_id()` (schema:125) and per-table `tenant_id` scoping, with
-role checks through `is_admin()` / `is_super_admin()`. The recent hardening pass
-(documented in `docs/reference/rls_audit_findings.md`) closed several genuine gaps in
-forward migrations: a **vertical privilege-escalation** hole where users could
-update their own `role` (now part of the squashed baseline,
-`20260630130000_squashed_schema.sql`), a **world-readable `invites`** table
+guards — React route guards only mirror access rules for UX; Postgres RLS is the
+boundary. The `super_admin` / `admin` / `grantee` roles are documented in
+[`../explanation/authentication_flow.md`](../explanation/authentication_flow.md).
+Tenancy is enforced via `current_tenant_id()` and per-table `tenant_id` scoping,
+with role checks through `is_admin()` / `is_super_admin()`. Prior hardening
+passes closed several genuine gaps, all now folded into the squashed baseline
+`20260630130000_squashed_schema.sql`: a **vertical privilege-escalation** hole
+where users could update their own `role`, a **world-readable `invites`** table
 leaking every token + email to `anon`, and **tenant-blind storage objects**
-where any authenticated user could read/overwrite another org's uploaded
-files (both also folded into the squashed baseline). These fixes
-substantially tighten the access boundary, but data-subject tooling (export /
-erasure) still sits outside this layer.
+where any authenticated user could read/overwrite another org's uploaded files.
+These fixes substantially tighten the access boundary, but data-subject tooling
+(export / erasure) still sits outside this layer.

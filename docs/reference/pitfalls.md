@@ -1,8 +1,8 @@
 # Pitfalls & Gotchas
 
 Non-obvious behavior that has bitten people in this codebase, and lives nowhere
-else. This is NOT the entry point — start at `/home/ryan/Documents/grant-trail/CLAUDE.md`
-for architecture, commands, and conventions.
+else. This is NOT the entry point — start at [`CLAUDE.md`](../../CLAUDE.md) for
+architecture, commands, and conventions.
 
 ---
 
@@ -30,7 +30,7 @@ Never insert the Auth UUID into a column that expects the integer user ID. The t
 ## File Storage & Compensating Transactions
 
 - **Signed URLs** — All storage buckets are private. Generate short-lived signed URLs (60-second expiration) via `supabase.storage.from(...).createSignedUrl(...)`. Do not expose raw storage paths in the UI.
-- **Compensating transactions** — If a file is uploaded to storage but the subsequent database insert fails, the `catch` block must delete the orphaned file. See [GrantAttachments.js](file:///home/ryan/Documents/grant-trail/frontend/src/components/grant/GrantAttachments.js) or [AddExpenseModal.js](file:///home/ryan/Documents/grant-trail/frontend/src/components/grant/AddExpenseModal.js) for the reference pattern.
+- **Compensating transactions** — If a file is uploaded to storage but the subsequent database insert fails, the `catch` block must delete the orphaned file. See [GrantAttachments.js](../../frontend/src/components/grant/GrantAttachments.js) or [AddExpenseModal.js](../../frontend/src/components/grant/AddExpenseModal.js) for the reference pattern.
 
 ---
 
@@ -45,7 +45,7 @@ Do not replicate these in frontend code — database triggers handle them automa
 ### Keeping `seed.sql` in sync
 
 > [!IMPORTANT]
-> Whenever you modify table structures — renaming columns, adding constraints, changing data types — you must update [`supabase/seed.sql`](file:///home/ryan/Documents/grant-trail/supabase/seed.sql) to match. If you skip this, `npm run db:reset` will fail because the seed inserts will mismatch the schema. Always verify with a clean reset after schema changes.
+> Whenever you modify table structures — renaming columns, adding constraints, changing data types — you must update [`supabase/seed.sql`](../../supabase/seed.sql) to match. If you skip this, `npm run db:reset` will fail because the seed inserts will mismatch the schema. Always verify with a clean reset after schema changes.
 
 ---
 
@@ -62,10 +62,10 @@ When introducing a new integration (e.g., a new SaaS provider, API-based feature
 | Integration Type | Local Dev Environment | Staging / CI Environment | Production Release Environment |
 | :--- | :--- | :--- | :--- |
 | **Frontend/Client Keys** | Add to `frontend/.env.local` | Set as workflow environment variables in `.github/workflows/ci.yml` (if needed for testing). | Add in Vercel Console: **Project Settings → Environment Variables**. |
-| **Backend/Secret Keys** | Add to `supabase/.env` | Set as workflow environment variables or secret overrides in CI (if needed for testing). | Deploy to Supabase Vault via: `npx supabase secrets set --project-ref <ref> KEY="value"` |
+| **Backend/Secret Keys** | Add to `supabase/functions/.env` | Set as workflow environment variables or secret overrides in CI (if needed for testing). | Deploy to Supabase Vault via: `npx supabase secrets set --project-ref <ref> KEY="value"` |
 
 ### Step 3: Keep Project Templates in Sync
 Do not leave configuration changes undocumented. Every new environment variable requires:
-1. **Template Updates**: Add the key with placeholder values to `frontend/.env.example` or `supabase/.env.example`.
+1. **Template Updates**: Add the key with placeholder values to `frontend/.env.example` or `supabase/functions/.env.example`.
 2. **Setup Script Sync**: If the key is required for default local setup, verify if `npm run setup` needs to generate it or copy it.
-3. **Reference Documentation**: Document the purpose, options, and source of the variable in [`docs/reference/environment_variables.md`](file:///home/ryan/Documents/grant-trail/docs/reference/environment_variables.md).
+3. **Reference Documentation**: Document the purpose, options, and source of the variable in [`environment_variables.md`](environment_variables.md).

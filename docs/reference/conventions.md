@@ -15,7 +15,8 @@ All contributors must follow these standards when working in the GrantTrail code
 
 ## 2. Database Migrations
 
-- All schema changes must be generated via `supabase db diff` and stored in `supabase/migrations/`.
+- All schema changes go through a migration file in `supabase/migrations/`, named `YYYYMMDDHHMMSS_name.sql`. A pre-push hook blocks uncommitted schema drift (`npm run db:check`).
+- Any new table MUST get tenant-scoped RLS in the same migration.
 - Never modify schema directly on remote environments.
 - Development seed data is managed via `supabase/seed.sql`. Keep it in sync with schema changes.
 
@@ -37,16 +38,24 @@ All contributors must follow these standards when working in the GrantTrail code
 
 ---
 
-## 5. Architectural Patterns
+## 5. Data Access Layer
+
+- Components must not call `supabase.from(...)` directly. Add or reuse a thin function in `frontend/src/lib/data/<entity>.js` and import it from the component. ESLint (`no-restricted-syntax` over `src/components/**`) fails the build on raw `supabase.from(...)` in a component.
+- `supabase.auth` and `supabase.storage` are exempt.
+- Always import the Supabase client from `frontend/src/supabaseClient.js`; never re-create it.
+
+---
+
+## 6. Architectural Patterns
 
 - **Database triggers** — Do not manually insert into `grant_status_history`. The `trg_grant_status_tracking` trigger handles this automatically on status changes.
 - **Compensating transactions** — When uploading files to Supabase Storage, upload first, then insert the database record. If the insert fails, delete the orphaned file in the `catch` block.
 - **Single-row queries** — Use `.single()` when expecting exactly one row. Handle the resulting `error` object; do not assume success.
-- **Established patterns** — Read [development_patterns.md](file:///home/ryan/Documents/grant-trail/docs/explanation/development_patterns.md) before implementing data fetching or UI interactions. The `useCallback` + `useEffect` pattern and two-click delete pattern are both documented there.
+- **Established patterns** — Read [development_patterns.md](../explanation/development_patterns.md) before implementing data fetching or UI interactions. The `useCallback` + `useEffect` pattern and two-click delete pattern are both documented there.
 
 ---
 
-## 6. Error Handling
+## 7. Error Handling
 
 - Never swallow errors silently. Always capture, log, and provide user-facing fallback UI where applicable.
 - Wrap all third-party API calls (`Stripe`, etc.) in `try/catch`. Anticipate network failures, 500 errors, and rate limits.
@@ -54,7 +63,7 @@ All contributors must follow these standards when working in the GrantTrail code
 
 ---
 
-## 7. Defensive Programming
+## 8. Defensive Programming
 
 - Validate all inputs and external API payloads before operating on them.
 - Use optional chaining (`?.`) and nullish coalescing (`??`) to guard against unexpected `null` or `undefined` from API responses.
@@ -63,7 +72,7 @@ All contributors must follow these standards when working in the GrantTrail code
 
 ---
 
-## 8. Security
+## 9. Security
 
 - Never trust the client. All business rules, role checks, and tenant isolation must be enforced at the database level via RLS policies.
 - Sanitize all user-generated content before rendering it in the DOM.

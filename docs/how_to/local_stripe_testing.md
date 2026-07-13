@@ -102,13 +102,13 @@ through `stripe listen` into `upsertSubscriptionFromStripe`, which writes to
 frontend (lib/billing.js)
         │  authenticated fetch (Supabase JWT)
         ▼
-supabase functions serve  ──>  _shared/stripe.ts  ──>  Stripe API (sandbox)
+supabase functions serve  ──>  _shared/stripe-client.ts  ──>  Stripe API (sandbox)
         ▲                                                     │
         │  forwards signed events                             │ emits events
         └──────────────  stripe listen  <────────────────────┘
 ```
 
-- `supabase/functions/_shared/stripe.ts` reads `STRIPE_SECRET_KEY` and the price
+- `supabase/functions/_shared/stripe-client.ts` reads `STRIPE_SECRET_KEY` and the price
   IDs from the environment. If `STRIPE_SECRET_KEY` is missing the module throws on
   import and **every** function returns an error — so a missing key shows up
   immediately.

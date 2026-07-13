@@ -1,16 +1,14 @@
 # Security Headers Configuration
 
 Baseline security headers for GrantTrail. Deploy target is a **Vite SPA on
-Vercel**; the deployed config is `frontend/vercel.json`.
-
-Date: 2026-06-19 · Branch: `main`
+Vercel**; the deployed config is `vercel.json` at the repo root.
 
 ---
 
 ## Secure Transport / Headers
 
-Headers are configured in `frontend/vercel.json` (does **not** affect local
-`vite dev`, which never reads `vercel.json`):
+Headers are configured in `vercel.json` (does **not** affect local `vite dev`,
+which never reads `vercel.json`):
 
 | Header | Value | Notes |
 | --- | --- | --- |
@@ -18,13 +16,12 @@ Headers are configured in `frontend/vercel.json` (does **not** affect local
 | `X-Frame-Options` | `DENY` | legacy clickjacking protection |
 | `Referrer-Policy` | `strict-origin-when-cross-origin` | enforced |
 | `Strict-Transport-Security` | `max-age=63072000; includeSubDomains; preload` | enforced (Vercel serves HTTPS only) |
-| `Content-Security-Policy-Report-Only` | see below | **report-only** to avoid breakage |
+| `Content-Security-Policy` | see below | **enforced** |
 
-**CSP shipped as Report-Only (conservative).** It defines a sane policy without
-risking a production break; promote to enforcing (`Content-Security-Policy`)
-after confirming no violations are reported. Policy:
+**CSP is enforced** (`Content-Security-Policy`). Policy:
 ```
 default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none';
+worker-src 'self' blob:;
 img-src 'self' data: https:; font-src 'self' data:;
 style-src 'self' 'unsafe-inline';
 script-src 'self' https://js.stripe.com;
@@ -35,10 +32,9 @@ form-action 'self' https://checkout.stripe.com
 ```
 Origins reflect the app's real external dependencies (Supabase https+wss, Sentry
 DSN, Stripe). `frame-ancestors 'none'` complements `X-Frame-Options`.
-`'unsafe-inline'` is allowed for **styles only** (React/Recharts inline styles);
-scripts remain restricted. Before enforcing CSP, confirm no
-`script-src 'unsafe-inline'`/`unsafe-eval` is needed and watch report-only
-violations in production.
+`worker-src 'self' blob:` permits blob-backed web workers. `'unsafe-inline'` is
+allowed for **styles only** (React/Recharts inline styles); scripts remain
+restricted to `'self'` and Stripe.js (no `'unsafe-inline'`/`'unsafe-eval'`).
 
 ---
 
@@ -51,18 +47,12 @@ All real env files are ignored; only `*.example` templates are tracked:
 - `git check-ignore` confirms `frontend/.env`, `frontend/.env.local`,
   `supabase/.env`, `supabase/.env.local` are all **IGNORED**.
 
-### Working tree — 1 finding
+### Working tree — ✅ OK
 
-**`frontend/seed_auth.mjs:4` — hardcoded Supabase service-role key + password**
-```
-const supabaseUrl = 'http://127.0.0.1:54321';            // LOCAL stack
-const supabaseKey = 'sb_secret_LOCAL_DEV_KEY'; // service_role
-...
-password: 'password123'
-```
-- **Severity: LOW.** Points exclusively at the **local** Supabase stack
-  (`127.0.0.1:54321`); it is a local dev seeding script with a throwaway
-  password. It is **not** a production credential.
+`frontend/seed_auth.mjs` is a local-only seeding helper. It does **not** hardcode
+a service-role key — it reads `SUPABASE_SERVICE_ROLE_KEY` from the environment
+and defaults the URL to the local stack (`127.0.0.1:54321`). The only literal
+credential is the throwaway local test password `password123`.
 
 ### Git history — ✅ clean (no real secrets, no rewrite needed)
 - Only JWTs found anywhere in history are the **public Supabase demo keys**

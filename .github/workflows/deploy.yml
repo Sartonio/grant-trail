@@ -68,6 +68,7 @@ jobs:
           STRIPE_PRICE_FISCAL_AGENT: ${{ vars.STRIPE_PRICE_FISCAL_AGENT }}
           STRIPE_BILLING_PORTAL_CONFIGURATION_ID: ${{ vars.STRIPE_BILLING_PORTAL_CONFIGURATION_ID }}
           APP_URL: ${{ vars.APP_URL }}
+          APP_URL_ALLOWED_ORIGINS: ${{ vars.APP_URL_ALLOWED_ORIGINS }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           EMAIL_FROM: ${{ vars.EMAIL_FROM }}
         run: |
@@ -79,6 +80,7 @@ jobs:
             STRIPE_PRICE_FISCAL_AGENT="$STRIPE_PRICE_FISCAL_AGENT" \
             STRIPE_BILLING_PORTAL_CONFIGURATION_ID="$STRIPE_BILLING_PORTAL_CONFIGURATION_ID" \
             APP_URL="$APP_URL" \
+            APP_URL_ALLOWED_ORIGINS="$APP_URL_ALLOWED_ORIGINS" \
             RESEND_API_KEY="$RESEND_API_KEY" \
             EMAIL_FROM="$EMAIL_FROM" \
             --project-ref "$SUPABASE_PROJECT_REF"
@@ -189,6 +191,11 @@ jobs:
           VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
           VITE_SUPABASE_KEY: ${{ vars.VITE_SUPABASE_KEY }}
           VITE_SENTRY_DSN: ${{ vars.VITE_SENTRY_DSN }}
+          # Source-map upload + release creation. The vite-plugin only activates
+          # when SENTRY_AUTH_TOKEN is present, so a build without it is a no-op.
+          SENTRY_ORG: ${{ vars.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
 
       - name: Deploy Project Artifacts to Vercel
         run: npx vercel deploy --prebuilt ${{ steps.vercel.outputs.prod_flag }} --token="$VERCEL_TOKEN"

@@ -64,6 +64,7 @@ const STAGES = {
       'VERCEL_ORG_ID',
       'VERCEL_PROJECT_ID',
       'RESEND_API_KEY',
+      'SENTRY_AUTH_TOKEN',
     ],
     variables: [
       'SUPABASE_PROJECT_REF',
@@ -73,9 +74,12 @@ const STAGES = {
       'STRIPE_PRODUCT_FISCAL_AGENT',
       'STRIPE_BILLING_PORTAL_CONFIGURATION_ID',
       'APP_URL',
+      'APP_URL_ALLOWED_ORIGINS',
       'VITE_SUPABASE_URL',
       'VITE_SUPABASE_KEY',
       'VITE_SENTRY_DSN',
+      'SENTRY_ORG',
+      'SENTRY_PROJECT',
       'EMAIL_FROM',
     ],
     optional: [
@@ -84,7 +88,12 @@ const STAGES = {
       // Blank → CLI falls back to the login-role path (staging's default).
       'SUPABASE_DB_PASSWORD',
       'STRIPE_BILLING_PORTAL_CONFIGURATION_ID',
+      'APP_URL_ALLOWED_ORIGINS',
       'VITE_SENTRY_DSN',
+      // Source-map upload is opt-in: blank token → the vite-plugin no-ops.
+      'SENTRY_AUTH_TOKEN',
+      'SENTRY_ORG',
+      'SENTRY_PROJECT',
     ],
     autoFetch: true,
   },

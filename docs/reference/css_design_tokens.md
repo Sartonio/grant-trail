@@ -74,8 +74,26 @@ Shades used in charts and status pills:
 
 ---
 
+## Spacing, Radii & Shadows
+
+Scale tokens follow a `xs → sm → md → lg → xl → 2xl` progression. See
+`variables.css` for exact values.
+
+* **Spacing:** `--spacing-xs`, `--spacing-sm`, `--spacing-md`, `--spacing-lg`, `--spacing-xl`, `--spacing-2xl`
+* **Border radius:** `--radius-sm`, `--radius-md`, `--radius-lg`, `--radius-xl`, `--radius-full`
+* **Shadows:** `--shadow-xs`, `--shadow-sm`, `--shadow-md`, `--shadow-lg`, `--shadow-xl`
+
+---
+
 ## Animation & Transitions
 
 * **Fast Transition (`--transition-fast`)**: `0.15s ease`
 * **Base Transition (`--transition-base`)**: `0.2s ease`
 * **Slow Transition (`--transition-slow`)**: `0.3s ease`
+
+---
+
+`variables.css` is the source of truth; this page summarizes the token families.
+The full gray scale (`--color-gray-50` … `--color-gray-900`) and additional
+accent tokens (`--accent-funding`, `--accent-total-grants`, `--accent-under-review`)
+also live there.
