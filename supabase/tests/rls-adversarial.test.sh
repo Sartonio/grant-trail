@@ -695,6 +695,38 @@ out=$(psql_as "$ADMIN_BRIGHT" "
 assert_contains "tenant admin CAN still grant a basic manual membership (no regression)" \
   "basic" "$out"
 
+# ============================================================================
+# Offboarding — deleting a user must not violate chk_subscriptions_has_owner
+# ============================================================================
+# subscriptions.user_id is ON DELETE SET NULL (tenant-owned subs survive their
+# payer). trg_cleanup_user_owned_billing must delete USER-owned rows (tenant_id
+# IS NULL) first, or the at-least-one-owner CHECK aborts the user delete.
+
+# Deleting a user with a user-owned basic sub succeeds; their sub rows are gone.
+out=$(docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -tA -v ON_ERROR_STOP=0 <<'SQL' 2>&1
+BEGIN;
+DELETE FROM users WHERE email='maria.smith@example.com';
+SELECT 'remaining='||count(*) FROM subscriptions WHERE stripe_subscription_id='sub_maria123';
+ROLLBACK;
+SQL
+)
+assert_contains "deleting a basic-sub user succeeds (offboarding fix)" \
+  "remaining=0" "$out"
+
+# Deleting the INITIATOR of a tenant-owned sub keeps the org's subscription
+# (user_id nulls out, tenant_id + tenant_memberships intact).
+out=$(docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -tA -v ON_ERROR_STOP=0 <<'SQL' 2>&1
+BEGIN;
+DELETE FROM users WHERE email='amara.okafor@example.com';
+SELECT 'sub_kept='||count(*) FROM subscriptions
+  WHERE stripe_subscription_id='sub_amara123' AND user_id IS NULL AND tenant_id IS NOT NULL;
+SELECT 'tm_kept='||count(*) FROM tenant_memberships;
+ROLLBACK;
+SQL
+)
+assert_contains "tenant-owned sub survives its initiator's deletion" "sub_kept=1" "$out"
+assert_contains "tenant membership survives its initiator's deletion" "tm_kept=1" "$out"
+
 # Positive control: a direct DB connection (no JWT, auth.role() IS NULL — how
 # seeds/fixtures run) CAN still write premium rows.
 out=$(docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -tA -v ON_ERROR_STOP=0 <<'SQL' 2>&1

@@ -163,8 +163,12 @@ export default function UserRow(props) {
               </button>
             )}
 
-            {/* Waive/Remove subscription requirement */}
-            {(u.role === 'grantee' || (u.role === 'admin' && !isTfacTenant)) && (
+            {/* Waive/Remove subscription requirement. New waivers are
+                grantee/basic-only — premium is tenant-owned, so individual
+                admin waivers no longer exist (org comps: /super/tenants
+                require_subscription). Existing manual waivers of ANY role keep
+                the Remove button so legacy comps can be cleaned up. */}
+            {(u.role === 'grantee' || membership?.source === 'manual') && (
               confirmWaive?.uid === u.id ? (
                 <span className="user-confirm-group">
                   <span className="user-confirm-label">
@@ -201,7 +205,7 @@ export default function UserRow(props) {
               ) : !membership ? (
                 <button
                   className="user-action-btn enable"
-                  title={u.role === 'admin' ? 'Waive subscription — grant fiscal agent access without billing' : 'Waive subscription — grant full access for free'}
+                  title="Waive subscription — grant Basic access without billing"
                   onClick={() => { setConfirmRole(null); setConfirmDisable(null); setConfirmWaive({ uid: u.id, action: 'waive' }); }}
                   disabled={isSavingThis}
                 >

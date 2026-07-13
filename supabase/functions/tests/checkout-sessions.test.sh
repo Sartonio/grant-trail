@@ -160,6 +160,31 @@ RESP=$(curl -s -X POST "$FUNCTIONS_URL/create-checkout-session" \
 assert_eq "$(echo "$RESP" | python3 -c 'import sys,json; print(str(json.load(sys.stdin).get("alreadyActive","")).lower())')" "true" "admin#2 gets alreadyActive redirect (dedup across admins)"
 cancel_subscription "$TSUB"
 
+# DB-entitlement dedup: an org whose tenant_memberships row is active (e.g. a
+# grandfathered/legacy premium living on a per-user Stripe customer the tenant
+# customer can't see) must hit alreadyActive WITHOUT any live sub on the tenant
+# Stripe customer. Force the entitlement state directly, then reset it.
+info "tenant-owned premium: DB-entitlement dedup (legacy/mirrored premium)"
+dbq "INSERT INTO tenant_memberships (tenant_id, membership_tier, is_active, ends_at, source)
+     VALUES ($TENANT_ID, 'premium', true, now() + interval '30 days', 'manual')
+     ON CONFLICT (tenant_id) DO UPDATE SET is_active=true, ends_at=now() + interval '30 days';" >/dev/null
+RESP=$(curl -s -X POST "$FUNCTIONS_URL/create-checkout-session" \
+  -H "Authorization: Bearer $ADMIN2_TOKEN" -H "apikey: $ANON_KEY" \
+  -H "Content-Type: application/json" -d '{"returnPath":"/upgrade","featureKey":"premium_membership"}')
+assert_eq "$(echo "$RESP" | python3 -c 'import sys,json; print(str(json.load(sys.stdin).get("alreadyActive","")).lower())')" "true" "entitled org (DB membership, no tenant-customer sub) gets alreadyActive"
+dbq "UPDATE tenant_memberships SET is_active=false WHERE tenant_id=$TENANT_ID;" >/dev/null
+
+# Lapsed org plan must NOT dedup: checkout proceeds so the org can resubscribe.
+RESP=$(curl -s -X POST "$FUNCTIONS_URL/create-checkout-session" \
+  -H "Authorization: Bearer $ADMIN2_TOKEN" -H "apikey: $ANON_KEY" \
+  -H "Content-Type: application/json" -d '{"returnPath":"/upgrade","featureKey":"premium_membership"}')
+CS=$(echo "$RESP" | session_id_from_resp)
+if [ -n "$CS" ]; then
+  pass "lapsed org plan can open a fresh premium checkout (resubscribe)"
+else
+  fail "lapsed org plan could not reopen checkout: $(echo "$RESP" | head -c 160)"
+fi
+
 # ---- auth + validation guards -------------------------------------------
 
 info "guards: unauthenticated + invalid input"

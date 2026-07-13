@@ -39,6 +39,32 @@ Deno.serve(async (request) => {
     // Stripe customer so any admin drives the same org plan and a second admin
     // can never double-provision. Basic stays per-user (unchanged).
     const isPremium = tier === 'premium';
+
+    // Entitlement dedup BEFORE touching Stripe: if the org already holds an
+    // active premium membership (tenant-owned, backfilled, or mirrored from a
+    // grandfathered user-owned sub), never open another premium checkout — the
+    // customer-scoped check below can't see legacy subs living on a DIFFERENT
+    // (per-user) Stripe customer. Also avoids minting an empty tenant Stripe
+    // customer for an already-entitled org.
+    if (isPremium && profile.tenantId) {
+      const { data: orgMembership, error: orgMembershipError } = await adminSupabase
+        .from('tenant_memberships')
+        .select('is_active, ends_at')
+        .eq('tenant_id', profile.tenantId)
+        .maybeSingle();
+      if (orgMembershipError) {
+        throw new Error(`Unable to check org plan state: ${orgMembershipError.message}`);
+      }
+      const orgPlanActive = Boolean(orgMembership?.is_active)
+        && (!orgMembership?.ends_at || new Date(orgMembership.ends_at).getTime() > Date.now());
+      if (orgPlanActive) {
+        return new Response(JSON.stringify({ url: buildRedirectUrl(returnPath, '?checkout=success', returnOrigin), alreadyActive: true }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200,
+        });
+      }
+    }
+
     const customerId = isPremium
       ? await getOrCreateStripeCustomerForTenant(profile)
       : await getOrCreateStripeCustomer(profile);

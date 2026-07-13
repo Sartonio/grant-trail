@@ -81,9 +81,11 @@ function AdminUserList({ session, readOnly = false }) {
 
   async function handleWaiveSubscription(u) {
     if (!guardWrite()) return;
-    const waiverTier = u.role === 'admin' ? 'premium' : 'basic';
+    // Per-user waivers are basic-only: premium is a TENANT-level entitlement
+    // (tenant_memberships) and the DB guard rejects non-super-admin premium
+    // writes. Org comps go through require_subscription on /super/tenants.
     setSaving(u.id);
-    const { data, error: err } = await waiveUserSubscription(u.id, waiverTier);
+    const { data, error: err } = await waiveUserSubscription(u.id, 'basic');
     setSaving(null);
     if (err) { setActionError('Error waiving subscription: ' + err.message); return; }
     setActionError('');

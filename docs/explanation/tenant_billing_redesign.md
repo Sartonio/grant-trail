@@ -88,6 +88,27 @@ Entitlement is already tenant-scoped (`is_membership_exempt` clause 4,
   basic. `policy.js` semantics (isExempt / hasPremiumAccess booleans) are
   unchanged by design.
 
+### Hardening pass (follow-up on the same branch)
+
+- **Offboarding fix:** the `subscriptions.user_id` CASCADE→SET NULL change made
+  deleting a user with a user-owned (basic) subscription violate the
+  at-least-one-owner CHECK. `trg_cleanup_user_owned_billing` (BEFORE DELETE on
+  users) removes user-owned rows first — restoring old CASCADE semantics for
+  exactly those rows — while tenant-owned subs still survive their initiator.
+- **Checkout DB-entitlement dedup:** premium checkout now short-circuits to
+  `alreadyActive` when the org's `tenant_memberships` row is active — catching
+  grandfathered premium subs that live on a per-user Stripe customer the
+  tenant-customer idempotency check can't see. A lapsed org plan still opens
+  checkout (resubscribe).
+- **Per-user waivers are grantee/basic-only.** The AdminUserList waive flow
+  previously minted `premium` manual memberships for admins — the UI face of
+  Vuln 3. New waivers are basic-only and offered only for grantees; existing
+  manual waivers (any role) keep Remove Waiver for cleanup. Org comps are the
+  super admin's `require_subscription` toggle.
+- **Deterministic `activeSubscription`:** `get_session_context` prefers the
+  caller's own subscription over the tenant's (org state rides
+  `tenantMembership`), instead of whichever webhook updated last.
+
 ### Rollout
 
 1. Land migrations (backfill included) — old edge functions keep working
