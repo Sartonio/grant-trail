@@ -50,7 +50,7 @@ Deno.serve(async (request) => {
     let session;
     try {
       session = await stripe.billingPortal.sessions.create({
-        customer: customerId as string,
+        customer: customerId,
         return_url: returnUrl,
         configuration: portalConfigurationId,
       });
@@ -75,7 +75,7 @@ Deno.serve(async (request) => {
       }
 
       session = await stripe.billingPortal.sessions.create({
-        customer: customerId as string,
+        customer: customerId,
         return_url: returnUrl,
         configuration: portalConfigurationId,
       });

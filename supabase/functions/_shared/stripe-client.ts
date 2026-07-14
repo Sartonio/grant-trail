@@ -130,11 +130,16 @@ export async function requireAuthenticatedProfile(authHeader: string | null) {
   };
 }
 
+// Returns Promise<string> by construction: a stored id is only returned when
+// truthy (a NULL billing_customers.stripe_customer_id falls through to
+// creating a fresh customer), and Stripe's customer.id is always a string.
+// The annotation keeps that guarantee visible to callers despite the untyped
+// Supabase client inferring `any` for the stored column.
 export async function getOrCreateStripeCustomer(profile: {
   profileTable: string;
   profileId: number;
   record: Record<string, unknown>;
-}) {
+}): Promise<string> {
   const { data: existingCustomer, error } = await adminSupabase
     .from('billing_customers')
     .select('stripe_customer_id')
@@ -196,7 +201,7 @@ export async function getOrCreateStripeCustomer(profile: {
 export async function getOrCreateStripeCustomerForTenant(profile: {
   tenantId: number | null;
   record: Record<string, unknown>;
-}) {
+}): Promise<string> {
   const tenantId = profile.tenantId;
   if (!tenantId) {
     throw new Error('No tenant on the authenticated profile for tenant billing.');
