@@ -15,9 +15,9 @@ import {
 // disbursed funds, etc.) stay in the component since they go through
 // useWriteGuard there; this hook owns the read side plus the one
 // comment-post affordance the page needs (modularity.md, Phase 3).
-// `grantId` arrives as a route-param string; PostgREST coerces it for the
-// numeric `id` columns, so the data-layer calls cast rather than convert.
-/** @param {string} grantId */
+// The caller converts the route-param string to a number at the component
+// boundary, so `grantId` is numeric here and in the data layer.
+/** @param {number} grantId */
 export function useGrantReview(grantId) {
   const [grant, setGrant] = useState(
     /** @type {import('../lib/types').GrantRow|null} */ (null),
@@ -47,30 +47,28 @@ export function useGrantReview(grantId) {
     async (silent = false) => {
       if (!silent) setLoading(true);
       setError("");
-      // Route-param string used against numeric id columns (PostgREST coerces).
-      const id = /** @type {number} */ (/** @type {unknown} */ (grantId));
       try {
-        const { data: g, error: gErr } = await getGrant(id);
+        const { data: g, error: gErr } = await getGrant(grantId);
         if (gErr || !g) throw gErr || new Error("Grant not found.");
         setGrant(g);
 
         const { data: u } = await getGrantee(g.user_id);
         setGrantee(u);
 
-        const { data: hist } = await listGrantStatusHistory(id);
+        const { data: hist } = await listGrantStatusHistory(grantId);
         setHistory(hist || []);
 
-        const { data: comms } = await listGrantComments(id);
+        const { data: comms } = await listGrantComments(grantId);
         setComments(comms || []);
 
-        const { data: biData } = await listBudgetItems(id);
+        const { data: biData } = await listBudgetItems(grantId);
         setBudgetItems(biData || []);
 
-        const { data: expData } = await listExpenses(id);
+        const { data: expData } = await listExpenses(grantId);
         setExpenses(expData || []);
 
         // Receipts — build map: expense_id → first file object
-        const { data: recData } = await listReceiptsByGrant(id);
+        const { data: recData } = await listReceiptsByGrant(grantId);
         const rMap = /** @type {Record<number, any>} */ ({});
         (recData || []).forEach((r) => {
           const files = /** @type {any[]|null} */ (r.receipt_files);
@@ -96,14 +94,12 @@ export function useGrantReview(grantId) {
     /** @param {string} commentText @param {string} userId */
     async (commentText, userId) => {
       const { error: cErr } = await addGrantComment(
-        parseInt(grantId),
+        grantId,
         commentText,
         userId,
       );
       if (cErr) throw cErr;
-      const { data } = await listGrantComments(
-        /** @type {number} */ (/** @type {unknown} */ (grantId)),
-      );
+      const { data } = await listGrantComments(grantId);
       setComments(data || []);
     },
     [grantId],

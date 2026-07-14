@@ -8,9 +8,9 @@ import { listReceiptsByGrant } from "../lib/data/receipts";
 // items, expenses, and a receipt lookup map. Exposes `reload` so the page
 // can re-fetch after a budget item/expense add/edit/delete (modularity.md,
 // Phase 3).
-// `grantId` arrives as a route-param string; PostgREST coerces it for the
-// numeric `id` columns, so the data-layer calls cast rather than convert.
-/** @param {string} grantId @param {string|undefined} userId */
+// The caller converts the route-param string to a number at the component
+// boundary, so `grantId` is numeric here and in the data layer.
+/** @param {number} grantId @param {string|undefined} userId */
 export function useGrantBreakdown(grantId, userId) {
   const [grant, setGrant] = useState(
     /** @type {import('../lib/types').GrantRow|null} */ (null),
@@ -29,11 +29,8 @@ export function useGrantBreakdown(grantId, userId) {
   const reload = useCallback(async () => {
     if (!userId) return;
 
-    // Route-param string used against numeric id columns (PostgREST coerces).
-    const id = /** @type {number} */ (/** @type {unknown} */ (grantId));
-
     const { data: grantData, error: grantError } = await getOwnGrant(
-      id,
+      grantId,
       userId,
     );
     if (grantError || !grantData) {
@@ -42,13 +39,13 @@ export function useGrantBreakdown(grantId, userId) {
     }
     setGrant(grantData);
 
-    const { data: biData } = await listBudgetItems(id);
+    const { data: biData } = await listBudgetItems(grantId);
     setBudgetItems(biData || []);
 
-    const { data: expData } = await listExpenses(id);
+    const { data: expData } = await listExpenses(grantId);
     setExpenses(expData || []);
 
-    const { data: recData } = await listReceiptsByGrant(id);
+    const { data: recData } = await listReceiptsByGrant(grantId);
     const map = /** @type {Record<number, any>} */ ({});
     (recData || []).forEach((r) => {
       const files = /** @type {any[]|null} */ (r.receipt_files);

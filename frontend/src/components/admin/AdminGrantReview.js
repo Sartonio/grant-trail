@@ -23,12 +23,15 @@ import './Admin.css';
 
 function AdminGrantReview({ session, readOnly = false }) {
   const { id } = useParams();
+  // Route params are strings; convert once here — the hooks/data layer
+  // work with numeric grant ids.
+  const grantId = Number(id);
   const guardWrite = useWriteGuard(session);
 
   const {
     grant, grantee, history, comments, budgetItems, expenses, receiptMap,
     loading, error, reload, postComment,
-  } = useGrantReview(id);
+  } = useGrantReview(grantId);
 
   const formatDate = formatDateMed;
   const fmt = n => formatCurrency(n);
@@ -208,7 +211,7 @@ function AdminGrantReview({ session, readOnly = false }) {
           <div className="admin-card">
             <h3 className="admin-card-title"><FiPaperclip /> Grant Documents</h3>
             <GrantAttachments
-              grantId={parseInt(id)}
+              grantId={grantId}
               session={session}
               readOnly
             />
@@ -218,7 +221,7 @@ function AdminGrantReview({ session, readOnly = false }) {
         {/* RIGHT — sticky sidebar */}
         <ReviewSidebar
           grant={grant}
-          id={id}
+          id={grantId}
           session={session}
           guardWrite={guardWrite}
           reload={reload}

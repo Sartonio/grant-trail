@@ -33,8 +33,11 @@ import {
 
 function GrantBreakdown({ session }) {
   const { id } = useParams();
+  // Route params are strings; convert once here — the hooks/data layer
+  // work with numeric grant ids.
+  const grantId = Number(id);
   const { grant, budgetItems, expenses, receiptMap, error, reload: fetchData } =
-    useGrantBreakdown(id, session?.userRecord?.id);
+    useGrantBreakdown(grantId, session?.userRecord?.id);
   const [expanded, setExpanded] = useState({});
 
   // Budget item modal state
@@ -458,7 +461,7 @@ function GrantBreakdown({ session }) {
       {/* Budget Item Modal */}
       {showBudgetItemModal && (
         <BudgetItemModal
-          grantId={parseInt(id)}
+          grantId={grantId}
           budgetItem={editingBudgetItem}
           grantAmount={grant.grant_amount || 0}
           totalAllocated={totalAllocated}
@@ -481,7 +484,7 @@ function GrantBreakdown({ session }) {
       {/* Add/Edit Expense Modal */}
       {showExpenseModal && (
         <AddExpenseModal
-          grantId={parseInt(id)}
+          grantId={grantId}
           budgetItemId={activeBudgetItemId}
           budgetItem={budgetItems.find(bi => bi.id === activeBudgetItemId)}
           grantStartDate={grant.start_spend_period}
