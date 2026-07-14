@@ -26,6 +26,8 @@ import {
   decodeJwtPayload,
   getRequiredAccessToken,
   invokeFirstAvailable,
+  syncMembershipFromStripe,
+  startBillingPortalSession,
   hasFeature,
   isOrgAdminSubscriptionRequired,
   fetchSessionContext,
@@ -162,6 +164,76 @@ describe('invokeFirstAvailable', () => {
     await expect(
       invokeFirstAvailable(['first', 'second'], () => ({})),
     ).rejects.toThrow(/did not return a checkout URL/);
+  });
+
+  it('accepts a urlless body when requireUrl is false (sync endpoints)', async () => {
+    global.fetch.mockResolvedValue(makeResp({ status: 'active', synced: true }));
+
+    const result = await invokeFirstAvailable(['first'], () => ({}), { requireUrl: false });
+
+    expect(result).toEqual({ status: 'active', synced: true });
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('still surfaces a real HTTP error when requireUrl is false', async () => {
+    global.fetch.mockResolvedValue(makeResp({ error: 'boom' }, false, 500));
+
+    await expect(
+      invokeFirstAvailable(['first'], () => ({}), { requireUrl: false }),
+    ).rejects.toThrow(/failed: boom/);
+  });
+});
+
+describe('syncMembershipFromStripe', () => {
+  const makeResp = (body, ok = true, status = 200) => ({
+    ok,
+    status,
+    text: async () => JSON.stringify(body),
+  });
+
+  beforeEach(() => {
+    authMock.refreshSession.mockResolvedValue({
+      data: { session: { access_token: makeJwt({ ref: EXPECTED_REF }) } },
+    });
+    global.fetch = vi.fn();
+  });
+
+  it('resolves with the sync body even though it carries no url', async () => {
+    global.fetch.mockResolvedValue(makeResp({ status: 'active', reason: 'no_subscriptions_found' }));
+
+    await expect(syncMembershipFromStripe()).resolves.toEqual({
+      status: 'active',
+      reason: 'no_subscriptions_found',
+    });
+  });
+});
+
+describe('startBillingPortalSession', () => {
+  const makeResp = (body, ok = true, status = 200) => ({
+    ok,
+    status,
+    text: async () => JSON.stringify(body),
+  });
+
+  beforeEach(() => {
+    authMock.refreshSession.mockResolvedValue({
+      data: { session: { access_token: makeJwt({ ref: EXPECTED_REF }) } },
+    });
+    global.fetch = vi.fn();
+  });
+
+  it('still rejects when the portal function returns no url', async () => {
+    global.fetch.mockResolvedValue(makeResp({}));
+
+    await expect(startBillingPortalSession()).rejects.toThrow(/did not return a checkout URL/);
+  });
+
+  it('resolves with the url when the portal function returns one', async () => {
+    global.fetch.mockResolvedValue(makeResp({ url: 'https://billing.stripe.com/session' }));
+
+    await expect(startBillingPortalSession()).resolves.toEqual({
+      url: 'https://billing.stripe.com/session',
+    });
   });
 });
 

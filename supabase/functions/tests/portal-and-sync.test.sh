@@ -48,6 +48,29 @@ STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$FUNCTIONS_URL/create-b
   -H "apikey: $ANON_KEY" -H "Content-Type: application/json" -d '{}')
 assert_http "$STATUS" "401" "unauthenticated billing portal rejected"
 
+# Self-heal: a stale/seeded per-user customer ID (no such customer in Stripe)
+# must not hard-fail. The function clears the stale row and creates a fresh
+# customer, then still issues a portal url. (Sentry GRANTTRAIL-FRONTEND-3.)
+info "create-billing-portal-session self-heals a stale customer id"
+map_customer "$DBUID" "cus_stale_does_not_exist_123"
+RESP=$(curl -s -X POST "$FUNCTIONS_URL/create-billing-portal-session" \
+  -H "Authorization: Bearer $TOKEN" -H "apikey: $ANON_KEY" \
+  -H "Content-Type: application/json" -d '{"returnPath":"/billing"}')
+URL=$(echo "$RESP" | json_field url)
+case "$URL" in
+  https://billing.stripe.com/*) pass "stale customer self-healed; portal url issued" ;;
+  *) fail "stale customer not self-healed: $(echo "$RESP" | head -c 160)" ;;
+esac
+# The stale ID must be gone — a fresh customer replaced it.
+NEWCUS=$(dbq "SELECT stripe_customer_id FROM billing_customers WHERE user_id=$DBUID;")
+case "$NEWCUS" in
+  cus_stale_does_not_exist_123) fail "stale customer row was not replaced" ;;
+  cus_*) pass "fresh customer row written after self-heal ($NEWCUS)" ;;
+  *) fail "no customer row after self-heal: '$NEWCUS'" ;;
+esac
+# Restore the valid customer for the sync assertions that follow.
+map_customer "$DBUID" "$CUS"
+
 # =========================================================================
 # sync: brings a brand-new Stripe subscription into the DB (webhook-independent)
 # =========================================================================
