@@ -51,9 +51,9 @@ export function planListingPublication(
 /**
  * Decide the tenants.accepts_sponsorships flag for a premium subscription
  * lifecycle event: true on active/trialing, false on past_due/canceled/unpaid,
- * null (untouched) otherwise. Throws when the flip is required but no tenant
- * resolved — NOTE the asymmetry with planListingPublication, which silently
- * no-ops on a missing tenant (pinned as-is; see DEBT.md).
+ * null (untouched) otherwise. An unresolved tenant is a silent no-op, aligned
+ * with planListingPublication — a legacy user-owned sub with no resolvable
+ * tenant must not fail the webhook.
  */
 export function planSponsorshipEntitlement(
   membershipTier: string,
@@ -67,9 +67,7 @@ export function planSponsorshipEntitlement(
   else if (LAPSE_STATUSES.includes(status)) accepts = false;
   else return null;
 
-  if (!tenantId) {
-    throw new Error('Unable to resolve tenant for sponsorship entitlement sync: no tenant');
-  }
+  if (!tenantId) return null;
   return { accepts };
 }
 

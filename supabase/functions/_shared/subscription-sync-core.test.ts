@@ -1,7 +1,7 @@
 // Exhaustive unit tests for the pure subscription-sync decision core.
 // Expectations were transcribed from the pre-extraction
-// stripe-subscription-sync.ts (behavior-preserving pin, including the
-// null-tenant listing/sponsorship asymmetry logged in DEBT.md).
+// stripe-subscription-sync.ts (behavior-preserving pin; the null-tenant
+// listing/sponsorship asymmetry has since been fixed — both now no-op).
 //
 // Run:  deno test supabase/functions/_shared/subscription-sync-core.test.ts
 import type Stripe from 'npm:stripe@18.1.1';
@@ -128,13 +128,9 @@ Deno.test('sponsorship: other statuses / non-premium tiers are a no-op', () => {
   }
 });
 
-Deno.test('sponsorship: unresolved tenant THROWS on mapped statuses (asymmetry with listing — pinned, see DEBT.md)', () => {
+Deno.test('sponsorship: unresolved tenant (0) silently no-ops even on mapped statuses (aligned with listing)', () => {
   for (const status of [...LAPSE_STATUSES, ...ACTIVE_STATUSES]) {
-    assertThrows(
-      () => planSponsorshipEntitlement('premium', status, 0),
-      'Unable to resolve tenant for sponsorship entitlement sync: no tenant',
-      `premium/${status}/tenant=0`,
-    );
+    assertEquals(planSponsorshipEntitlement('premium', status, 0), null, `premium/${status}/tenant=0`);
   }
 });
 

@@ -66,7 +66,7 @@ async function syncListingPublicationFromSubscription(
  * active/trialing, cleared on past_due/canceled/unpaid, untouched otherwise
  * (incomplete/paused). This flag is the single entitlement the app checks
  * (policy.canOwnListing) — no 'fiscal_agent' pseudo-tier exists anywhere.
- * The decision (incl. the missing-tenant throw) lives in
+ * The decision — incl. the missing-tenant no-op — lives in
  * planSponsorshipEntitlement (core).
  */
 async function syncTenantSponsorshipEntitlement(
