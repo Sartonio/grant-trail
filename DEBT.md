@@ -14,7 +14,7 @@ status | area | description | discovered-during: <context> (date)
 
 ## Entries
 
-- open | frontend coupling | 14 component files import supabaseClient directly (allowed for auth/storage today but unenforced; boundary allowlist planned) | discovered-during: framework survey 2026-07-14
+- open | frontend coupling | 8 component files import supabaseClient directly (survey estimated 14; truthful grep 2026-07-14 found 8, now pinned by the shrink-only eslint allowlist in frontend/.eslintrc.cjs) | discovered-during: framework survey 2026-07-14
 - open | validation divergence | return-path/origin validation exists only in supabase/functions/_shared/validation.ts with no frontend counterpart; frontend and edge functions can drift on what's accepted | discovered-during: framework survey 2026-07-14
 - open | edge lint suppressed | `no-import-prefix` deno lint rule disabled in supabase/functions/deno.json — the edge functions import deps via inline `npm:` specifiers (Supabase Edge runtime pattern) with no import map, which the rule forbids. Revisit if the functions adopt a deno.json import map. | discovered-during: deno-static-gate build 2026-07-14
 - open | nullable stripe customer id | getOrCreateStripeCustomer (supabase/functions/_shared/stripe-client.ts) can return `string | null` because billing_customers.stripe_customer_id is nullable; create-billing-portal-session/index.ts (lines ~53, ~78) casts customerId `as string` to pass Stripe. If a row ever holds a null id, Stripe rejects it at runtime (current behavior preserved, not fixed). Consider filtering null ids at the query or throwing a typed error before the Stripe call. | discovered-during: deno-static-gate build 2026-07-14
