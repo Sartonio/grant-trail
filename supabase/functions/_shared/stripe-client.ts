@@ -35,7 +35,10 @@ export const corsHeaders = {
 };
 
 export const stripe = new Stripe(stripeSecretKey, {
-  apiVersion: '2025-02-24.acacia',
+  // Intentionally pinned to an older Stripe API version than the SDK's types
+  // default to. The cast keeps the runtime value unchanged while satisfying
+  // stripe@18.1.1's stricter apiVersion literal type. Behavior-preserving.
+  apiVersion: '2025-02-24.acacia' as Stripe.StripeConfig['apiVersion'],
 });
 
 export const adminSupabase = createClient(supabaseUrl, supabaseServiceRoleKey, {

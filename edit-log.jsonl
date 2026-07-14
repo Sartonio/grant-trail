@@ -1,0 +1,2 @@
+{"ts":"2026-07-14T06:38:54.986Z","kind":"scope-set","add":false,"args":["scripts"],"matchedModules":[],"fallbacks":["scripts/**"],"branch":"deno-gates"}
+{"ts":"2026-07-14T06:38:55.228Z","kind":"scope-set","add":false,"args":["package.json"],"matchedModules":[],"fallbacks":["package.json"],"branch":"deno-gates"}

@@ -21,6 +21,7 @@
     "verify:changed": "bash scripts/verify-changed.sh",
     "verify:rls": "bash scripts/verify-lib.sh sql",
     "verify:edge": "bash scripts/verify-lib.sh edge_identity stripe_matrix",
+    "verify:edge:static": "bash scripts/verify-lib.sh edge_static",
     "verify:e2e": "npm run e2e --prefix frontend",
     "e2e": "npm run e2e --prefix frontend",
     "e2e:install": "npm run e2e:install --prefix frontend",
