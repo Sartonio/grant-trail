@@ -54,5 +54,12 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/setupTests.js'],
     include: ['src/**/*.{test,spec}.{js,jsx,ts,tsx}'],
+    // Report-only coverage (no thresholds this wave) over the logic layers.
+    // Records a baseline so a later wave can ratchet a floor at these numbers.
+    coverage: {
+      provider: 'v8',
+      include: ['src/lib/**', 'src/hooks/**'],
+      reporter: ['text', 'text-summary'],
+    },
   },
 });

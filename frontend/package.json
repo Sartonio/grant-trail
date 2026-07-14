@@ -23,11 +23,14 @@
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.2",
+    "@vitest/coverage-v8": "^4.1.10",
     "dotenv": "^17.4.2",
     "eslint": "^8.57.1",
+    "eslint-plugin-boundaries": "^7.0.2",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.1.1",
     "jsdom": "^29.1.1",
+    "knip": "^6.26.0",
     "supabase": "^2.109.0",
     "typescript": "^5.9.3",
     "vite": "^8.0.16",
@@ -44,45 +47,14 @@
     "typecheck": "tsc --noEmit",
     "typecheck:strict": "tsc -p tsconfig.strict.json --noEmit",
     "lint": "eslint src",
+    "deadcode": "knip",
+    "coverage": "vitest run --coverage",
     "e2e": "playwright test",
     "e2e:install": "playwright install",
     "db:start": "supabase start",
     "db:stop": "supabase stop",
     "db:reset": "supabase db reset && npm run db:types",
     "db:types": "supabase gen types typescript --local | grep -v '\"_tag\":\"Error\"' > src/lib/database.types.ts"
-  },
-  "eslintConfig": {
-    "env": {
-      "browser": true,
-      "es2020": true
-    },
-    "parserOptions": {
-      "ecmaVersion": 2020,
-      "sourceType": "module",
-      "ecmaFeatures": {
-        "jsx": true
-      }
-    },
-    "plugins": [
-      "react",
-      "react-hooks"
-    ],
-    "overrides": [
-      {
-        "files": [
-          "src/components/**/*.js"
-        ],
-        "rules": {
-          "no-restricted-syntax": [
-            "error",
-            {
-              "selector": "CallExpression[callee.object.name='supabase'][callee.property.name='from']",
-              "message": "Components must not call supabase.from(...) directly — add or reuse a function in frontend/src/lib/data/<entity>.js instead."
-            }
-          ]
-        }
-      }
-    ]
   },
   "browserslist": {
     "production": [
