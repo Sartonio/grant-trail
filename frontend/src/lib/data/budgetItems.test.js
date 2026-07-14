@@ -13,13 +13,14 @@ import { setBudgetItemStatus } from './budgetItems';
 beforeEach(() => {
   calls.tables = [];
   calls.results = { budget_items: { data: [{ id: 1 }], error: null } };
+  calls.cascade = { error: null };
   fromMock.mockImplementation((table) => {
     calls.tables.push(table);
     const builder = {
       update: () => builder,
       eq: () => builder,
       select: () => Promise.resolve(calls.results[table] ?? { data: [], error: null }),
-      then: (resolve) => resolve({ error: null }),
+      then: (resolve) => resolve(table === 'expenses' ? calls.cascade : { error: null }),
     };
     return builder;
   });
@@ -40,6 +41,13 @@ describe('setBudgetItemStatus', () => {
     calls.results.budget_items = { data: [], error: null };
     await expect(setBudgetItemStatus(1, 'approved')).rejects.toThrow(
       /check RLS policies for budget_items/
+    );
+  });
+
+  it('throws when the decline cascade returns an error', async () => {
+    calls.cascade = { error: new Error('cascade failed') };
+    await expect(setBudgetItemStatus(1, 'declined')).rejects.toThrow(
+      /resetting its linked expenses to pending failed: cascade failed/
     );
   });
 });

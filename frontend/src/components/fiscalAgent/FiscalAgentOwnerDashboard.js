@@ -120,8 +120,7 @@ export default function FiscalAgentOwnerDashboard({ session, readOnly: readOnlyP
     const prev = inquiries;
     setInquiries((list) => list.map((q) => (q.id === inquiryId ? { ...q, status: nextStatus } : q)));
     try {
-      const { error } = await updateInquiryStatus(inquiryId, nextStatus);
-      if (error) throw error;
+      await updateInquiryStatus(inquiryId, nextStatus);
     } catch (err) {
       Sentry.captureException(err);
       setInquiries(prev);

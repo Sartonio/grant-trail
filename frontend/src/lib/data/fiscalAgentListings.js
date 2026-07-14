@@ -51,11 +51,20 @@ export const listPendingListings = () =>
 
 // Set a listing's verification. Keep the legacy `verified` boolean in sync with
 // the `verification` string (both are read across the fiscal-agent surfaces).
-// NOTE: unlike set*Status this has no zero-row RLS guard — pinned as-is, see
-// the lib/data guard-inconsistency entry in DEBT.md.
+// Throws on a supabase error, and on a ZERO-ROW update — that means RLS
+// silently dropped it (same guard as the set*Status paths in _factory).
 /**
  * @param {number} id
  * @param {'verified' | 'declined'} verification
+ * @returns {Promise<any[]>}
  */
-export const setListingVerification = (id, verification) =>
-  listings.updateBy('id', id, { verification, verified: verification === 'verified' });
+export async function setListingVerification(id, verification) {
+  const { data, error } = await listings
+    .updateBy('id', id, { verification, verified: verification === 'verified' })
+    .select();
+  if (error) throw error;
+  if (!data || data.length === 0) {
+    throw new Error('Update was not applied — check RLS policies for fiscal_agent_listings.');
+  }
+  return data;
+}

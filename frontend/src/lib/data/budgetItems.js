@@ -48,7 +48,14 @@ export const listUnapprovedBudgetItemGrantIds = (grantIds) =>
 export async function setBudgetItemStatus(id, status) {
   const data = await budgetItems.setStatus(id, /** @type {string} */ (status));
   if (status === 'declined') {
-    await expenses.updateBy('budget_item_id', id, { status: 'pending' });
+    // Zero rows here is fine — the item may have no linked expenses — but a
+    // returned error means the cascade failed and must surface to the caller.
+    const { error } = await expenses.updateBy('budget_item_id', id, { status: 'pending' });
+    if (error) {
+      throw new Error(
+        `Budget item was declined, but resetting its linked expenses to pending failed: ${error.message}`
+      );
+    }
   }
   return data;
 }

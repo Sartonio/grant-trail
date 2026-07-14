@@ -259,8 +259,15 @@ describe('budgetItems', () => {
       expect(state.chains).toHaveLength(1);
     });
 
-    it('a cascade error is silently ignored (pinned as-is; see DEBT.md)', async () => {
+    it('a cascade error throws with a descriptive message', async () => {
       state.results.expenses = { data: null, error: new Error('cascade failed') };
+      await expect(budgetItems.setBudgetItemStatus(3, 'declined')).rejects.toThrow(
+        'Budget item was declined, but resetting its linked expenses to pending failed: cascade failed'
+      );
+    });
+
+    it('a zero-row cascade is NOT an error (no linked expenses)', async () => {
+      state.results.expenses = { data: [], error: null };
       const rows = await budgetItems.setBudgetItemStatus(3, 'declined');
       expect(rows).toEqual([{ id: 1 }]);
     });
@@ -432,28 +439,43 @@ describe('fiscalAgentListings', () => {
     ]);
   });
 
-  it('setListingVerification syncs the legacy verified boolean', async () => {
-    await expectPassthrough(fiscalAgentListings.setListingVerification(9, 'verified'));
+  it('setListingVerification syncs the legacy verified boolean and returns rows', async () => {
+    const rows = await fiscalAgentListings.setListingVerification(9, 'verified');
+    expect(rows).toEqual([{ id: 1 }]);
     expectChain(0, 'fiscal_agent_listings', [
       ['update', { verification: 'verified', verified: true }],
       ['eq', 'id', 9],
+      ['select'],
     ]);
   });
 
   it('setListingVerification declined sets verified false', async () => {
-    await expectPassthrough(fiscalAgentListings.setListingVerification(9, 'declined'));
+    await fiscalAgentListings.setListingVerification(9, 'declined');
     expectChain(0, 'fiscal_agent_listings', [
       ['update', { verification: 'declined', verified: false }],
       ['eq', 'id', 9],
+      ['select'],
     ]);
   });
 
-  it('setListingVerification has NO zero-row RLS guard (pinned as-is; see DEBT.md)', async () => {
+  it('setListingVerification zero rows throws the exact RLS message', async () => {
     state.results.fiscal_agent_listings = { data: [], error: null };
-    await expect(fiscalAgentListings.setListingVerification(9, 'verified')).resolves.toEqual({
-      data: [],
-      error: null,
-    });
+    await expect(fiscalAgentListings.setListingVerification(9, 'verified')).rejects.toThrow(
+      'Update was not applied — check RLS policies for fiscal_agent_listings.'
+    );
+  });
+
+  it('setListingVerification null data also throws the RLS message', async () => {
+    state.results.fiscal_agent_listings = { data: null, error: null };
+    await expect(fiscalAgentListings.setListingVerification(9, 'declined')).rejects.toThrow(
+      'Update was not applied — check RLS policies for fiscal_agent_listings.'
+    );
+  });
+
+  it('setListingVerification propagates the supabase error object as thrown', async () => {
+    const boom = new Error('rls boom');
+    state.results.fiscal_agent_listings = { data: null, error: boom };
+    await expect(fiscalAgentListings.setListingVerification(9, 'verified')).rejects.toBe(boom);
   });
 });
 
@@ -605,12 +627,27 @@ describe('inquiries', () => {
     expect(error).toBe(rpcError);
   });
 
-  it('updateInquiryStatus — Number id, no zero-row guard (pinned as-is; see DEBT.md)', async () => {
-    await expectPassthrough(inquiries.updateInquiryStatus('3', 'declined'));
+  it('updateInquiryStatus — Number id, returns the updated rows', async () => {
+    const rows = await inquiries.updateInquiryStatus('3', 'declined');
+    expect(rows).toEqual([{ id: 1 }]);
     expectChain(0, 'sponsorship_inquiries', [
       ['update', { status: 'declined' }],
       ['eq', 'id', 3],
+      ['select'],
     ]);
+  });
+
+  it('updateInquiryStatus zero rows throws the exact RLS message', async () => {
+    state.results.sponsorship_inquiries = { data: [], error: null };
+    await expect(inquiries.updateInquiryStatus('3', 'declined')).rejects.toThrow(
+      'Update was not applied — check RLS policies for sponsorship_inquiries.'
+    );
+  });
+
+  it('updateInquiryStatus propagates the supabase error object as thrown', async () => {
+    const boom = new Error('rls boom');
+    state.results.sponsorship_inquiries = { data: null, error: boom };
+    await expect(inquiries.updateInquiryStatus('3', 'reviewing')).rejects.toBe(boom);
   });
 
   it("insertInquiry — bare payload, .select('id').single()", async () => {

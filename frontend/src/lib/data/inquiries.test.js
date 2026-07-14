@@ -47,14 +47,34 @@ describe('listInquiriesForListing', () => {
 });
 
 describe('updateInquiryStatus', () => {
-  it('updates the inquiry row by numeric id', async () => {
-    const eq = vi.fn().mockResolvedValue({ error: null });
+  const mockUpdateChain = (result) => {
+    const select = vi.fn().mockResolvedValue(result);
+    const eq = vi.fn(() => ({ select }));
     const update = vi.fn(() => ({ eq }));
     fromMock.mockReturnValue({ update });
+    return { update, eq, select };
+  };
 
-    await updateInquiryStatus('3', 'declined');
+  it('updates the inquiry row by numeric id and returns the updated rows', async () => {
+    const { update, eq } = mockUpdateChain({ data: [{ id: 3 }], error: null });
+
+    const rows = await updateInquiryStatus('3', 'declined');
     expect(fromMock).toHaveBeenCalledWith('sponsorship_inquiries');
     expect(update).toHaveBeenCalledWith({ status: 'declined' });
     expect(eq).toHaveBeenCalledWith('id', 3);
+    expect(rows).toEqual([{ id: 3 }]);
+  });
+
+  it('throws the RLS message when no rows are updated', async () => {
+    mockUpdateChain({ data: [], error: null });
+    await expect(updateInquiryStatus('3', 'declined')).rejects.toThrow(
+      /check RLS policies for sponsorship_inquiries/
+    );
+  });
+
+  it('throws the supabase error when the update fails', async () => {
+    const boom = new Error('rls boom');
+    mockUpdateChain({ data: null, error: boom });
+    await expect(updateInquiryStatus('3', 'reviewing')).rejects.toBe(boom);
   });
 });

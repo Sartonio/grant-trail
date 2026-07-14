@@ -23,12 +23,15 @@ export const acceptSponsorshipInquiry = (inquiryId) =>
 /**
  * Move an inquiry to a non-accepted pipeline status (reviewing/declined/
  * waitlisted). Accepting must go through acceptSponsorshipInquiry instead.
+ * Throws on a zero-row update (RLS silently dropped it) — same guard as the
+ * other set*Status paths.
  *
  * @param {number|string} inquiryId
  * @param {'new'|'reviewing'|'declined'|'waitlisted'} status
+ * @returns {Promise<any[]>}
  */
 export const updateInquiryStatus = (inquiryId, status) =>
-  inquiries.updateBy('id', Number(inquiryId), { status });
+  inquiries.setStatus(Number(inquiryId), status);
 
 /**
  * Seeker-submitted sponsorship application for a listing. Returns the new row's

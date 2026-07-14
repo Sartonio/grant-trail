@@ -28,11 +28,15 @@ function AdminListingVerification() {
 
   async function handleSetVerification(listing, verification) {
     setSaving(listing.id);
-    const { error: err } = await setListingVerification(listing.id, verification);
-    setSaving(null);
-    if (err) { setActionError('Error updating listing: ' + err.message); return; }
-    setActionError('');
-    setListings(prev => prev.filter(l => l.id !== listing.id));
+    try {
+      await setListingVerification(listing.id, verification);
+      setActionError('');
+      setListings(prev => prev.filter(l => l.id !== listing.id));
+    } catch (err) {
+      setActionError('Error updating listing: ' + err.message);
+    } finally {
+      setSaving(null);
+    }
   }
 
   if (loading) return <div className="admin-page"><p className="admin-loading">Loading listings…</p></div>;
