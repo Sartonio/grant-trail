@@ -1,5 +1,7 @@
 // Data-access for the audit_log table (admin audit-log page).
-import { supabase } from '../../supabaseClient';
+import { createEntityData } from './_factory';
+
+const auditLog = createEntityData('audit_log');
 
 /**
  * A page of audit-log rows, newest first, with an exact total count. Optional
@@ -17,8 +19,8 @@ import { supabase } from '../../supabaseClient';
  */
 export const listAuditLog = ({ page, pageSize, table, action, user, from, to }) => {
   const start = page * pageSize;
-  let q = supabase
-    .from('audit_log')
+  let q = auditLog
+    .from()
     .select('id, table_name, action, record_id, changed_by, created_at', { count: 'exact' })
     .order('created_at', { ascending: false })
     .range(start, start + pageSize - 1);
@@ -35,4 +37,4 @@ export const listAuditLog = ({ page, pageSize, table, action, user, from, to }) 
 // Old/new value snapshot for a single audit row, fetched lazily on row expand.
 /** @param {number} id */
 export const getAuditDiff = (id) =>
-  supabase.from('audit_log').select('old_values, new_values').eq('id', id).single();
+  auditLog.getBy('id', id, { select: 'old_values, new_values' });

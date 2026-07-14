@@ -2,57 +2,55 @@
 // remainder). Thin wrappers around the exact queries previously inlined in
 // AdminUserList.js — each returns Supabase's native { data, error } so call
 // sites keep their own error handling unchanged.
-import { supabase } from "../../supabaseClient";
+import { createEntityData } from './_factory';
 /** @typedef {import('../types').UserTableUpdate} UserTableUpdate */
 /** @typedef {import('../types').InviteInsert} InviteInsert */
 
+const users = createEntityData('users');
+const userMemberships = createEntityData('user_memberships');
+const invites = createEntityData('invites');
+
 // The signed-in user's profile row, looked up by their auth user id at login.
 /** @param {string} authUserId */
-export const getUserByAuthId = (authUserId) =>
-  supabase.from("users").select("*").eq("user_id", authUserId).single();
+export const getUserByAuthId = (authUserId) => users.getBy('user_id', authUserId);
 
 // Names/roles keyed by auth user id, for the audit-log "changed by" filter.
 export const listAuditUsers = () =>
-  supabase.from("users").select("user_id, firstname, lastname, role");
+  users.listAll({ select: 'user_id, firstname, lastname, role' });
 
 export const listTenantUsers = () =>
-  supabase
-    .from("users")
-    .select(
-      "id, firstname, lastname, email, organization_name, phone_number, role, user_id, is_active, created_at",
-    )
-    .order("created_at", { ascending: false });
+  users.listAll({
+    select:
+      'id, firstname, lastname, email, organization_name, phone_number, role, user_id, is_active, created_at',
+    order: ['created_at', { ascending: false }],
+  });
 
-export const listActiveMemberships = () =>
-  supabase.from("user_memberships").select("*").eq("is_active", true);
+export const listActiveMemberships = () => userMemberships.listBy('is_active', true);
 
 /**
  * @param {number} id
  * @param {UserTableUpdate} updates
  */
-export const updateUser = (id, updates) =>
-  supabase.from("users").update(updates).eq("id", id);
+export const updateUser = (id, updates) => users.updateBy('id', id, updates);
 
 /** @param {number} userId @param {string} membershipTier */
 export const waiveUserSubscription = (userId, membershipTier) =>
-  supabase
-    .from("user_memberships")
+  userMemberships
+    .from()
     .upsert(
       {
         user_id: userId,
         membership_tier: membershipTier,
         is_active: true,
-        source: "manual",
+        source: 'manual',
       },
-      { onConflict: "user_id" },
+      { onConflict: 'user_id' }
     )
     .select()
     .single();
 
 /** @param {number} userId */
-export const removeUserMembership = (userId) =>
-  supabase.from("user_memberships").delete().eq("user_id", userId);
+export const removeUserMembership = (userId) => userMemberships.deleteBy('user_id', userId);
 
 /** @param {InviteInsert} invite */
-export const createUserInvite = (invite) =>
-  supabase.from("invites").insert(invite).select().single();
+export const createUserInvite = (invite) => invites.insert(invite).select().single();
