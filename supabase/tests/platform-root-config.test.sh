@@ -42,8 +42,43 @@ assert_eq "platform_root_slug() defaults to configured 'tfac'" "tfac" "$out"
 out=$(psql_scalar "SELECT public.is_membership_exempt((SELECT id FROM users WHERE email='eric.hobbs@example.com'));")
 assert_eq "platform-root (tfac) admin is membership-exempt" "t" "$out"
 
+# Platform-root exemption applies to the WHOLE tenant, not just admins
+# (20260714011033_platform_root_exemption_tenant_wide). Invited grantees of the
+# platform-root tenant are covered by the inviting org, so a tfac GRANTEE
+# (maria.smith — grantee role, only a basic user_membership, no premium) must be
+# exempt too. Before that migration this was 'f' and the invited grantee was
+# wrongly paywalled; assert 't' now to lock in the fix.
+out=$(psql_scalar "SELECT public.is_membership_exempt((SELECT id FROM users WHERE email='maria.smith@example.com'));")
+assert_eq "platform-root (tfac) grantee is membership-exempt" "t" "$out"
+
+out=$(psql_scalar "SELECT public.has_basic_membership((SELECT id FROM users WHERE email='maria.smith@example.com'));")
+assert_eq "platform-root (tfac) grantee has basic membership (via exemption)" "t" "$out"
+
+# Negative: an ordinary (non platform-root) grantee with NO premium
+# tenant_membership, require_subscription=true, and NO paid personal membership
+# must still FAIL both checks — proving the tenant-wide widening did not
+# over-exempt anyone outside the platform-root tenant. We use nadia for the
+# exemption check (greenleaf: not platform-root, require_subscription=true, no
+# premium tenant_membership), but nadia also holds her OWN active basic
+# user_membership in the seed, so has_basic_membership(nadia) is legitimately
+# 't'. To assert has_basic_membership=f we need a grantee with no membership at
+# all, so we strip nadia's own basic membership inside a rolled-back txn: with
+# no paid membership and no platform-root exemption she must fail BOTH checks.
 out=$(psql_scalar "SELECT public.is_membership_exempt((SELECT id FROM users WHERE email='nadia.park@example.com'));")
-assert_eq "non-root (greenleaf) user is NOT exempt" "f" "$out"
+assert_eq "non-root (greenleaf) grantee is NOT exempt" "f" "$out"
+
+out=$(docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -tA -v ON_ERROR_STOP=1 <<'SQL' 2>&1
+BEGIN;
+DELETE FROM user_memberships
+ WHERE user_id = (SELECT id FROM users WHERE email='nadia.park@example.com');
+SELECT public.is_membership_exempt((SELECT id FROM users WHERE email='nadia.park@example.com'))::text
+    || ',' ||
+    public.has_basic_membership((SELECT id FROM users WHERE email='nadia.park@example.com'))::text;
+ROLLBACK;
+SQL
+)
+assert_eq "non-root grantee with no membership fails exempt AND basic" \
+  "false,false" "$(echo "$out" | grep -E '^(true|false),(true|false)$' | head -1)"
 
 # Re-point the platform root to bright-horizons; exemption must follow the config.
 out=$(docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -tA -v ON_ERROR_STOP=1 <<'SQL' 2>&1
