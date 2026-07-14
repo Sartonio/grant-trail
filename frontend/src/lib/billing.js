@@ -383,9 +383,3 @@ export function hasFeature(session, featureKey) {
 
   return false;
 }
-
-/** @param {Session|null} [session] */
-export function hasActiveSubscription(session) {
-  if (!session?.membership) return false;
-  return !!session.membership.hasBasicAccess;
-}

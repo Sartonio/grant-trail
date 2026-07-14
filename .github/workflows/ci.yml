@@ -138,6 +138,25 @@ jobs:
           echo "Applying pending migrations on top of the baseline:"
           supabase migration up --local
 
+  # STATIC gate for the Deno edge functions: deno check / test / lint over
+  # supabase/functions (the vf_edge_static tier). No Docker, no Supabase stack —
+  # fast and gates every PR/push. Locally this tier fail-opens when Deno is
+  # absent; installing Deno here makes it actually gate in CI.
+  edge-static:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Run edge-function static checks (deno check / test / lint)
+        run: npm run verify:edge:static
+
   # FAST gate: edge-function .sh tests that only need the local Supabase stack +
   # served functions + a (dummy) STRIPE_SECRET_KEY so the billing modules boot.
   # No `stripe listen` forwarder, no test clocks — runs in ~1-2 min and gates
