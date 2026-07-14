@@ -1,0 +1,58 @@
+{
+  "$comment": "SINGLE SOURCE OF TRUTH for frontend architecture boundaries. The eslint-plugin-boundaries element types and rule matrix are GENERATED from this file at lint time (see .eslintrc.cjs) — never hand-edit the rules there. Each module's allowedImports lists exactly what that area imports TODAY. This map is SHRINK-ONLY BY INTENT: removing an entry as code migrates is safe cleanup; ADDING an allowedImport introduces a new cross-layer dependency and MUST be justified in review. `pattern` is matched (specific-first) against the src-relative file path; `mode` defaults to 'full'.",
+  "modules": {
+    "supabaseClient": {
+      "pattern": "src/supabaseClient.js",
+      "mode": "file",
+      "allowedImports": []
+    },
+    "lib-data": {
+      "pattern": "src/lib/data/**",
+      "allowedImports": ["supabaseClient"]
+    },
+    "lib": {
+      "pattern": "src/lib/**",
+      "allowedImports": ["lib-data", "supabaseClient"]
+    },
+    "hooks": {
+      "pattern": "src/hooks/**",
+      "allowedImports": ["lib", "lib-data", "supabaseClient"]
+    },
+    "utils": {
+      "pattern": "src/utils/**",
+      "allowedImports": []
+    },
+    "components/admin": {
+      "pattern": "src/components/admin/**",
+      "allowedImports": ["components/common", "components/grant", "hooks", "lib", "lib-data"]
+    },
+    "components/grant": {
+      "pattern": "src/components/grant/**",
+      "allowedImports": ["components/common", "hooks", "lib", "lib-data", "supabaseClient", "utils"]
+    },
+    "components/fiscalAgent": {
+      "pattern": "src/components/fiscalAgent/**",
+      "allowedImports": ["lib", "lib-data"]
+    },
+    "components/auth": {
+      "pattern": "src/components/auth/**",
+      "allowedImports": ["components/fiscalAgent", "lib", "lib-data", "supabaseClient"]
+    },
+    "components/billing": {
+      "pattern": "src/components/billing/**",
+      "allowedImports": ["lib"]
+    },
+    "components/layout": {
+      "pattern": "src/components/layout/**",
+      "allowedImports": ["lib-data"]
+    },
+    "components/landing": {
+      "pattern": "src/components/landing/**",
+      "allowedImports": []
+    },
+    "components/common": {
+      "pattern": "src/components/common/**",
+      "allowedImports": ["lib"]
+    }
+  }
+}

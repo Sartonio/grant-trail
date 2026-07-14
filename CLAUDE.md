@@ -111,6 +111,26 @@ A change is NOT done until it meets these. Don't declare completion otherwise.
 - **Structure conventions hold:** co-locate `.css` and `.test.js` next to their module; keep modules
   small / single-responsibility; follow the existing domain-folder layout.
 
+## Architecture boundaries & report-only metrics
+
+- **Import boundaries are generated from `frontend/module-map.json`.** That file
+  is the single source of truth for the frontend's module areas (lib/data, lib,
+  hooks, utils, supabaseClient, and each `components/<domain>`) and their
+  `allowedImports`. `frontend/.eslintrc.cjs` `require()`s the map and GENERATES
+  the `eslint-plugin-boundaries` element types + rule matrix from it — **edit the
+  map to change what an area may import, never hand-edit the eslint file.** The
+  map is shrink-only by intent: adding an `allowedImport` is a new cross-layer
+  dependency that must show up (and be justified) in review. The
+  `supabaseClient` import allowlist (which component files may import the client
+  directly) is a shrink-only list in `.eslintrc.cjs` — remove entries as they
+  migrate to `lib/data`, never add. `npm --prefix frontend run lint` enforces
+  both.
+- **Report-only checks (not yet gates):** `npm --prefix frontend run deadcode`
+  (knip — unused files/exports/deps) and `npm --prefix frontend run coverage`
+  (v8 coverage over `src/lib/**` + `src/hooks/**`, no thresholds). Neither is
+  wired into `npm run verify` this wave; both are planned to become gates once
+  their baselines stabilize (baseline recorded in `DEBT.md`).
+
 ## Conventions
 
 - **Plain JavaScript, no TypeScript.** Function components + hooks only.
