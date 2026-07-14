@@ -5,6 +5,7 @@
   "scripts": {
     "setup": "npm install --prefix frontend && cp frontend/.env.example frontend/.env.local && cp supabase/.env.example supabase/.env && npm run hooks:install",
     "prepare": "node scripts/install-git-hooks.js",
+    "scope": "node scripts/scope.ts",
     "hooks:install": "node scripts/install-git-hooks.js",
     "db:check": "npx --prefix frontend supabase db diff",
     "db:start": "npm run db:start --prefix frontend",
