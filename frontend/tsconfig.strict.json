@@ -1,0 +1,11 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "strict": true,
+    "noImplicitAny": true
+  },
+  "//": "Strict gate over the load-bearing frontend logic only (lib + hooks).",
+  "// ": "Components must NOT join this program — lib/hooks must not import them.",
+  "include": ["src/lib/**/*.js", "src/hooks/**/*.js", "src/types/**/*.d.ts"],
+  "exclude": ["node_modules", "dist", "tests", "**/*.test.js"]
+}
