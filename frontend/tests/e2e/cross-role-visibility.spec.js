@@ -306,29 +306,29 @@ test.describe('Cross-role visibility', () => {
   });
 
   // ──────────────────────────────────────────────────────────────────────────
-  // 4. Admin reject → grantee sees rejected + notification.
+  // 4. Admin decline → grantee sees declined + notification.
   // ──────────────────────────────────────────────────────────────────────────
-  test('admin rejects a grant → grantee sees Rejected status and a notification', async () => {
+  test('admin declines a grant → grantee sees Declined status and a notification', async () => {
     const admin = ctx.adminPage;
     const granteeA = ctx.granteeAPage;
     const id = ctx.grantReject.id;
 
     await admin.goto(`/admin/grants/${id}`);
     await expect(admin.locator('.arh-title h2')).toContainText(ctx.grantRejectName);
-    await admin.locator('button.action-btn.reject').click();
+    await admin.locator('button.action-btn.decline').click();
     await admin.locator('.action-form textarea').fill('Out of scope for this cycle.');
     const patchPromise = admin.waitForResponse(r =>
       r.url().includes('grant_record') && r.request().method() === 'PATCH' &&
       (r.status() === 200 || r.status() === 204));
-    await admin.locator('button.action-submit-btn.reject').click();
+    await admin.locator('button.action-submit-btn.decline').click();
     await patchPromise;
-    await expect(admin.locator('text=Grant rejected.')).toBeVisible({ timeout: 10000 });
+    await expect(admin.locator('text=Grant declined.')).toBeVisible({ timeout: 10000 });
 
     await granteeA.goto(`/grants/${id}`);
-    await expect(granteeA.locator('.detail-banner-title .status-badge')).toContainText('Rejected');
-    await expect(granteeA.locator('.status-timeline')).toContainText('Rejected');
+    await expect(granteeA.locator('.detail-banner-title .status-badge')).toContainText('Declined');
+    await expect(granteeA.locator('.status-timeline')).toContainText('Declined');
 
-    await expectGranteeNotification(granteeA, 'has been rejected');
+    await expectGranteeNotification(granteeA, 'has been declined');
   });
 
   // ──────────────────────────────────────────────────────────────────────────
