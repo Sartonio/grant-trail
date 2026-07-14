@@ -7,6 +7,11 @@ bin/
 .claude/*
 # Track project subagent definitions (shared with cloud/other clones); keep the rest of .claude local
 !.claude/agents/
+# Track the vendored framework guardrails (scope-guard hook + its wiring)
+!.claude/settings.json
+!.claude/hooks/
+# Per-task ephemeral scope state (written by scripts/scope.ts)
+.task/
 .vercel
 .env*
 # Incidental local-tooling artifacts (repo app deps live under frontend/)

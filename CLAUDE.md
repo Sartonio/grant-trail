@@ -51,22 +51,22 @@ supabase/
 
 The frontend lives in `frontend/`. Root scripts proxy via `--prefix frontend`; run from repo root.
 
-| Command | What it does |
-|---|---|
-| `npm run setup` | Install deps + scaffold `.env` files + install git hooks |
-| `npm run db:start` / `db:stop` / `db:reset` | Local Supabase stack (Docker + migrations + seed) |
-| `npm run dev` | Vite dev server (http://localhost:3000) |
-| `npm run build` | Production build to `frontend/dist/` |
-| `npm test` | Vitest unit suite (once) |
-| `npm run verify` | Definition-of-Done fast tier: lint + typecheck + unit tests |
-| `npm run verify:full` | verify + security-critical stack tier (RLS, edge-fn, webhook, e2e; fail-open w/o Docker) |
-| `npm run verify:changed [-- <base>]` | fast tier + only the stack tiers the diff touches (path heuristic; CI still runs full) |
-| `npm run verify:rls` / `verify:edge` / `verify:e2e` | run one stack tier on its own (boots the local stack) |
-| `npm run typecheck` (`--prefix frontend`) | `tsc --noEmit` over the load-bearing JS scope (checkJs) |
-| `npm run db:types` (`--prefix frontend`) | Regenerate `lib/database.types.ts` from the local DB |
-| `npm run e2e` / `e2e:install` | Playwright E2E suite / install browsers |
-| `npm --prefix frontend run lint` | ESLint over `frontend/src` (no root proxy) |
-| `npm run db:check` | `supabase db diff` — flag uncommitted schema drift |
+| Command                                             | What it does                                                                             |
+| --------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `npm run setup`                                     | Install deps + scaffold `.env` files + install git hooks                                 |
+| `npm run db:start` / `db:stop` / `db:reset`         | Local Supabase stack (Docker + migrations + seed)                                        |
+| `npm run dev`                                       | Vite dev server (http://localhost:3000)                                                  |
+| `npm run build`                                     | Production build to `frontend/dist/`                                                     |
+| `npm test`                                          | Vitest unit suite (once)                                                                 |
+| `npm run verify`                                    | Definition-of-Done fast tier: lint + typecheck + unit tests                              |
+| `npm run verify:full`                               | verify + security-critical stack tier (RLS, edge-fn, webhook, e2e; fail-open w/o Docker) |
+| `npm run verify:changed [-- <base>]`                | fast tier + only the stack tiers the diff touches (path heuristic; CI still runs full)   |
+| `npm run verify:rls` / `verify:edge` / `verify:e2e` | run one stack tier on its own (boots the local stack)                                    |
+| `npm run typecheck` (`--prefix frontend`)           | `tsc --noEmit` over the load-bearing JS scope (checkJs)                                  |
+| `npm run db:types` (`--prefix frontend`)            | Regenerate `lib/database.types.ts` from the local DB                                     |
+| `npm run e2e` / `e2e:install`                       | Playwright E2E suite / install browsers                                                  |
+| `npm --prefix frontend run lint`                    | ESLint over `frontend/src` (no root proxy)                                               |
+| `npm run db:check`                                  | `supabase db diff` — flag uncommitted schema drift                                       |
 
 Test accounts (local, password `password123`): `maria.smith@example.com` (grantee),
 `eric.hobbs@example.com` (admin), `sam.reeves@example.com` (super admin).
@@ -122,9 +122,32 @@ A change is NOT done until it meets these. Don't declare completion otherwise.
 ## Project subagents
 
 Defined in `.claude/agents/` — prefer them for their domains:
+
 - **migration-author** — writing new Supabase migrations (naming + tenant-scoped RLS).
 - **rls-reviewer** — auditing RLS policies for cross-tenant / escalation holes.
 - **component-builder** — building React components to the conventions above.
+
+## Task scoping & the bug ledger (vendored guardrails)
+
+A vendored scope-guard (from `ai-first-starter`; see
+`.claude/hooks/FRAMEWORK-SOURCE.md`) keeps agent edits inside the task at hand.
+
+- **Scope a task before editing:** `npm run scope <path-or-glob>` writes
+  `.task/allowed-files.json` (the allowed set). Example:
+  `npm run scope frontend/src/lib`. Pass a directory and it expands to
+  `<dir>/**`.
+- **`--add` widens, a plain re-run replaces.** `npm run scope --add
+supabase/functions/notify-inquiry` adds to the current scope; re-running
+  without `--add` starts a fresh scope. Bare catch-alls (`**`, `frontend/**`,
+  `supabase/**`, …) are refused.
+- **The PreToolUse scope-guard hook** (`.claude/hooks/scope-guard.ts`, fires
+  only for Claude Code sessions started in this repo) blocks agent file edits
+  that fall outside the active scope and logs every scope set and every block to
+  repo-root **`edit-log.jsonl`** (tracked). With no scope active you get a
+  one-time nudge for edits under `frontend/src/` or `supabase/functions/`.
+- **Bug ledger:** any bug or limitation found but **not fixed** in a task gets an
+  entry in **`DEBT.md`** in the **same commit** (status `open`/`fixed`/`wontfix`).
+  Never delete entries — flip their status.
 
 ## Docs
 
