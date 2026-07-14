@@ -118,14 +118,28 @@ async function getMembershipProductIds() {
   return cachedProductIds;
 }
 
-export async function invokeFirstAvailable(functionNames, payloadFactory) {
+/**
+ * Invoke the first candidate edge function that responds successfully.
+ *
+ * @param {string[]} functionNames Ordered candidate function names to try.
+ * @param {(fnName: string) => Record<string, unknown>} payloadFactory
+ *   Builds the request body for a given candidate.
+ * @param {{ requireUrl?: boolean }} [options]
+ *   `requireUrl` (default true): checkout/portal flows must return a `data.url`
+ *   to count as success. Set false for sync-style endpoints (e.g.
+ *   sync-my-subscription) that legitimately return a body WITHOUT a url — a
+ *   successful non-error response is enough. (Sentry GRANTTRAIL-FRONTEND-2:
+ *   requiring a url made every sync throw even when it succeeded.)
+ * @returns {Promise<{ url?: string, [key: string]: unknown }>} The successful response body.
+ */
+export async function invokeFirstAvailable(functionNames, payloadFactory, { requireUrl = true } = {}) {
   let lastError = null;
 
   for (const fnName of functionNames) {
     const payload = payloadFactory(fnName);
     try {
       const data = await invokeViaHttp(fnName, payload);
-      if (data?.url) {
+      if (!requireUrl || data?.url) {
         return data;
       }
       lastError = new Error(`Function ${fnName} did not return a checkout URL.`);
@@ -222,7 +236,9 @@ function currentOrigin() {
 }
 
 export async function syncMembershipFromStripe() {
-  return invokeFirstAvailable(SYNC_MEMBERSHIP_FUNCTION_CANDIDATES, () => ({}));
+  // sync-my-subscription is a reconciliation endpoint that never returns a
+  // checkout url, so don't demand one — any successful response body counts.
+  return invokeFirstAvailable(SYNC_MEMBERSHIP_FUNCTION_CANDIDATES, () => ({}), { requireUrl: false });
 }
 
 // Single-round-trip session bootstrap (issue #12). Returns the authenticated

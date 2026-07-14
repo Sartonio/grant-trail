@@ -42,6 +42,27 @@ export const adminSupabase = createClient(supabaseUrl, supabaseServiceRoleKey, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
 
+/**
+ * True when a Stripe error is "the customer this ID points at no longer exists".
+ *
+ * Happens in production when billing_customers holds a stale/seeded customer ID
+ * (e.g. a test-mode `cus_...` against live keys, or data restored from another
+ * account). Stripe reports this as `code: 'resource_missing'` with
+ * `param: 'customer'`; we also match the "No such customer" message as a
+ * fallback in case the structured fields aren't present. Callers use this to
+ * self-heal by clearing the stale row and creating a fresh customer.
+ */
+export function isMissingCustomerError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+  const err = error as { code?: unknown; param?: unknown; message?: unknown };
+  if (err.code === 'resource_missing' && err.param === 'customer') {
+    return true;
+  }
+  return typeof err.message === 'string' && /no such customer/i.test(err.message);
+}
+
 export function getUserSupabaseClient(authHeader: string | null) {
   return createClient(supabaseUrl, supabaseAnonKey, {
     global: {
