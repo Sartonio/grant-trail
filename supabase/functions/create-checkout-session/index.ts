@@ -26,7 +26,9 @@ Deno.serve(async (request) => {
     const returnPath = validateReturnPath(body.returnPath);
     const returnOrigin = validateReturnOrigin(body.returnOrigin);
     const featureKey = validateFeatureKey(body.featureKey, ALLOWED_FEATURE_KEYS, 'admin_membership');
-    const { tier, priceEnv } = TIER_BY_FEATURE_KEY[featureKey];
+    // featureKey is validated against ALLOWED_FEATURE_KEYS above, so it is
+    // always a real key of TIER_BY_FEATURE_KEY; the cast is behavior-preserving.
+    const { tier, priceEnv } = TIER_BY_FEATURE_KEY[featureKey as keyof typeof TIER_BY_FEATURE_KEY];
     const stripePriceId = Deno.env.get(priceEnv);
 
     if (!stripePriceId) {

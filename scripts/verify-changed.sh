@@ -31,9 +31,9 @@ if [ -z "$changed" ]; then
 fi
 
 # Which stack tiers does the diff imply? (grep -q, so order/dupes don't matter.)
-want_sql=0 want_edge=0 want_stripe=0 want_e2e=0
+want_sql=0 want_edge=0 want_stripe=0 want_e2e=0 want_edge_static=0
 grep -qE '^supabase/(migrations|tests)/'                 <<<"$changed" && want_sql=1
-grep -qE '^supabase/functions/'                          <<<"$changed" && { want_edge=1; want_stripe=1; }
+grep -qE '^supabase/functions/'                          <<<"$changed" && { want_edge=1; want_stripe=1; want_edge_static=1; }
 grep -qE 'lib/billing\.js'                               <<<"$changed" && want_stripe=1
 grep -qE 'lib/(policy|guards|useWriteGuard)\.js'         <<<"$changed" && want_e2e=1
 # Data-mutating components are the e2e-worthy UI: create/edit/modal/expense/grant flows.
@@ -41,10 +41,12 @@ grep -qE 'components/.*(Create|Edit|Modal|Expense|Grant|Subscription|Complete|Si
 
 echo "==> changed files vs $BASE:"
 printf '%s\n' "$changed" | sed 's/^/    /'
-echo "==> tiers: fast$([ $want_sql = 1 ] && echo ' + sql')$([ $want_edge = 1 ] && echo ' + edge')$([ $want_stripe = 1 ] && echo ' + stripe')$([ $want_e2e = 1 ] && echo ' + e2e')"
+echo "==> tiers: fast$([ $want_edge_static = 1 ] && echo ' + edge-static')$([ $want_sql = 1 ] && echo ' + sql')$([ $want_edge = 1 ] && echo ' + edge')$([ $want_stripe = 1 ] && echo ' + stripe')$([ $want_e2e = 1 ] && echo ' + e2e')"
 
 fail=0
 vf_fast
+# edge-static is a static gate (no Docker/stack) — run it here alongside fast.
+[ "$want_edge_static" = 1 ] && vf_edge_static
 [ "$fail" -eq 0 ] || exit 1
 
 # No stack tier requested -> done (and no need to boot Docker).

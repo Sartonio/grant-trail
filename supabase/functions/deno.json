@@ -1,0 +1,9 @@
+{
+  "//": "Config root for the Deno edge functions so `deno check/lint/test` ignore the repo's Node package.json (frontend). Minimal static-gate config, not a runtime import map. no-import-prefix is disabled below because these functions load deps via `npm:` specifiers (the Supabase Edge runtime pattern) with no import map, which that rule forbids. See DEBT.md.",
+  "nodeModulesDir": "none",
+  "lint": {
+    "rules": {
+      "exclude": ["no-import-prefix"]
+    }
+  }
+}

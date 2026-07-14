@@ -19,7 +19,8 @@ source scripts/verify-lib.sh
 
 fail=0
 vf_fast
-[ "$fail" -eq 0 ] || exit 1   # don't boot the stack if the fast tier is red
+vf_edge_static                # static Deno gate — no stack needed, run it early
+[ "$fail" -eq 0 ] || exit 1   # don't boot the stack if a static tier is red
 
 vf_have_docker || exit 0
 vf_boot_stack
