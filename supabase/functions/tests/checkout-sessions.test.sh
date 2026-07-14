@@ -150,6 +150,9 @@ assert_eq "$(dbq "SELECT count(*) FROM billing_customers WHERE tenant_id=$TENANT
 # Give the tenant a LIVE subscription, then admin #2's checkout must dedup to the
 # alreadyActive redirect (the idempotency check runs against the tenant customer).
 info "tenant-owned premium: alreadyActive dedup across admins"
+# the function-minted tenant customer has no card, so the sub would otherwise stay
+# incomplete (never charged) and never go live to trip the dedup
+attach_default_card "$TENANT_CUS"
 TSUB=$(create_tenant_subscription "$TENANT_CUS" "$STRIPE_PRICE_FISCAL_AGENT" "$TENANT_ID" "$ADMIN1_ID")
 # poll Stripe until the sub is active so the idempotency check sees it
 for _ in $(seq 1 20); do

@@ -309,13 +309,24 @@ auth_uuid_for() { dbq "SELECT user_id FROM users WHERE id = ${1};"; }
 
 # ---- stripe customer + subscription scaffolding --------------------------
 
-# new_stripe_customer <email> -> echoes cus_xxx with a default test card attached
-new_stripe_customer() {
-  local email="$1" cus pm
-  cus=$(sapi customers create --email "$email" | json_field id)
+# attach_default_card <cus> -> attaches a tok_visa card as the customer's default
+#
+# Exists for customers minted by the edge functions (create-checkout-session),
+# which have no payment method: without a default card a subscription created on
+# them stays incomplete and can never be charged. Call this so tests can create
+# chargeable subscriptions on such customers.
+attach_default_card() {
+  local cus="$1" pm
   pm=$(sapi payment_methods create --type card -d "card[token]=tok_visa" | json_field id)
   sapi payment_methods attach "$pm" -d customer="$cus" >/dev/null
   sapi customers update "$cus" -d "invoice_settings[default_payment_method]=$pm" >/dev/null
+}
+
+# new_stripe_customer <email> -> echoes cus_xxx with a default test card attached
+new_stripe_customer() {
+  local email="$1" cus
+  cus=$(sapi customers create --email "$email" | json_field id)
+  attach_default_card "$cus"
   echo "$cus"
 }
 
