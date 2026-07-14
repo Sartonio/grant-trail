@@ -11,9 +11,10 @@
 #     a tenant that requires approval leaves it 'pending'.
 #   * update_budget_item_totals / update_grant_record_totals — only *approved*
 #     expenses roll up into budget_items.amount_spent and grant_record.total_spent.
-#   * is_membership_exempt(user) — super_admin, TFAC admins, and members of a
+#   * is_membership_exempt(user) — super_admin, ALL users of the platform-root
+#     tenant (slug tfac, tenant-wide since 20260714011033), and members of a
 #     tenant with require_subscription = false are exempt; an ordinary grantee in
-#     a subscription-gated tenant is not.
+#     a subscription-gated non-root tenant is not.
 #   * notify_grant_submitted — INSERT of a 'pending' grant notifies tenant admins
 #     ('grant_submitted'); a needs_changes -> pending UPDATE notifies them again
 #     ('grant_resubmitted').
@@ -29,7 +30,8 @@
 #
 # Fixture (committed supabase/seed.sql, verified live):
 #   tenant 1 tfac            managed      require_*_approval = t, require_subscription = t
-#   tenant 2 bright-horizons managed      require_*_approval = t
+#                                          (platform root — ALL its users are membership-exempt)
+#   tenant 2 bright-horizons managed      require_*_approval = t (seeded premium membership)
 #   tenant 3 lopez-consulting self_service require_*_approval = f, require_subscription = t
 #   users: 1 grantee@tfac, 4 admin@tfac, 5 super_admin@tfac, 9 grantee@lopez (self_service)
 #
@@ -46,10 +48,10 @@ DB_CONTAINER="supabase_db_${PROJECT_ID}"
 # Fixture ids (public.users.id / public.tenants.id — integers, not auth uids).
 T_MANAGED=1       # tfac, require_*_approval = true
 T_SELFSERVE=3     # lopez-consulting, require_*_approval = false
-U_GRANTEE_TFAC=1  # ordinary grantee in a subscription-gated managed tenant
+U_GRANTEE_TFAC=1  # grantee in the platform-root tenant (exempt tenant-wide)
 U_ADMIN_TFAC=4    # TFAC admin (exempt by tenant slug)
 U_SUPER=5         # super_admin (always exempt)
-U_GRANTEE_SELF=9  # grantee in a self_service tenant
+U_GRANTEE_SELF=9  # grantee in a subscription-gated self_service tenant (NOT exempt)
 
 pass=0
 fail=0
@@ -153,11 +155,13 @@ check "super_admin is exempt" \
   "$(psql_tx "SELECT is_membership_exempt(${U_SUPER});")" "t"
 check "TFAC admin is exempt (by tenant slug)" \
   "$(psql_tx "SELECT is_membership_exempt(${U_ADMIN_TFAC});")" "t"
+check "platform-root tenant grantee IS exempt (tenant-wide root exemption)" \
+  "$(psql_tx "SELECT is_membership_exempt(${U_GRANTEE_TFAC});")" "t"
 check "ordinary grantee in a subscription-gated tenant is NOT exempt" \
-  "$(psql_tx "SELECT is_membership_exempt(${U_GRANTEE_TFAC});")" "f"
+  "$(psql_tx "SELECT is_membership_exempt(${U_GRANTEE_SELF});")" "f"
 check "grantee becomes exempt once tenant require_subscription flips to false" \
-  "$(psql_tx "UPDATE tenant_settings SET require_subscription = false WHERE tenant_id = ${T_MANAGED};
-              SELECT is_membership_exempt(${U_GRANTEE_TFAC});")" "t"
+  "$(psql_tx "UPDATE tenant_settings SET require_subscription = false WHERE tenant_id = ${T_SELFSERVE};
+              SELECT is_membership_exempt(${U_GRANTEE_SELF});")" "t"
 
 echo "== notify_grant_submitted =="
 # Same AFTER-trigger visibility rule: insert the grant in one statement, then
