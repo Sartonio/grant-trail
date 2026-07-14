@@ -332,11 +332,11 @@ test.describe('Cross-role visibility', () => {
   });
 
   // ──────────────────────────────────────────────────────────────────────────
-  // 5. Admin approve/reject budget item + expense → grantee sees the badge
-  //    change + notification, and rejecting a budget item resets its expenses
+  // 5. Admin approve/decline budget item + expense → grantee sees the badge
+  //    change + notification, and declining a budget item resets its expenses
   //    to pending for the grantee (the cascade rule).
   // ──────────────────────────────────────────────────────────────────────────
-  test('admin approves/rejects budget items & expenses → grantee sees badge changes, notifications and the reject→expenses-reset cascade', async ({ supabase }) => {
+  test('admin approves/declines budget items & expenses → grantee sees badge changes, notifications and the decline→expenses-reset cascade', async ({ supabase }) => {
     const admin = ctx.adminPage;
     const granteeA = ctx.granteeAPage;
     const id = ctx.grantItems.id;
@@ -360,7 +360,7 @@ test.describe('Cross-role visibility', () => {
     await expApproveRow.locator('button.admin-approve-btn').first().click();
     await expApprovePromise;
 
-    // Reject the other budget item — this must cascade its (approved) expense
+    // Decline the other budget item — this must cascade its (approved) expense
     // back to pending. Wait on the expenses cascade PATCH explicitly.
     const biRejectBlock = admin.locator('.admin-bi-block', { hasText: ctx.biRejectName });
     const biRejectPromise = admin.waitForResponse(r =>
@@ -369,7 +369,7 @@ test.describe('Cross-role visibility', () => {
     const cascadePromise = admin.waitForResponse(r =>
       r.url().includes('expenses') && r.request().method() === 'PATCH' &&
       (r.status() === 200 || r.status() === 204));
-    await biRejectBlock.locator('button.admin-reject-btn').first().click();
+    await biRejectBlock.locator('button.admin-decline-btn').first().click();
     await biRejectPromise;
     await cascadePromise;
 
@@ -390,7 +390,7 @@ test.describe('Cross-role visibility', () => {
     await expect(granteeExpApproveRow.locator('.status-icon-approved')).toBeVisible();
 
     const granteeBiReject = granteeA.locator('.budget-item-block', { hasText: ctx.biRejectName });
-    await expect(granteeBiReject.locator('.status-icon-rejected').first()).toBeVisible();
+    await expect(granteeBiReject.locator('.status-icon-declined').first()).toBeVisible();
     // Its expense was reset to pending for the grantee (cascade).
     await granteeBiReject.locator('.budget-item-toggle').click();
     const granteeExpCascadeRow = granteeBiReject.locator('tr', { hasText: ctx.expCascadeName });
@@ -399,7 +399,7 @@ test.describe('Cross-role visibility', () => {
     // Notifications for the budget/expense decisions.
     await expectGranteeNotification(granteeA, 'Budget Item Approved');
     await expectGranteeNotification(granteeA, 'Expense Approved');
-    await expectGranteeNotification(granteeA, 'Budget Item Rejected');
+    await expectGranteeNotification(granteeA, 'Budget Item Declined');
   });
 
   // ──────────────────────────────────────────────────────────────────────────
