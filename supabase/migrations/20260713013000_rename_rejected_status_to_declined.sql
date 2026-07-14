@@ -38,9 +38,9 @@ BEGIN;
 -- ----------------------------------------------------------------------------
 -- 1. grant_record.status
 -- ----------------------------------------------------------------------------
-UPDATE public.grant_record SET status = 'declined' WHERE status = 'rejected';
-
 ALTER TABLE public.grant_record DROP CONSTRAINT IF EXISTS grant_record_status_check;
+
+UPDATE public.grant_record SET status = 'declined' WHERE status = 'rejected';
 ALTER TABLE public.grant_record
   ADD CONSTRAINT grant_record_status_check
   CHECK (((status)::text = ANY (ARRAY[
@@ -53,9 +53,9 @@ ALTER TABLE public.grant_record
 -- ----------------------------------------------------------------------------
 -- 2. budget_items.status
 -- ----------------------------------------------------------------------------
-UPDATE public.budget_items SET status = 'declined' WHERE status = 'rejected';
-
 ALTER TABLE public.budget_items DROP CONSTRAINT IF EXISTS budget_items_status_check;
+
+UPDATE public.budget_items SET status = 'declined' WHERE status = 'rejected';
 ALTER TABLE public.budget_items
   ADD CONSTRAINT budget_items_status_check
   CHECK (((status)::text = ANY (ARRAY[
@@ -67,9 +67,9 @@ ALTER TABLE public.budget_items
 -- ----------------------------------------------------------------------------
 -- 3. expenses.status
 -- ----------------------------------------------------------------------------
-UPDATE public.expenses SET status = 'declined' WHERE status = 'rejected';
-
 ALTER TABLE public.expenses DROP CONSTRAINT IF EXISTS expenses_status_check;
+
+UPDATE public.expenses SET status = 'declined' WHERE status = 'rejected';
 ALTER TABLE public.expenses
   ADD CONSTRAINT expenses_status_check
   CHECK (((status)::text = ANY (ARRAY[
@@ -81,9 +81,9 @@ ALTER TABLE public.expenses
 -- ----------------------------------------------------------------------------
 -- 4. fiscal_agent_listings.verification
 -- ----------------------------------------------------------------------------
-UPDATE public.fiscal_agent_listings SET verification = 'declined' WHERE verification = 'rejected';
-
 ALTER TABLE public.fiscal_agent_listings DROP CONSTRAINT IF EXISTS fiscal_agent_listings_verification_check;
+
+UPDATE public.fiscal_agent_listings SET verification = 'declined' WHERE verification = 'rejected';
 ALTER TABLE public.fiscal_agent_listings
   ADD CONSTRAINT fiscal_agent_listings_verification_check
   CHECK (((verification)::text = ANY (ARRAY[

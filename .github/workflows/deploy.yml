@@ -104,7 +104,10 @@ jobs:
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
         run: |
           set -euo pipefail
-          supabase db push --linked
+          # --include-all: branches merge out of timestamp order, so a migration
+          # can land with a timestamp earlier than one already applied on remote.
+          # Without this, db push refuses to insert it and the deploy fails.
+          supabase db push --linked --include-all
 
       # Values bound to env so they're not interpolated into the SQL/command
       # template by the runner (avoids the untrusted-input-into-command shape).
