@@ -182,7 +182,7 @@ SET status = 'needs_changes',
 WHERE grant_name = 'Technology Access Grant';
 
 UPDATE grant_record
-SET status = 'rejected',
+SET status = 'declined',
     reviewed_at = '2024-03-15',
     approval_notes = 'Marketing budget exceeds program guidelines. Insufficient detail on measurable outcomes. Unable to approve at this time.'
 WHERE grant_name = 'Mental Health Awareness Campaign';

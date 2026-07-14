@@ -44,7 +44,7 @@ button {
   color: var(--color-white);
 }
 
-.status.rejected {
+.status.declined {
   background-color: var(--color-error);
   color: var(--color-white);
 }

@@ -232,7 +232,7 @@ function ExpenseReports({ session }) {
             <option value="all">All Statuses</option>
             <option value="approved">Approved</option>
             <option value="pending">Pending</option>
-            <option value="rejected">Rejected</option>
+            <option value="declined">Declined</option>
           </select>
         </div>
 
@@ -348,8 +348,8 @@ function ExpenseReports({ session }) {
                           <FaClock />
                         </span>
                       )}
-                      {item.status === 'rejected' && (
-                        <span className="status-icon status-icon-rejected" title="Rejected">
+                      {item.status === 'declined' && (
+                        <span className="status-icon status-icon-declined" title="Declined">
                           <FaTimesCircle />
                         </span>
                       )}

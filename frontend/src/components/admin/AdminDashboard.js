@@ -48,7 +48,7 @@ function AdminDashboard({ session, readOnly = false }) {
           approved: byStatus['approved'] || 0,
           pending: byStatus['pending'] || 0,
           needsChanges: byStatus['needs_changes'] || 0,
-          rejected: byStatus['rejected'] || 0,
+          declined: byStatus['declined'] || 0,
           totalFunding,
           totalSpent,
           pendingBudgetItems: pendingBudgetItems || 0,
@@ -131,7 +131,7 @@ function AdminDashboard({ session, readOnly = false }) {
         </div>
       )}
 
-      {/* Stat cards — ordered: total grants, approved, pending, needs changes, rejected, total funding, total spent */}
+      {/* Stat cards — ordered: total grants, approved, pending, needs changes, declined, total funding, total spent */}
       <div className="admin-stat-grid">
         <Link to="/admin/grants" className="asc-card-link">
           <div className="admin-stat-card">
@@ -187,15 +187,15 @@ function AdminDashboard({ session, readOnly = false }) {
           </Link>
         )}
 
-        {stats.rejected > 0 && (
-          <Link to="/admin/grants?status=rejected" className="asc-card-link">
+        {stats.declined > 0 && (
+          <Link to="/admin/grants?status=declined" className="asc-card-link">
             <div className="admin-stat-card">
               <div className="asc-icon" style={{ background: 'linear-gradient(135deg, #EF4444 0%, #DC2626 100%)' }}>
                 <FiXCircle />
               </div>
               <div className="asc-body">
-                <span className="asc-value">{stats.rejected}</span>
-                <span className="asc-label">Rejected</span>
+                <span className="asc-value">{stats.declined}</span>
+                <span className="asc-label">Declined</span>
               </div>
             </div>
           </Link>
@@ -249,7 +249,7 @@ function AdminDashboard({ session, readOnly = false }) {
           { name: 'Approved',      value: stats.approved,      fill: '#10B981' },
           { name: 'Pending',       value: stats.pending,        fill: '#F59E0B' },
           { name: 'Needs Changes', value: stats.needsChanges,   fill: '#D97706' },
-          { name: 'Rejected',      value: stats.rejected,       fill: '#EF4444' },
+          { name: 'Declined',      value: stats.declined,       fill: '#EF4444' },
         ].filter(d => d.value > 0);
         const barHeight = Math.max(topGrantees.length * 50 + 60, 180);
         return (

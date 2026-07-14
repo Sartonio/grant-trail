@@ -28,7 +28,7 @@ function Main({ session }) {
     pending: 0,
     needsChanges: 0,
     approved: 0,
-    rejected: 0,
+    declined: 0,
     totalFunding: 0,
     totalDisbursed: 0,
     totalSpent: 0,
@@ -51,13 +51,13 @@ function Main({ session }) {
       const pending      = allGrants?.filter(g => g.status === 'pending').length ?? 0;
       const needsChanges = allGrants?.filter(g => g.status === 'needs_changes').length ?? 0;
       const approved     = allGrants?.filter(g => g.status === 'approved').length ?? 0;
-      const rejected     = allGrants?.filter(g => g.status === 'rejected').length ?? 0;
+      const declined     = allGrants?.filter(g => g.status === 'declined').length ?? 0;
       const totalFunding    = allGrants?.reduce((sum, g) => sum + Number(g.grant_amount || 0), 0) ?? 0;
       const totalDisbursed  = allGrants?.reduce((sum, g) => sum + Number(g.disbursed_funds || 0), 0) ?? 0;
       // total_spent on grant_record is trigger-maintained and counts only approved expenses
       const totalSpent      = allGrants?.reduce((sum, g) => sum + Number(g.total_spent || 0), 0) ?? 0;
 
-      // Pending/rejected expense total — query expenses directly
+      // Pending/declined expense total — query expenses directly
       const grantIds = allGrants?.map(g => g.id) || [];
       let totalPendingSpent = 0;
       if (grantIds.length > 0) {
@@ -65,7 +65,7 @@ function Main({ session }) {
         totalPendingSpent = (pendingExpenses || []).reduce((sum, e) => sum + Number(e.amount_spent || 0), 0);
       }
 
-      setStats({ totalGrants, pending, needsChanges, approved, rejected, totalFunding, totalDisbursed, totalSpent, totalPendingSpent });
+      setStats({ totalGrants, pending, needsChanges, approved, declined, totalFunding, totalDisbursed, totalSpent, totalPendingSpent });
 
       // Fetch recent grants
       const { data: grantsData } = await listRecentGrantsForUser(userId, 5);
@@ -145,11 +145,11 @@ function Main({ session }) {
           )}
           {session?.tenantConfig?.type !== 'self_service' && (
             <StatCard
-              title="Rejected"
-              value={stats.rejected}
+              title="Declined"
+              value={stats.declined}
               icon={<FaTimesCircle />}
               accentColor="#EF4444"
-              linkTo="/grants?status=rejected"
+              linkTo="/grants?status=declined"
               dimWhenZero
             />
           )}
@@ -175,7 +175,7 @@ function Main({ session }) {
           { name: 'Approved',      value: stats.approved,      fill: '#10B981' },
           { name: 'Pending',       value: stats.pending,        fill: '#F59E0B' },
           { name: 'Needs Changes', value: stats.needsChanges,   fill: '#D97706' },
-          { name: 'Rejected',      value: stats.rejected,       fill: '#EF4444' },
+          { name: 'Declined',      value: stats.declined,       fill: '#EF4444' },
         ].filter(d => d.value > 0);
         const fundingData = [
           { name: 'Total Funding',    value: stats.totalFunding,        fill: '#065F46' },

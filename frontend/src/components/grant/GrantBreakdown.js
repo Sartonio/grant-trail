@@ -292,7 +292,7 @@ function GrantBreakdown({ session }) {
                         <span className="budget-item-name">{bi.item_name}</span>
                         {session?.tenantConfig?.type !== 'self_service' && (() => {
                           const pendingCount = biExpenses.filter(e => e.status === 'pending').length;
-                          const rejectedCount = biExpenses.filter(e => e.status === 'rejected').length;
+                          const declinedCount = biExpenses.filter(e => e.status === 'declined').length;
                           return (
                             <>
                               {pendingCount > 0 && (
@@ -300,9 +300,9 @@ function GrantBreakdown({ session }) {
                                   {pendingCount} pending
                                 </span>
                               )}
-                              {rejectedCount > 0 && (
-                                <span className="bi-expense-indicator rejected" title={`${rejectedCount} rejected expense${rejectedCount > 1 ? 's' : ''}`}>
-                                  {rejectedCount} rejected
+                              {declinedCount > 0 && (
+                                <span className="bi-expense-indicator declined" title={`${declinedCount} declined expense${declinedCount > 1 ? 's' : ''}`}>
+                                  {declinedCount} declined
                                 </span>
                               )}
                             </>

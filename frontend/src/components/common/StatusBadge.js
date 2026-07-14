@@ -3,7 +3,7 @@ import { FaClock, FaCheckCircle, FaTimesCircle, FaExclamationTriangle } from 're
 const STATUS_ICONS = {
   pending:       FaClock,
   approved:      FaCheckCircle,
-  rejected:      FaTimesCircle,
+  declined:      FaTimesCircle,
   needs_changes: FaExclamationTriangle,
 };
 

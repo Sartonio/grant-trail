@@ -83,7 +83,7 @@
   border-color: #D97706;
 }
 
-.header-title .status-badge.status-rejected {
+.header-title .status-badge.status-declined {
   background: #EF4444;
   border-color: #DC2626;
 }
@@ -520,7 +520,7 @@
   color: #D97706;
 }
 
-.bi-expense-indicator.rejected {
+.bi-expense-indicator.declined {
   background: rgba(239, 68, 68, 0.15);
   color: #DC2626;
 }

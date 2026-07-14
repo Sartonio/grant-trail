@@ -234,7 +234,7 @@ export function OwnerListingPanel({ listing, completeness, status, onEdit, onTog
         ) : (
           <span className="fad-badge fad-badge-muted">
             {isPendingVerification
-              ? (listing.verification === 'rejected' ? 'Verification rejected' : 'Verification pending')
+              ? (listing.verification === 'declined' ? 'Verification declined' : 'Verification pending')
               : status === 'hidden' ? 'Hidden' : status === 'unlisted' ? 'Unlisted' : 'Draft'}
           </span>
         )}

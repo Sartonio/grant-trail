@@ -12,7 +12,7 @@ import { updateGrant } from '../../lib/data/grants';
 const ACTION_LABEL = {
   approve: 'Approve',
   changes: 'Request Changes',
-  reject:  'Reject',
+  decline: 'Decline',
 };
 
 /**
@@ -65,7 +65,7 @@ export default function ReviewSidebar({ grant, id, session, guardWrite, reload, 
     setActionError('');
 
     try {
-      const statusMap = { approve: 'approved', changes: 'needs_changes', reject: 'rejected' };
+      const statusMap = { approve: 'approved', changes: 'needs_changes', decline: 'declined' };
       const newStatus = statusMap[selectedAction];
 
       const updates = {
@@ -82,7 +82,7 @@ export default function ReviewSidebar({ grant, id, session, guardWrite, reload, 
       const successMsg =
         newStatus === 'needs_changes' ? 'Grant returned for changes.' :
         newStatus === 'approved'      ? 'Grant approved.' :
-        'Grant rejected.';
+        'Grant declined.';
       setActionSuccess(successMsg);
       setSelectedAction('');
       setNotes('');
@@ -161,10 +161,10 @@ export default function ReviewSidebar({ grant, id, session, guardWrite, reload, 
             <FiAlertTriangle /> Request Changes
           </button>
           <button
-            className={`action-btn reject${selectedAction === 'reject' ? ' selected' : ''}`}
-            onClick={() => toggleAction('reject')}
+            className={`action-btn decline${selectedAction === 'decline' ? ' selected' : ''}`}
+            onClick={() => toggleAction('decline')}
           >
-            <FiXCircle /> Reject
+            <FiXCircle /> Decline
           </button>
         </div>
 
@@ -177,7 +177,7 @@ export default function ReviewSidebar({ grant, id, session, guardWrite, reload, 
                 placeholder={
                   selectedAction === 'approve'
                     ? 'Add approval notes…'
-                    : 'Explain what needs to change or why the grant is being rejected…'
+                    : 'Explain what needs to change or why the grant is being declined…'
                 }
                 value={notes}
                 onChange={e => setNotes(e.target.value)}

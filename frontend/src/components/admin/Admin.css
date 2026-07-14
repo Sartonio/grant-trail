@@ -634,14 +634,14 @@
   border-color: #F59E0B;
 }
 
-.action-btn.reject {
+.action-btn.decline {
   background: rgba(239, 68, 68, 0.1);
   color: var(--color-error);
   border-color: rgba(239, 68, 68, 0.3);
 }
 
-.action-btn.reject:hover,
-.action-btn.reject.selected {
+.action-btn.decline:hover,
+.action-btn.decline.selected {
   background: var(--color-error);
   color: var(--color-white);
   border-color: var(--color-error);
@@ -743,8 +743,8 @@
 .action-submit-btn.approve:hover { background: #059669; }
 .action-submit-btn.needs_changes      { background: #F59E0B; color: var(--color-black); }
 .action-submit-btn.needs_changes:hover { background: #D97706; color: var(--color-black); }
-.action-submit-btn.reject       { background: var(--color-error); }
-.action-submit-btn.reject:hover  { background: #DC2626; }
+.action-submit-btn.decline       { background: var(--color-error); }
+.action-submit-btn.decline:hover  { background: #DC2626; }
 .action-submit-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
 /* ----------------------------------------
@@ -1066,7 +1066,7 @@
   font-size: 0.78rem;
 }
 
-.admin-reject-btn {
+.admin-decline-btn {
   display: inline-flex;
   align-items: center;
   gap: 0.3em;
@@ -1081,16 +1081,16 @@
   transition: background 0.15s;
 }
 
-.admin-reject-btn:hover:not(:disabled) {
+.admin-decline-btn:hover:not(:disabled) {
   background: #FECACA;
 }
 
-.admin-reject-btn:disabled {
+.admin-decline-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
-.admin-reject-btn.small {
+.admin-decline-btn.small {
   padding: 0.25em 0.6em;
   font-size: 0.78rem;
 }

@@ -16,7 +16,7 @@ const TABS = [
   { key: 'approved',      label: 'Approved' },
   { key: 'pending',       label: 'Pending' },
   { key: 'needs_changes', label: 'Needs Changes' },
-  { key: 'rejected',      label: 'Rejected' },
+  { key: 'declined',      label: 'Declined' },
 ];
 
 function AdminGrantList({ readOnly = false }) {
