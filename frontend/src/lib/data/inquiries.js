@@ -1,5 +1,8 @@
 // Data-access for sponsorship_inquiries (charity directory inbox).
 import { supabase } from '../../supabaseClient';
+import { createEntityData } from './_factory';
+
+const inquiries = createEntityData('sponsorship_inquiries');
 
 /**
  * Accept a sponsorship inquiry via the `accept_sponsorship_inquiry` RPC.
@@ -25,7 +28,7 @@ export const acceptSponsorshipInquiry = (inquiryId) =>
  * @param {'new'|'reviewing'|'declined'|'waitlisted'} status
  */
 export const updateInquiryStatus = (inquiryId, status) =>
-  supabase.from('sponsorship_inquiries').update({ status }).eq('id', Number(inquiryId));
+  inquiries.updateBy('id', Number(inquiryId), { status });
 
 /**
  * Seeker-submitted sponsorship application for a listing. Returns the new row's
@@ -33,14 +36,11 @@ export const updateInquiryStatus = (inquiryId, status) =>
  *
  * @param {{ listing_id: number, project: string, contact: string, message: string }} inquiry
  */
-export const insertInquiry = (inquiry) =>
-  supabase.from('sponsorship_inquiries').insert(inquiry).select('id').single();
+export const insertInquiry = (inquiry) => inquiries.insert(inquiry).select('id').single();
 
 // Inquiries for a listing, newest first (owner sponsorship inbox).
 /** @param {number|string} listingId */
 export const listInquiriesForListing = (listingId) =>
-  supabase
-    .from('sponsorship_inquiries')
-    .select('*')
-    .eq('listing_id', Number(listingId))
-    .order('submitted_at', { ascending: false });
+  inquiries.listBy('listing_id', Number(listingId), {
+    order: ['submitted_at', { ascending: false }],
+  });

@@ -1,41 +1,40 @@
 // Data-access for the budget_items table (modularity.md, Phase 2).
-import { supabase } from '../../supabaseClient';
+import { createEntityData } from './_factory';
 /** @typedef {import('../types').BudgetItemRow} BudgetItemRow */
 /** @typedef {import('../types').BudgetItemInsert} BudgetItemInsert */
 /** @typedef {import('../types').BudgetItemUpdate} BudgetItemUpdate */
 
+const budgetItems = createEntityData('budget_items');
+const expenses = createEntityData('expenses');
+
 /** @param {number} grantId */
 export const listBudgetItems = (grantId) =>
-  supabase.from('budget_items').select('*').eq('grant_id', grantId).order('id');
+  budgetItems.listBy('grant_id', grantId, { order: ['id'] });
 
 // Count of pending budget items across the tenant (admin dashboard tile).
-export const countPendingBudgetItems = () =>
-  supabase.from('budget_items').select('id', { count: 'exact', head: true }).eq('status', 'pending');
+export const countPendingBudgetItems = () => budgetItems.countBy('status', 'pending');
 
 // tenant_id is filled server-side (trigger/default) — callers don't set it.
 /** @param {Omit<BudgetItemInsert, 'tenant_id'>} item */
-export const insertBudgetItem = (item) =>
-  supabase.from('budget_items').insert([item]).select();
+export const insertBudgetItem = (item) => budgetItems.insert([item]).select();
 
 /** @param {number} id @param {BudgetItemUpdate} updates */
-export const updateBudgetItem = (id, updates) =>
-  supabase.from('budget_items').update(updates).eq('id', id).select();
+export const updateBudgetItem = (id, updates) => budgetItems.updateBy('id', id, updates).select();
 
 /** @param {number[]} grantIds */
-export const listBudgetItemsForGrants = (grantIds) =>
-  supabase.from('budget_items').select('*').in('grant_id', grantIds);
+export const listBudgetItemsForGrants = (grantIds) => budgetItems.listIn('grant_id', grantIds);
 
 /** @param {number} id */
-export const deleteBudgetItem = (id) => supabase.from('budget_items').delete().eq('id', id);
+export const deleteBudgetItem = (id) => budgetItems.deleteBy('id', id);
 
 // Narrow projections used to build pending-count maps on grant list pages.
 /** @param {number[]} grantIds */
 export const listPendingBudgetItemGrantIds = (grantIds) =>
-  supabase.from('budget_items').select('grant_id').in('grant_id', grantIds).eq('status', 'pending');
+  budgetItems.listIn('grant_id', grantIds, { select: 'grant_id' }).eq('status', 'pending');
 
 /** @param {number[]} grantIds */
 export const listUnapprovedBudgetItemGrantIds = (grantIds) =>
-  supabase.from('budget_items').select('grant_id').in('grant_id', grantIds).neq('status', 'approved');
+  budgetItems.listIn('grant_id', grantIds, { select: 'grant_id' }).neq('status', 'approved');
 
 // Approve/decline a budget item. Throws on a zero-row update (RLS dropped it),
 // preserving the inline error message. When a budget item is declined, its
@@ -47,17 +46,9 @@ export const listUnapprovedBudgetItemGrantIds = (grantIds) =>
  * @returns {Promise<BudgetItemRow[]>}
  */
 export async function setBudgetItemStatus(id, status) {
-  const { data, error } = await supabase
-    .from('budget_items')
-    .update({ status })
-    .eq('id', id)
-    .select();
-  if (error) throw error;
-  if (!data || data.length === 0) {
-    throw new Error('Update was not applied — check RLS policies for budget_items.');
-  }
+  const data = await budgetItems.setStatus(id, /** @type {string} */ (status));
   if (status === 'declined') {
-    await supabase.from('expenses').update({ status: 'pending' }).eq('budget_item_id', id);
+    await expenses.updateBy('budget_item_id', id, { status: 'pending' });
   }
   return data;
 }

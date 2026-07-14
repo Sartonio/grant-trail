@@ -1,14 +1,14 @@
 // Data-access for the notifications table (notification bell dropdown).
-import { supabase } from '../../supabaseClient';
+import { createEntityData } from './_factory';
+
+const notifications = createEntityData('notifications');
 
 /** @param {number} id */
-export const markNotificationRead = (id) =>
-  supabase.from('notifications').update({ is_read: true }).eq('id', id);
+export const markNotificationRead = (id) => notifications.updateBy('id', id, { is_read: true });
 
 /** @param {number[]} ids */
 export const markNotificationsRead = (ids) =>
-  supabase.from('notifications').update({ is_read: true }).in('id', ids);
+  notifications.updateIn('id', ids, { is_read: true });
 
 /** @param {number[]} ids */
-export const deleteNotifications = (ids) =>
-  supabase.from('notifications').delete().in('id', ids);
+export const deleteNotifications = (ids) => notifications.deleteIn('id', ids);
