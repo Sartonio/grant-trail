@@ -1,2 +1,8 @@
 {"ts":"2026-07-14T06:38:54.986Z","kind":"scope-set","add":false,"args":["scripts"],"matchedModules":[],"fallbacks":["scripts/**"],"branch":"deno-gates"}
 {"ts":"2026-07-14T06:38:55.228Z","kind":"scope-set","add":false,"args":["package.json"],"matchedModules":[],"fallbacks":["package.json"],"branch":"deno-gates"}
+{"ts":"2026-07-14T06:53:15.112Z","kind":"scope-set","add":false,"args":["frontend/src/lib"],"matchedModules":[],"fallbacks":["frontend/src/lib/**"],"branch":"strict-lib"}
+{"ts":"2026-07-14T06:53:15.352Z","kind":"scope-set","add":true,"args":["frontend/src/hooks"],"matchedModules":[],"fallbacks":["frontend/src/hooks/**"],"branch":"strict-lib"}
+{"ts":"2026-07-14T06:53:15.612Z","kind":"scope-set","add":true,"args":["frontend/src/supabaseClient.js"],"matchedModules":[],"fallbacks":["frontend/src/supabaseClient.js"],"branch":"strict-lib"}
+{"ts":"2026-07-14T06:53:15.850Z","kind":"scope-set","add":true,"args":["frontend/tsconfig.strict.json"],"matchedModules":[],"fallbacks":["frontend/tsconfig.strict.json"],"branch":"strict-lib"}
+{"ts":"2026-07-14T06:53:16.078Z","kind":"scope-set","add":true,"args":["frontend/package.json"],"matchedModules":[],"fallbacks":["frontend/package.json"],"branch":"strict-lib"}
+{"ts":"2026-07-14T06:53:16.325Z","kind":"scope-set","add":true,"args":["frontend/src/types"],"matchedModules":[],"fallbacks":["frontend/src/types/**"],"branch":"strict-lib"}

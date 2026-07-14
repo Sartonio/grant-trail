@@ -1,4 +1,4 @@
-import { supabase } from '../supabaseClient';
+import { supabase } from "../supabaseClient";
 
 // Fetch a single invite by its token via the `get_invite_by_token` RPC.
 //
@@ -9,10 +9,11 @@ import { supabase } from '../supabaseClient';
 // Returns the invite shaped like the old `select('*, tenants(name)')` result
 // (so callers keep using `invite.tenants?.name`), or null if not found.
 // On error, returns { data: null, error }.
+/** @param {string|null|undefined} token */
 export async function getInviteByToken(token) {
   if (!token) return { data: null, error: null };
 
-  const { data, error } = await supabase.rpc('get_invite_by_token', {
+  const { data, error } = await supabase.rpc("get_invite_by_token", {
     p_token: token,
   });
 
@@ -37,6 +38,15 @@ export async function getInviteByToken(token) {
 // old direct `users` upsert trusted a client-supplied `role`.
 //
 // Returns { data: <created user row>, error }.
+/**
+ * @param {Object} args
+ * @param {string} args.token
+ * @param {string} args.firstname
+ * @param {string} args.lastname
+ * @param {string} args.organization
+ * @param {string} args.phone
+ * @param {number|null} [args.taxMonth]
+ */
 export async function registerInvitedUser({
   token,
   firstname,
@@ -45,7 +55,7 @@ export async function registerInvitedUser({
   phone,
   taxMonth,
 }) {
-  const { data, error } = await supabase.rpc('register_invited_user', {
+  const { data, error } = await supabase.rpc("register_invited_user", {
     p_token: token,
     p_firstname: firstname,
     p_lastname: lastname,
@@ -66,8 +76,9 @@ export async function registerInvitedUser({
 // it is not already used, and only when `userId === auth.uid()`.
 //
 // Returns { data: <boolean whether a row was consumed>, error }.
+/** @param {string} token @param {string} userId */
 export async function consumeInvite(token, userId) {
-  const { data, error } = await supabase.rpc('consume_invite', {
+  const { data, error } = await supabase.rpc("consume_invite", {
     p_token: token,
     p_user_id: userId,
   });

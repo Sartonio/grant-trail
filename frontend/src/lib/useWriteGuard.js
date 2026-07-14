@@ -14,10 +14,11 @@
 // Returns a stable function: calling it returns true when the write is allowed,
 // or false (after navigating to the billing nudge) when it must be blocked.
 
-import { useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { canMutate, BILLING_NUDGE_PATH } from './policy';
+import { useCallback } from "react";
+import { useNavigate } from "react-router-dom";
+import { canMutate, BILLING_NUDGE_PATH } from "./policy";
 
+/** @param {import('./types').Session|null} [session] */
 export function useWriteGuard(session) {
   const navigate = useNavigate();
   return useCallback(() => {

@@ -1,5 +1,8 @@
-import * as Sentry from '@sentry/react';
-import { fetchMembershipStatus, syncMembershipFromStripe } from '../lib/billing';
+import * as Sentry from "@sentry/react";
+import {
+  fetchMembershipStatus,
+  syncMembershipFromStripe,
+} from "../lib/billing";
 
 // No user record yet, or a role-exempt user (super_admin): passes every gate.
 const EXEMPT_MEMBERSHIP = {
@@ -25,11 +28,19 @@ const RESTRICTED_MEMBERSHIP = {
 // user record (super_admins are exempt); `refreshMembership` syncs from Stripe and
 // updates the session in place. Session ownership stays in App — the hook closes
 // over the passed-in `session` / `setSession`.
+/** @typedef {import('../lib/types').Session} Session */
+/** @typedef {import('../lib/types').UserRecord} UserRecord */
+
+/**
+ * @param {Session|null} session
+ * @param {import('react').Dispatch<import('react').SetStateAction<Session|null>>} setSession
+ */
 export function useMembership(session, setSession) {
   // super_admins are exempt, while grantees and some admins can require billing.
+  /** @param {UserRecord|null|undefined} userRecord */
   async function loadMembershipStatus(userRecord) {
     if (!userRecord) return EXEMPT_MEMBERSHIP;
-    if (userRecord.role === 'super_admin') return EXEMPT_MEMBERSHIP;
+    if (userRecord.role === "super_admin") return EXEMPT_MEMBERSHIP;
     try {
       return await fetchMembershipStatus();
     } catch (_error) {
@@ -38,13 +49,16 @@ export function useMembership(session, setSession) {
   }
 
   async function refreshMembership() {
-    if (!session?.userRecord || session.userRecord.role === 'super_admin') return;
+    if (!session?.userRecord || session.userRecord.role === "super_admin")
+      return;
     try {
       await syncMembershipFromStripe();
       const membership = await fetchMembershipStatus();
-      setSession(prev => (prev ? { ...prev, membership: { ...membership } } : prev));
+      setSession((prev) =>
+        prev ? { ...prev, membership: { ...membership } } : prev,
+      );
     } catch (err) {
-      console.error('Failed to refresh membership:', err);
+      console.error("Failed to refresh membership:", err);
       Sentry.captureException(err);
     }
   }

@@ -17,8 +17,8 @@
 /** @typedef {import('./types').Session} Session */
 /** @typedef {import('./types').Role} Role */
 
-import React from 'react';
-import { Navigate } from 'react-router-dom';
+import React from "react";
+import { Navigate } from "react-router-dom";
 import {
   ROLES,
   BILLING_NUDGE_PATH,
@@ -26,7 +26,7 @@ import {
   isAuthenticated,
   needsSubscription,
   isReadOnlyAdmin,
-} from './policy';
+} from "./policy";
 
 // Where an unpaid grantee is sent: the same billing nudge as everyone else.
 // Aliased to policy's BILLING_NUDGE_PATH so the path lives in one place.
@@ -47,32 +47,41 @@ export const GRANTEE_BILLING_REDIRECT = BILLING_NUDGE_PATH;
 //   - 'redirect' -> unpaid user redirected (grantee routes)
 //   - 'readOnly' -> route renders; lapsed admin gets read-only (no redirect)
 /**
- * @param {Session} session
+ * @param {Session|null|undefined} session
  * @param {Object} options
  * @param {Role|'authenticated'} [options.requireRole]
- * @param {string|((session: Session) => string)} [options.roleRedirect]
+ * @param {string|((session: Session|null|undefined) => string)} [options.roleRedirect]
  * @param {'none'|'redirect'|'readOnly'} [options.billingMode]
  * @param {string} [options.billingRedirect]
- * @returns {{ redirect: string|null, readOnly?: boolean }}
+ * @returns {{ redirect: string|null|undefined, readOnly?: boolean }}
  */
-export function resolveGuard(session, { requireRole, roleRedirect, billingMode = 'none', billingRedirect = GRANTEE_BILLING_REDIRECT }) {
+export function resolveGuard(
+  session,
+  {
+    requireRole,
+    roleRedirect,
+    billingMode = "none",
+    billingRedirect = GRANTEE_BILLING_REDIRECT,
+  },
+) {
   const resolveRoleRedirect = () =>
-    typeof roleRedirect === 'function' ? roleRedirect(session) : roleRedirect;
+    typeof roleRedirect === "function" ? roleRedirect(session) : roleRedirect;
 
   // --- Role axis ---
-  if (requireRole === 'authenticated') {
+  if (requireRole === "authenticated") {
     if (!isAuthenticated(session)) return { redirect: resolveRoleRedirect() };
   } else if (requireRole) {
-    if (getRole(session) !== requireRole) return { redirect: resolveRoleRedirect() };
+    if (getRole(session) !== requireRole)
+      return { redirect: resolveRoleRedirect() };
   }
 
   // --- Billing axis ---
-  if (billingMode === 'redirect' && needsSubscription(session)) {
+  if (billingMode === "redirect" && needsSubscription(session)) {
     return { redirect: billingRedirect };
   }
 
   // readOnly mode never redirects on billing; the route renders read-only.
-  const readOnly = billingMode === 'readOnly' && isReadOnlyAdmin(session);
+  const readOnly = billingMode === "readOnly" && isReadOnlyAdmin(session);
   return { redirect: null, readOnly };
 }
 
@@ -83,12 +92,19 @@ export function resolveGuard(session, { requireRole, roleRedirect, billingMode =
  * @param {Object} props
  * @param {Session} [props.session]
  * @param {Role|'authenticated'} [props.requireRole]
- * @param {string|((session: Session) => string)} [props.roleRedirect]
+ * @param {string|((session: Session|null|undefined) => string)} [props.roleRedirect]
  * @param {'none'|'redirect'|'readOnly'} [props.billingMode]
  * @param {string} [props.billingRedirect]
  * @param {React.ReactNode} props.children
  */
-export function Guard({ session, requireRole, roleRedirect, billingMode, billingRedirect, children }) {
+export function Guard({
+  session,
+  requireRole,
+  roleRedirect,
+  billingMode,
+  billingRedirect,
+  children,
+}) {
   const { redirect, readOnly } = resolveGuard(session, {
     requireRole,
     roleRedirect,
@@ -99,7 +115,10 @@ export function Guard({ session, requireRole, roleRedirect, billingMode, billing
   if (redirect) return <Navigate to={redirect} />;
 
   if (readOnly && React.isValidElement(children)) {
-    return React.cloneElement(children, { readOnly: true });
+    return React.cloneElement(
+      /** @type {React.ReactElement<{ readOnly?: boolean }>} */ (children),
+      { readOnly: true },
+    );
   }
   return children;
 }

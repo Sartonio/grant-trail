@@ -22,16 +22,16 @@
 
 /** @type {{ SUPER_ADMIN: Role, ADMIN: Role, GRANTEE: Role }} */
 export const ROLES = {
-  SUPER_ADMIN: 'super_admin',
-  ADMIN: 'admin',
-  GRANTEE: 'grantee',
+  SUPER_ADMIN: "super_admin",
+  ADMIN: "admin",
+  GRANTEE: "grantee",
 };
 
 // Where unpaid-but-authenticated users are nudged to pay.
-export const BILLING_NUDGE_PATH = '/subscription';
+export const BILLING_NUDGE_PATH = "/subscription";
 
 /**
- * @param {Session} [session]
+ * @param {Session|null} [session]
  * @returns {Role|null}
  */
 export function getRole(session) {
@@ -39,7 +39,7 @@ export function getRole(session) {
 }
 
 /**
- * @param {Session} [session]
+ * @param {Session|null} [session]
  * @returns {boolean}
  */
 export function isAuthenticated(session) {
@@ -57,7 +57,7 @@ export function isAuthenticated(session) {
 // This is the single subscription decision; it replaces the copy that used to
 // live in both App.js and lib/billing.js:hasRequiredSubscription.
 /**
- * @param {Session} [session]
+ * @param {Session|null} [session]
  * @returns {boolean}
  */
 export function hasRequiredSubscription(session) {
@@ -65,7 +65,9 @@ export function hasRequiredSubscription(session) {
   if (!role) return false;
   if (role === ROLES.SUPER_ADMIN) return true;
   if (role === ROLES.ADMIN) {
-    return !!session?.membership?.isExempt || !!session?.membership?.hasPremiumAccess;
+    return (
+      !!session?.membership?.isExempt || !!session?.membership?.hasPremiumAccess
+    );
   }
   return !!session?.membership?.hasBasicAccess;
 }
@@ -73,7 +75,7 @@ export function hasRequiredSubscription(session) {
 // True when an authenticated, non-super_admin user is missing the subscription
 // their role requires (i.e. should be nudged to pay).
 /**
- * @param {Session} [session]
+ * @param {Session|null} [session]
  * @returns {boolean}
  */
 export function needsSubscription(session) {
@@ -92,7 +94,7 @@ export function needsSubscription(session) {
 //   - Admin with required subscription (or exempt/waived): can mutate.
 //   - Lapsed admin (no premium, not exempt): read-only -> cannot mutate.
 /**
- * @param {Session} [session]
+ * @param {Session|null} [session]
  * @returns {boolean}
  */
 export function canMutate(session) {
@@ -102,7 +104,7 @@ export function canMutate(session) {
 
 // Convenience inverse for components: is this admin in read-only (lapsed) mode?
 /**
- * @param {Session} [session]
+ * @param {Session|null} [session]
  * @returns {boolean}
  */
 export function isReadOnlyAdmin(session) {
@@ -125,17 +127,14 @@ export function isReadOnlyAdmin(session) {
 // owners still see their OWN listing via RLS; browsing the directory is part of
 // the basic product.)
 /**
- * @param {Session} [session]
+ * @param {Session|null} [session]
  * @returns {boolean}
  */
 export function canViewDirectory(session) {
   if (getRole(session) === ROLES.SUPER_ADMIN) return true;
   const membership = session?.membership;
   if (!membership) return false;
-  return (
-    !!membership.isExempt ||
-    !!membership.hasBasicAccess
-  );
+  return !!membership.isExempt || !!membership.hasBasicAccess;
 }
 
 // Manage gate: can this session manage their tenant's listing? Listings are
@@ -146,7 +145,7 @@ export function canViewDirectory(session) {
 // rights on top of this still defer to the read-only-admin lapse policy via
 // `canMutate` / `useWriteGuard`.
 /**
- * @param {Session} [session]
+ * @param {Session|null} [session]
  * @returns {boolean}
  */
 export function canOwnListing(session) {

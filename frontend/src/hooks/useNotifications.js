@@ -1,10 +1,16 @@
-import { useEffect, useState } from 'react';
-import { supabase } from '../supabaseClient';
+import { useEffect, useState } from "react";
+import { supabase } from "../supabaseClient";
 
 // Notifications state + realtime subscription. Fetches the latest notifications
 // for the current session's user and subscribes to INSERTs in realtime.
+/** @typedef {import('../lib/types').Session} Session */
+/** @typedef {import('../lib/database.types').Database['public']['Tables']['notifications']['Row']} NotificationRow */
+
+/** @param {Session|null} [session] */
 export function useNotifications(session) {
-  const [notifications, setNotifications] = useState([]);
+  const [notifications, setNotifications] = useState(
+    /** @type {NotificationRow[]} */ ([]),
+  );
 
   useEffect(() => {
     if (!session?.userRecord) {
@@ -16,10 +22,10 @@ export function useNotifications(session) {
 
     async function fetchNotifications() {
       const { data } = await supabase
-        .from('notifications')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false })
+        .from("notifications")
+        .select("*")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false })
         .limit(50);
       setNotifications(data || []);
     }
@@ -28,13 +34,21 @@ export function useNotifications(session) {
 
     // Subscribe to new notifications in realtime
     const channel = supabase
-      .channel('user-notifications')
+      .channel("user-notifications")
       .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` },
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "notifications",
+          filter: `user_id=eq.${userId}`,
+        },
         (payload) => {
-          setNotifications(prev => [payload.new, ...prev]);
-        }
+          setNotifications((prev) => [
+            /** @type {NotificationRow} */ (payload.new),
+            ...prev,
+          ]);
+        },
       )
       .subscribe();
 
@@ -43,14 +57,15 @@ export function useNotifications(session) {
     };
   }, [session]);
 
+  /** @param {number} notificationId */
   function handleMarkRead(notificationId) {
-    setNotifications(prev =>
-      prev.map(n => n.id === notificationId ? { ...n, is_read: true } : n)
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === notificationId ? { ...n, is_read: true } : n)),
     );
   }
 
   function handleMarkAllRead() {
-    setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+    setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
   }
 
   function handleClearAll() {
