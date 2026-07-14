@@ -65,7 +65,7 @@ export const listPendingListings = () =>
 // the `verification` string (both are read across the fiscal-agent surfaces).
 /**
  * @param {number} id
- * @param {'verified' | 'rejected'} verification
+ * @param {'verified' | 'declined'} verification
  */
 export const setListingVerification = (id, verification) =>
   supabase

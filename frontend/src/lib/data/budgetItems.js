@@ -37,8 +37,8 @@ export const listPendingBudgetItemGrantIds = (grantIds) =>
 export const listUnapprovedBudgetItemGrantIds = (grantIds) =>
   supabase.from('budget_items').select('grant_id').in('grant_id', grantIds).neq('status', 'approved');
 
-// Approve/reject a budget item. Throws on a zero-row update (RLS dropped it),
-// preserving the inline error message. When a budget item is rejected, its
+// Approve/decline a budget item. Throws on a zero-row update (RLS dropped it),
+// preserving the inline error message. When a budget item is declined, its
 // linked expenses are reset to 'pending' so an admin handles them individually
 // — that cascade lived in a JSX handler before; it now lives here, in one place.
 /**
@@ -56,7 +56,7 @@ export async function setBudgetItemStatus(id, status) {
   if (!data || data.length === 0) {
     throw new Error('Update was not applied — check RLS policies for budget_items.');
   }
-  if (status === 'rejected') {
+  if (status === 'declined') {
     await supabase.from('expenses').update({ status: 'pending' }).eq('budget_item_id', id);
   }
   return data;

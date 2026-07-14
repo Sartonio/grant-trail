@@ -43,17 +43,17 @@ export default function BudgetExpenseReview({
     }
   };
 
-  const handleRejectBudgetItem = async (item) => {
+  const handleDeclineBudgetItem = async (item) => {
     if (!guardWrite()) return;
-    if (!window.confirm('Reject this budget item? All linked expenses will be reset to pending.')) return;
+    if (!window.confirm('Decline this budget item? All linked expenses will be reset to pending.')) return;
     setApprovalLoading(`bi-${item.id}`);
     setApprovalError('');
     try {
-      // Reject + cascade (linked expenses → pending) lives in setBudgetItemStatus.
-      await setBudgetItemStatus(item.id, 'rejected');
+      // Decline + cascade (linked expenses → pending) lives in setBudgetItemStatus.
+      await setBudgetItemStatus(item.id, 'declined');
       await reload(true);
     } catch (err) {
-      setApprovalError(`Failed to reject budget item: ${err.message}`);
+      setApprovalError(`Failed to decline budget item: ${err.message}`);
     } finally {
       setApprovalLoading(null);
     }
@@ -73,15 +73,15 @@ export default function BudgetExpenseReview({
     }
   };
 
-  const handleRejectExpense = async (exp) => {
+  const handleDeclineExpense = async (exp) => {
     if (!guardWrite()) return;
     setApprovalLoading(`exp-${exp.id}`);
     setApprovalError('');
     try {
-      await setExpenseStatus(exp.id, 'rejected');
+      await setExpenseStatus(exp.id, 'declined');
       await reload(true);
     } catch (err) {
-      setApprovalError(`Failed to reject expense: ${err.message}`);
+      setApprovalError(`Failed to decline expense: ${err.message}`);
     } finally {
       setApprovalLoading(null);
     }
@@ -138,11 +138,11 @@ export default function BudgetExpenseReview({
                       <FiCheckCircle /> {isBiLoading ? 'Saving…' : 'Approve'}
                     </button>
                     <button
-                      className="admin-reject-btn"
-                      onClick={() => handleRejectBudgetItem(bi)}
+                      className="admin-decline-btn"
+                      onClick={() => handleDeclineBudgetItem(bi)}
                       disabled={isBiLoading}
                     >
-                      <FiXCircle /> Reject
+                      <FiXCircle /> Decline
                     </button>
                   </div>
                 </div>
@@ -181,11 +181,11 @@ export default function BudgetExpenseReview({
                                         <FiCheckCircle /> {isExpLoading ? '…' : 'Approve'}
                                       </button>
                                       <button
-                                        className="admin-reject-btn small"
-                                        onClick={() => handleRejectExpense(exp)}
+                                        className="admin-decline-btn small"
+                                        onClick={() => handleDeclineExpense(exp)}
                                         disabled={isExpLoading}
                                       >
-                                        <FiXCircle /> Reject
+                                        <FiXCircle /> Decline
                                       </button>
                                     </div>
                                   )}

@@ -1,7 +1,7 @@
 // Super-admin surface for verifying new Fiscal Agent listings. A listing only
 // appears in the public directory once status='published' AND verification=
 // 'verified'; owners can publish but cannot self-verify, so this is where a
-// platform super admin approves (or rejects) the 501(c)(3) status.
+// platform super admin approves (or declines) the 501(c)(3) status.
 import React, { useState, useEffect } from 'react';
 import { FiShield, FiCheckCircle, FiXCircle } from 'react-icons/fi';
 import { fmtDate } from '../../lib/format';
@@ -88,9 +88,9 @@ function AdminListingVerification() {
                     <button
                       className="user-action-btn disable"
                       disabled={saving === l.id}
-                      onClick={() => handleSetVerification(l, 'rejected')}
+                      onClick={() => handleSetVerification(l, 'declined')}
                     >
-                      <FiXCircle size={13} /> Reject
+                      <FiXCircle size={13} /> Decline
                     </button>
                   </td>
                 </tr>

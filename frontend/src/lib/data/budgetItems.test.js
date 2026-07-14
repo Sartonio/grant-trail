@@ -26,8 +26,8 @@ beforeEach(() => {
 });
 
 describe('setBudgetItemStatus', () => {
-  it('rejecting cascades a pending-reset to the expenses table', async () => {
-    await setBudgetItemStatus(1, 'rejected');
+  it('declining cascades a pending-reset to the expenses table', async () => {
+    await setBudgetItemStatus(1, 'declined');
     expect(calls.tables).toEqual(['budget_items', 'expenses']);
   });
 

@@ -6,7 +6,7 @@ import { listReceiptsByGrant } from '../lib/data/receipts';
 import { getGrantee, listGrantStatusHistory, listGrantComments, addGrantComment } from '../lib/data/grantReview';
 
 // Load state for AdminGrantReview: the grant + grantee + status history +
-// comments + budget items/expenses/receipts. Mutations (approve/reject,
+// comments + budget items/expenses/receipts. Mutations (approve/decline,
 // disbursed funds, etc.) stay in the component since they go through
 // useWriteGuard there; this hook owns the read side plus the one
 // comment-post affordance the page needs (modularity.md, Phase 3).

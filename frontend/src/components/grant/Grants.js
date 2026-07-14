@@ -79,7 +79,7 @@ function Grants({ session }) {
     totalSpent: grants.reduce((sum, g) => sum + (g.total_spent || 0), 0),
     pendingGrants: grants.filter(g => g.status?.toLowerCase() === 'pending').length,
     needsChangesGrants: grants.filter(g => g.status?.toLowerCase() === 'needs_changes').length,
-    rejectedGrants: grants.filter(g => g.status?.toLowerCase() === 'rejected').length,
+    declinedGrants: grants.filter(g => g.status?.toLowerCase() === 'declined').length,
   };
 
   return (
@@ -121,13 +121,13 @@ function Grants({ session }) {
             </div>
           </>
         )}
-        {stats.rejectedGrants > 0 && (
+        {stats.declinedGrants > 0 && (
           <>
             <span className="chip-divider" />
             <div className="stat-chip">
-              <FaTimesCircle className="chip-icon rejected" />
-              <span className="chip-value">{stats.rejectedGrants}</span>
-              <span className="chip-label">rejected</span>
+              <FaTimesCircle className="chip-icon declined" />
+              <span className="chip-value">{stats.declinedGrants}</span>
+              <span className="chip-label">declined</span>
             </div>
           </>
         )}
@@ -202,7 +202,7 @@ function Grants({ session }) {
         <div className="tabs">
           {(session?.tenantConfig?.type === 'self_service'
             ? ["all", "approved"]
-            : ["all", "pending", "approved", "needs_changes", "rejected"]
+            : ["all", "pending", "approved", "needs_changes", "declined"]
           ).map((status) => (
             <button
               key={status}

@@ -43,7 +43,7 @@ export const updateExpense = (id, updates) =>
 export const insertExpense = (expense) =>
   supabase.from('expenses').insert([expense]).select().single();
 
-// Approve/reject an expense. Throws if the row count is zero — that means RLS
+// Approve/decline an expense. Throws if the row count is zero — that means RLS
 // silently dropped the update, which callers surface as an error. Message text
 // is preserved from the inline versions this replaces.
 /**

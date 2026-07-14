@@ -280,7 +280,7 @@
   color: #10B981;
 }
 
-.status-badge.status-rejected {
+.status-badge.status-declined {
   background-color: rgba(239, 68, 68, 0.2);
   color: #EF4444;
 }

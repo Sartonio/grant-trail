@@ -414,7 +414,7 @@
   color: #10B981;
 }
 
-.status-badge.status-rejected {
+.status-badge.status-declined {
   background-color: rgba(239, 68, 68, 0.2);
   color: #EF4444;
 }
@@ -440,7 +440,7 @@
 
 .status-icon-pending { color: #F59E0B; }
 .status-icon-approved { color: #10B981; }
-.status-icon-rejected { color: #EF4444; }
+.status-icon-declined { color: #EF4444; }
 .status-icon-needs_changes { color: #D97706; }
 
 /* Grant-level pending-items flag (Grants.js) */

@@ -38,7 +38,7 @@ DECLARE
     'approved', 'approved',
     'needs_changes',
     'approved', 'approved', 'approved',
-    'rejected',
+    'declined',
     'approved', 'approved', 'approved',
     'pending'
   ];
@@ -151,7 +151,7 @@ BEGIN
         approval_notes = CASE v_status
           WHEN 'approved'      THEN 'Application meets all requirements. Approved.'
           WHEN 'needs_changes' THEN 'Please provide additional supporting documentation and resubmit.'
-          WHEN 'rejected'      THEN 'Application does not meet current funding criteria for this cycle.'
+          WHEN 'declined'      THEN 'Application does not meet current funding criteria for this cycle.'
         END
       WHERE id = v_grant_id;
     END IF;
