@@ -58,3 +58,12 @@
 {"ts":"2026-07-19T22:24:36.486Z","kind":"scope-set","add":true,"args":["package.json"],"matchedModules":[],"fallbacks":["package.json"],"branch":"worktree-stack-lock"}
 {"ts":"2026-07-19T22:25:30.623Z","kind":"scope-block","tool":"Bash","file":"<<","allowed":[".task/**","DEBT.md","edit-log.jsonl","package.json","scripts/**"],"channel":"bash"}
 {"ts":"2026-07-19T22:26:01.772Z","kind":"scope-set","add":true,"args":["CLAUDE.md"],"matchedModules":[],"fallbacks":["CLAUDE.md"],"branch":"worktree-stack-lock"}
+{"ts":"2026-07-19T22:20:41.000Z","kind":"scope-set","add":false,"args":["scripts"],"matchedModules":[],"fallbacks":["scripts/**"],"branch":"main"}
+{"ts":"2026-07-19T22:20:41.179Z","kind":"scope-set","add":false,"args":["supabase/tests"],"matchedModules":[],"fallbacks":["supabase/tests/**"],"branch":"main"}
+{"ts":"2026-07-19T22:20:41.342Z","kind":"scope-set","add":false,"args":["frontend/package.json"],"matchedModules":[],"fallbacks":["frontend/package.json"],"branch":"main"}
+{"ts":"2026-07-19T22:20:41.509Z","kind":"scope-set","add":false,"args":[".githooks"],"matchedModules":[],"fallbacks":[".githooks/**"],"branch":"main"}
+{"ts":"2026-07-19T22:20:45.701Z","kind":"scope-set","add":false,"args":["scripts"],"matchedModules":[],"fallbacks":["scripts/**"],"branch":"main"}
+{"ts":"2026-07-19T22:20:45.875Z","kind":"scope-set","add":true,"args":["supabase/tests"],"matchedModules":[],"fallbacks":["supabase/tests/**"],"branch":"main"}
+{"ts":"2026-07-19T22:20:46.051Z","kind":"scope-set","add":true,"args":["frontend/package.json"],"matchedModules":[],"fallbacks":["frontend/package.json"],"branch":"main"}
+{"ts":"2026-07-19T22:27:23.501Z","kind":"scope-block","tool":"Bash","file":"import","allowed":[".task/**","DEBT.md","edit-log.jsonl","frontend/package.json","scripts/**","supabase/tests/**"],"channel":"bash"}
+{"ts":"2026-07-19T22:28:34.538Z","kind":"scope-set","add":true,"args":[".claude/settings.json"],"matchedModules":[],"fallbacks":[".claude/settings.json"],"branch":"main"}

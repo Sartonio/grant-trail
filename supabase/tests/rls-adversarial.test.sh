@@ -27,8 +27,9 @@
 
 set -uo pipefail
 
-PROJECT_ID="grant-trail"
-DB_CONTAINER="supabase_db_${PROJECT_ID}"
+# assert_eq / assert_contains / DB_CONTAINER / require_stack are shared (see lib/common.sh).
+. "$(dirname "${BASH_SOURCE[0]}")/lib/common.sh"
+require_stack
 
 GRANTEE_TFAC='00000000-0000-0000-0000-000000000001'   # tenant 1, grantee
 GRANTEE_TFAC2='00000000-0000-0000-0000-000000000002'  # tenant 1, grantee
@@ -104,8 +105,6 @@ ROLLBACK;
 SQL
 }
 
-# assert_eq / assert_contains are shared (see lib/common.sh).
-. "$(dirname "${BASH_SOURCE[0]}")/lib/common.sh"
 
 echo "=============================================================="
 echo " RLS adversarial audit — proof tests"

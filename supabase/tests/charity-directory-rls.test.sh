@@ -33,8 +33,9 @@
 
 set -uo pipefail
 
-PROJECT_ID="grant-trail"
-DB_CONTAINER="supabase_db_${PROJECT_ID}"
+# assert_eq / assert_contains / DB_CONTAINER / require_stack are shared (see lib/common.sh).
+. "$(dirname "${BASH_SOURCE[0]}")/lib/common.sh"
+require_stack
 
 # --- Personas (auth uids from the seed) -------------------------------------
 GRANTEE_BRIGHT='00000000-0000-0000-0000-000000000006'  # user 6, tenant 2, grantee, NON-exempt
@@ -90,8 +91,6 @@ SQL
 scalar() { echo "$1" | grep -E '^[0-9]+$' | tail -1; }
 boolean() { echo "$1" | grep -E '^[tf]$' | tail -1; }
 
-# assert_eq / assert_contains are shared (see lib/common.sh).
-. "$(dirname "${BASH_SOURCE[0]}")/lib/common.sh"
 
 # membership setup snippets (planted as postgres). bright-horizons users are
 # non-exempt, so these genuinely flip the entitlement helpers. The seed already

@@ -53,7 +53,7 @@
     "db:start": "supabase start",
     "db:stop": "supabase stop",
     "db:reset": "supabase db reset && npm run db:types",
-    "db:types": "supabase gen types typescript --local | grep -v '\"_tag\":\"Error\"' > src/lib/database.types.ts"
+    "db:types": "sh -c 'tmp=$(mktemp) && DO_NOT_TRACK=1 supabase gen types typescript --local > \"$tmp\" || { echo \"db:types: supabase gen types failed\" >&2; rm -f \"$tmp\"; exit 1; }; if grep -q \\\"_tag\\\":\\\"Error\\\" \"$tmp\"; then echo \"db:types: generated output contains errors\" >&2; rm -f \"$tmp\"; exit 1; fi; mv \"$tmp\" src/lib/database.types.ts'"
   },
   "browserslist": {
     "production": [
