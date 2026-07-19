@@ -49,3 +49,4 @@
 {"ts":"2026-07-19T18:16:23.963Z","kind":"scope-block","tool":"Bash","file":"supabase/migrations/20260630130000_squashed_schema.sql","allowed":[".task/**","DEBT.md","edit-log.jsonl","revert_cascade_fks.sql"],"channel":"bash"}
 {"ts":"2026-07-19T18:16:33.292Z","kind":"scope-set","add":false,"args":["supabase/migrations"],"matchedModules":[],"fallbacks":["supabase/migrations/**"],"branch":"worktree-cascade-and-squash"}
 {"ts":"2026-07-19T18:21:12.783Z","kind":"scope-set","add":false,"args":["supabase/migrations","docs/how_to"],"matchedModules":[],"fallbacks":["supabase/migrations/**","docs/how_to/**"],"branch":"worktree-cascade-and-squash"}
+{"ts":"2026-07-19T19:53:48.223Z","kind":"scope-set","add":false,"args":["supabase/migrations","docs/how_to"],"matchedModules":[],"fallbacks":["supabase/migrations/**","docs/how_to/**"],"branch":"worktree-cascade-and-squash"}
