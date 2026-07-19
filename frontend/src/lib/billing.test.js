@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // billing.js reads VITE_SUPABASE_URL/KEY into module-level consts at import
