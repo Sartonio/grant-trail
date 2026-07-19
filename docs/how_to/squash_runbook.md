@@ -1,94 +1,101 @@
-# How to: retire squashed migrations on a deployed project
+# How to: deploy after the 2026-07-19 migration squash
 
-The migrations folder was squashed on 2026-07-19: `20260630130000_squashed_schema.sql`
-absorbed the 19 migrations that had accumulated on top of it, and
-`20260630140000_bootstrap_data.sql` still carries the config rows.
+`supabase/migrations/` was squashed on 2026-07-19 down to two files:
 
-Local development needs nothing — `npm run db:reset` just builds from the two
-files. **Staging and production do need one manual step**, described below.
+- `20260630130000_squashed_schema.sql` — the full `public` schema, **including**
+  the `auth.users` delete cascade.
+- `20260630140000_bootstrap_data.sql` — the config rows the app needs to boot.
 
-## Why a step is needed at all
+Local development needs nothing: `npm run db:reset` builds from the two files.
 
-`supabase db push` decides what to run by comparing the local `migrations/`
-folder against the `supabase_migrations.schema_migrations` table on the remote.
-Staging and production each have **20 versions recorded**. After the squash the
-folder has **2**. The 18 versions that no longer exist as files are reported as
-remote-only, and `supabase migration list` shows a mismatch until you reconcile.
+## The one rule that matters
 
-Two things keep this from being dangerous:
+**A project that already records version `20260630130000` as applied will never
+re-execute it.** That is what makes the squash safe for a live database — but it
+also means **any schema change folded into the baseline cannot reach that
+project**. New changes go in a NEW migration on top; that is what makes them
+deployable.
 
-1. **The baseline kept its original timestamp** (`20260630130000`). Both remotes
-   already record that version as applied, so `db push` will **not** re-execute
-   the rewritten baseline against a populated database. Same for
-   `20260630140000_bootstrap_data.sql`. This was a deliberate choice — a new
-   timestamp would have made `db push --include-all` try to replay a full schema
-   dump over live data.
-2. **The squash is schema-equivalent.** A `supabase db dump --local --schema public`
-   of the 20-migration history and of the squashed baseline are byte-for-byte
-   identical (verified 2026-07-19, after adding the two `REVOKE`s the dump could
-   not express — see the ACL note at the bottom of the baseline). The remotes are
-   already in the state the baseline produces; nothing needs to run.
+This is not hypothetical. The auth cascade was originally folded into the
+baseline, and staging — which already recorded that version — silently kept all
+eight FKs at `NO ACTION`. `supabase db diff --linked` is what caught it.
 
-So the fix is bookkeeping only: tell each remote those 18 versions are retired.
+## Fresh project (the normal path from here on)
 
-## The step
-
-Do staging first, verify, then production.
+Both environments are being rebuilt from scratch, so this is all it takes:
 
 ```bash
-# 1. Point the CLI at the project
 supabase link --project-ref "$SUPABASE_PROJECT_REF"
-
-# 2. See the mismatch (the 18 should show as remote-only)
-supabase migration list --linked
-
-# 3. Retire the collapsed versions. These are bookkeeping updates against
-#    supabase_migrations.schema_migrations -- they execute no schema SQL.
-for v in 20260630150000 20260630191700 20260630192000 20260701090000 \
-         20260701091000 20260701100000 20260703120000 20260704011516 \
-         20260706044339 20260712230543 20260713010000 20260713012634 \
-         20260713013000 20260713020000 20260713040000 20260713202039 \
-         20260713210000 20260714011033 20260719120000; do
-  supabase migration repair --status reverted "$v" --linked
-done
-
-# 4. Confirm local and remote now agree: only the two baseline versions,
-#    both applied, nothing pending.
-supabase migration list --linked
+supabase db push --linked          # applies both files in order
+supabase migration list --linked   # expect exactly the two versions, both applied
 ```
 
-Note `20260719120000` (the auth-cascade migration) is in that list. It was
-committed separately and then folded into the baseline in the same PR, so it
-only needs repairing on a remote that had already deployed it.
+Do **not** apply `seed.sql` to a remote project. It creates accounts with the
+hardcoded password `password123` (including a super admin), which on an
+internet-reachable host is a live credential. `db push` never runs it — but
+`db reset --linked` does unless you pass `--no-seed`. For QA fixtures on a
+shared environment, use a separate seed file with generated passwords.
 
-**Do not** run `db push --include-all` before step 3. With the 18 versions still
-recorded as applied and no matching files, push has nothing to do — but once you
-start repairing, finish the loop before pushing anything.
-
-## Verifying afterwards
+## Verifying
 
 ```bash
-supabase db diff --linked      # expect: "No schema changes found"
+supabase db diff --linked
 ```
 
-If that reports a diff, **stop and investigate** — do not hand-apply it. A diff
-here means the remote drifted from the migration history at some earlier point,
-which the squash has now made visible; fix it with a new forward migration.
+Expect **no FK or table drop statements**. Two categories of output are known
+noise and can be ignored:
+
+- `drop extension if exists "pg_net"` — no migration creates pg_net; the local
+  shadow DB installs it by default and remote projects do not have it. The one
+  trigger that uses it already guards for it being absent.
+- `drop policy "Tenant-scoped ..." on "storage"."objects"` (6 of them) — these
+  exist on both sides. `db diff` handles the `storage` schema poorly, which is
+  also why those policies are hand-appended at the bottom of the baseline rather
+  than captured by the dump. Confirm directly if in doubt:
+
+  ```sql
+  SELECT policyname FROM pg_policies WHERE schemaname='storage' AND tablename='objects';
+  ```
+
+Anything *else* in the diff is real drift — fix it forward with a new migration,
+never by hand-editing the baseline.
+
+## What was done to staging (2026-07-19, historical)
+
+Staging was **not** rebuilt from scratch; it was reconciled in place, keeping its
+6 auth users and the 6 subscription / 6 billing_customers rows that point at live
+Stripe test-mode objects.
+
+1. `supabase migration repair --status reverted` for the 18 collapsed versions
+   (`20260630150000` … `20260714011033`), leaving only the two baseline versions
+   recorded. Bookkeeping only — no schema SQL ran.
+2. The 8 cascade FK `ALTER`s applied as **raw DDL, not a recorded migration** —
+   deliberately, since the cascade lives inside `20260630130000`, which staging
+   already records. Recording a new version would have re-created the mismatch
+   step 1 just cleaned up.
+
+Verified afterwards: all 8 FKs correct (2 CASCADE, 6 SET NULL), all rows intact,
+`schema_migrations` at exactly 2 rows, and `db diff --linked` free of FK drops.
+
+Only reach for this in-place procedure if you have a populated project you cannot
+wipe. A fresh project should use `db push`.
 
 ## What NOT to do
 
-- Do **not** `delete from supabase_migrations.schema_migrations`. The reset flow
-  in `prod_setup.md` is for reusing an empty project and will orphan a populated
-  one.
+- Do **not** `delete from supabase_migrations.schema_migrations` on a populated
+  project — it orphans the schema from its history.
 - Do **not** renumber the baseline. Its timestamp is what stops `db push` from
   replaying a schema dump over live data.
-- Do **not** edit the baseline to make a schema change. It is a generated dump;
-  add a new migration on top, as before.
+- Do **not** edit the baseline to make a schema change (see "the one rule").
+- Do **not** re-squash without diffing dumps first. `pg_dump` emits GRANTs but
+  never REVOKEs, and Supabase default-grants `anon` on new tables — the last
+  squash silently handed `anon` TRUNCATE (which bypasses RLS) on
+  `platform_settings` until the explicit REVOKEs were re-added.
 
 ## CI
 
 `.github/workflows/ci.yml` has a `migration-replay` job that stashes the PR's
 migrations, resets to the base-branch set, then runs `supabase migration up`.
-The squash PR changes the baseline **in place**, so that job replays a rewritten
-`20260630130000` against a database already built from the old one. Expect it to
-need a one-time skip on the squash PR; it behaves normally on every PR after.
+The squash PR rewrites the baseline in place, so that job replays a changed
+`20260630130000` against a database built from the old one. It needs a one-time
+skip on the squash PR and behaves normally afterwards.
