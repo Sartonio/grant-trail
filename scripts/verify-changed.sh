@@ -55,6 +55,7 @@ if [ "$want_sql$want_edge$want_stripe$want_e2e" = "0000" ]; then
 fi
 
 vf_have_docker || exit 0
+sl_acquire "npm run verify:changed" || exit 1
 vf_boot_stack
 
 [ "$want_sql"    = 1 ] && vf_sql

@@ -10,6 +10,20 @@ const rl = readline.createInterface({
 
 const askQuestion = (query) => new Promise((resolve) => rl.question(query, resolve));
 
+// The CLI wraps JSON results in an envelope ({ boundary, rows, warning })
+// and may print log lines first. Parse the object spanning the first '{'
+// to the last '}', then read its `rows`.
+const parseRows = (output) => {
+  const trimmed = output.trim();
+  const jsonStart = trimmed.indexOf('{');
+  const jsonEnd = trimmed.lastIndexOf('}');
+  if (jsonStart === -1 || jsonEnd <= jsonStart) {
+    throw new Error('No JSON output returned.');
+  }
+  const parsed = JSON.parse(trimmed.substring(jsonStart, jsonEnd + 1));
+  return parsed.rows || [];
+};
+
 async function main() {
   console.log('====================================================');
   console.log('🛡️ GrantTrail Super Admin Promotion Tool');
@@ -59,18 +73,7 @@ async function main() {
 
     let rows = [];
     try {
-      const output = checkResult.stdout.toString().trim();
-      // The CLI wraps JSON results in an envelope ({ boundary, rows, warning })
-      // and may print log lines first. Parse the object spanning the first '{'
-      // to the last '}', then read its `rows`.
-      const jsonStart = output.indexOf('{');
-      const jsonEnd = output.lastIndexOf('}');
-      if (jsonStart !== -1 && jsonEnd > jsonStart) {
-        const parsed = JSON.parse(output.substring(jsonStart, jsonEnd + 1));
-        rows = parsed.rows || [];
-      } else {
-        throw new Error('No JSON output returned.');
-      }
+      rows = parseRows(checkResult.stdout.toString());
     } catch (e) {
       throw new Error(`Failed to parse query result: ${e.message}\nRaw CLI output: ${checkResult.stdout.toString()}`);
     }
@@ -85,25 +88,26 @@ async function main() {
 
     console.log(`\n⬆️ Promoting "${email}" to Super Admin on the linked Supabase database...`);
 
-    // Join against tenants so we never write a NULL tenant_id if 'tfac' is
-    // missing: no matching tenant row means the UPDATE simply affects 0 rows.
+    // Join against tenants so we never write a NULL tenant_id if the
+    // platform-root tenant is missing: no matching tenant row means the
+    // UPDATE simply affects 0 rows. The slug comes from
+    // public.platform_root_slug() — never hardcode it.
     const promoteSql = `
 UPDATE users u
 SET role = 'super_admin',
     tenant_id = t.id
 FROM tenants t
-WHERE t.slug = 'tfac'
-  AND u.email = '${escapedEmail}';
+WHERE t.slug = public.platform_root_slug()
+  AND u.email = '${escapedEmail}'
+RETURNING u.id;
 `;
 
     const tempSqlPath = path.join(tempDir, 'promote_admin_temp.sql');
     fs.writeFileSync(tempSqlPath, promoteSql);
 
     const promoteExec = spawnSync('npx', [
-      '--prefix', 'frontend', 'supabase', 'db', 'query', '--linked', '-f', tempSqlPath
-    ], {
-      stdio: 'inherit'
-    });
+      '--prefix', 'frontend', 'supabase', 'db', 'query', '--linked', '-o', 'json', '-f', tempSqlPath
+    ]);
 
     // Clean up temporary script
     try {
@@ -113,7 +117,19 @@ WHERE t.slug = 'tfac'
     }
 
     if (promoteExec.status !== 0) {
-      throw new Error('Failed to execute promotion SQL on the linked Supabase database.');
+      throw new Error(`Failed to execute promotion SQL on the linked Supabase database: ${promoteExec.stderr?.toString() || 'unknown error'}`);
+    }
+
+    let promotedRows = [];
+    try {
+      promotedRows = parseRows(promoteExec.stdout.toString());
+    } catch (e) {
+      throw new Error(`Failed to parse promotion result: ${e.message}\nRaw CLI output: ${promoteExec.stdout.toString()}`);
+    }
+
+    if (promotedRows.length === 0) {
+      throw new Error('Promotion UPDATE affected 0 rows. The platform-root tenant row ' +
+                      '(tenants.slug = platform_root_slug()) may be missing, or the user row could not be matched.');
     }
 
     console.log('\n====================================================');
@@ -125,6 +141,7 @@ WHERE t.slug = 'tfac'
 
   } catch (err) {
     console.error(`\n❌ Error: ${err.message}`);
+    process.exitCode = 1;
   } finally {
     rl.close();
   }

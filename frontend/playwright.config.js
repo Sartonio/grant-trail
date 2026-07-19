@@ -6,7 +6,8 @@ module.exports = defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 2 : 1, /* 2 workers in CI: parallel speedup with low shared-account contention; single worker locally so a dev can pause/intervene */
+  /* 2 workers in CI: parallel speedup with low shared-account contention; locally scale with cores (2–4) — per-test seed data is Date.now()-suffixed, so cross-worker contention is low */
+  workers: process.env.CI ? 2 : Math.max(2, Math.min(4, Math.floor(require('os').cpus().length / 2))),
   reporter: 'html',
   use: {
     baseURL: 'http://localhost:3000',

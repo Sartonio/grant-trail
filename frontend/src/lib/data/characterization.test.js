@@ -1,3 +1,4 @@
+// @vitest-environment node
 // Characterization tests for the lib/data access layer. These pin the EXACT
 // current behavior of every exported function — the supabase query chain each
 // builds (table, method order, arguments) and data/error passthrough —

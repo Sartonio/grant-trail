@@ -5,9 +5,12 @@
 #
 # How it works: `supabase db diff` rebuilds the schema from supabase/migrations/
 # in a shadow database and compares it against your running local dev database.
-# It prints the missing DDL to stdout when they differ, and nothing when they
-# match (a "No schema changes found" notice goes to stderr). Its exit code is
-# always 0 on a successful run, so we key off stdout, not the exit code.
+# Recent CLI versions print a one-line JSON envelope to stdout whose `diff`
+# field holds the missing DDL ("\n" when the schemas match); older versions
+# printed the raw DDL (or nothing). We extract the DDL from the envelope when
+# present and fall back to raw stdout otherwise. DO_NOT_TRACK=1 is required:
+# without it the CLI's telemetry flush times out and forces exit code 1 even
+# on success, which would send every run down the fail-open path below.
 #
 # Graceful by design: if the check cannot run (Docker not running, local DB not
 # started), it warns and lets the push through — CI rebuilds the DB from
@@ -27,7 +30,7 @@ cd "$ROOT" || exit 0
 echo "pre-push: checking for local schema changes not captured in a migration..."
 
 errfile=$(mktemp 2>/dev/null || echo "/tmp/granttrail_dbdiff.$$")
-diff_out=$(npx --prefix frontend supabase db diff 2>"$errfile")
+diff_out=$(DO_NOT_TRACK=1 npx --prefix frontend supabase db diff 2>"$errfile")
 status=$?
 
 if [ "$status" -ne 0 ]; then
@@ -43,12 +46,29 @@ if [ "$status" -ne 0 ]; then
 fi
 rm -f "$errfile"
 
-# Empty stdout (ignoring whitespace) == no uncaptured changes.
-if [ -n "$(printf '%s' "$diff_out" | tr -d '[:space:]')" ]; then
+# Pull the DDL out of the JSON envelope (first line with a string `diff`
+# field); if no line parses as such, treat stdout as raw DDL (older CLIs).
+ddl=$(printf '%s' "$diff_out" | node -e '
+  let s = "";
+  process.stdin.on("data", (d) => (s += d)).on("end", () => {
+    let out = s;
+    for (const line of s.split("\n")) {
+      if (!line.trim()) continue;
+      try {
+        const j = JSON.parse(line);
+        if (j && typeof j.diff === "string") { out = j.diff; break; }
+      } catch (_) { /* not JSON — keep raw fallback */ }
+    }
+    process.stdout.write(out);
+  });
+')
+
+# Whitespace-only DDL == no uncaptured changes.
+if [ -n "$(printf '%s' "$ddl" | tr -d '[:space:]')" ]; then
   echo ""
   echo "❌ pre-push blocked: your local database has schema changes that are NOT in a migration file:"
   echo ""
-  printf '%s\n' "$diff_out" | sed 's/^/    /'
+  printf '%s\n' "$ddl" | sed 's/^/    /'
   echo ""
   echo "Capture them into a migration before pushing:"
   echo "    npx --prefix frontend supabase db diff -f <descriptive_name>"
