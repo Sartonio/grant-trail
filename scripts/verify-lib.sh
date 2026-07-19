@@ -22,9 +22,17 @@ vf_have_docker() {
 
 # Boot + reset the local Supabase stack once. Exits the script on failure (a
 # half-booted stack makes every downstream tier a false negative).
+# VF_REUSE_STACK=1 skips `supabase start` when `supabase status` reports a
+# running stack (saves ~1 min when iterating on stack tiers). The `db reset`
+# still runs unconditionally — a reused stack must be reset to a known state
+# or every downstream tier tests leftover data. Default behavior is unchanged.
 vf_boot_stack() {
   echo "==> booting local Supabase stack"
-  npx --prefix frontend supabase start || exit 1
+  if [ "${VF_REUSE_STACK:-}" = "1" ] && npx --prefix frontend supabase status >/dev/null 2>&1; then
+    echo "    VF_REUSE_STACK=1 and stack already running — skipping supabase start"
+  else
+    npx --prefix frontend supabase start || exit 1
+  fi
   npx --prefix frontend supabase db reset || exit 1
   vf_export_stack_env
 }

@@ -4,11 +4,13 @@
 #
 # These tests drive GrantTrail's billing Edge Functions against Stripe TEST mode.
 # Stripe is the source of truth; the DB tables `subscriptions` / `user_memberships`
-# are a webhook-synced projection. We prove the real webhook loop by:
+# are a webhook-synced projection. We prove the webhook loop by:
 #   * creating real Stripe customers/subscriptions via the Stripe API,
 #   * mapping each customer to a DB user row in `billing_customers`,
-#   * letting `stripe listen --forward-to` deliver the authentic, signed events
-#     to the local stripe-webhook function, and
+#   * getting the signed events to the local stripe-webhook function — either
+#     forwarded by `stripe listen --forward-to` (live transport) or built from
+#     the real object JSON, HMAC-signed, and POSTed directly by deliver_event
+#     (synthetic transport, the default; see LANEF_WEBHOOK_TRANSPORT below), and
 #   * polling the DB until it reaches (and holds) the expected end-state.
 #
 # Nothing here touches production: TEST-mode keys only, local Supabase only.
@@ -41,6 +43,9 @@ FAIL_COUNT=0
 pass() { echo "PASS  $*"; PASS_COUNT=$((PASS_COUNT + 1)); }
 fail() { echo "FAIL  $*"; FAIL_COUNT=$((FAIL_COUNT + 1)); }
 info() { echo "----  $*"; }
+# Deliberately-not-run scenario (e.g. gated behind LANEF_INCLUDE_SLOW). Touches
+# NEITHER counter, so a skip can never masquerade as a pass in the summary.
+skip() { echo "SKIP  $*"; }
 
 # ---- functions-serve lifecycle -------------------------------------------
 #
@@ -53,6 +58,11 @@ info() { echo "----  $*"; }
 # verify_jwt=false stripe-webhook still receives forwarded events) — and stops it
 # on exit. An already-running server (a dev's shell, or a sibling test) is
 # detected and left untouched.
+#
+# run-all.sh serves + warms ONCE for the whole run and exports
+# LANEF_SERVE_EXTERNAL=1; under that flag ensure_functions_served reduces to a
+# single readiness probe (no boot, no warm-up, no EXIT trap) so each child
+# suite reuses the shared server instead of cold-booting its own (~60-110s).
 
 _SERVE_STARTED_HERE=""
 
@@ -120,6 +130,15 @@ ensure_functions_served() {
   if [ -z "${STRIPE_SECRET_KEY:-}" ] && [ -f "$envfile" ]; then
     set -a; # shellcheck disable=SC1090
     source "$envfile"; set +a
+  fi
+
+  # Shared-server fast path: the parent runner (run-all.sh) already booted AND
+  # warmed a server for the whole run, so one healthy probe is enough — skip
+  # the warm loop and do NOT install the EXIT trap (the owning shell tears the
+  # server down exactly once). If the probe misses (server died mid-run), fall
+  # through and self-serve exactly as a standalone run would.
+  if [ "${LANEF_SERVE_EXTERNAL:-}" = "1" ] && _functions_up; then
+    return 0
   fi
 
   # One failed probe is not proof the server is down (worker recycle, restart
@@ -359,6 +378,146 @@ cancel_subscription() {
   stripe delete "/v1/subscriptions/$1" --api-key "$STRIPE_SECRET_KEY" --confirm >/dev/null 2>&1
 }
 
+# ---- synthetic webhook transport -----------------------------------------
+#
+# LANEF_WEBHOOK_TRANSPORT selects how Stripe events reach the local
+# stripe-webhook function in webhook-matrix.test.sh:
+#
+#   synthetic (DEFAULT when unset) — the test still creates/mutates REAL Stripe
+#     TEST-mode objects via `sapi` (so payloads stay honest), then wraps the
+#     fetched object JSON in a Stripe event envelope, signs it exactly like
+#     Stripe does (v1 = HMAC-SHA256 of "<t>.<payload>" with
+#     STRIPE_WEBHOOK_SECRET), and POSTs it straight at the served function.
+#     No `stripe listen` forwarder, no waiting on Stripe-side event delivery.
+#
+#   live — the original full-fidelity loop: real Stripe emits the event and a
+#     `stripe listen --forward-to` forwarder (started by run-all.sh) delivers
+#     it. CI pins this via LANEF_WEBHOOK_TRANSPORT=live (see ci.yml).
+#
+# The SAME assertions run under both transports; only the delivery mechanism
+# (and therefore the wall-clock wait) differs.
+
+webhook_transport() {
+  local t="${LANEF_WEBHOOK_TRANSPORT:-synthetic}"
+  case "$t" in
+    live|synthetic) echo "$t" ;;
+    *)
+      echo "FATAL: LANEF_WEBHOOK_TRANSPORT must be 'live' or 'synthetic' (got '$t')" >&2
+      return 1
+      ;;
+  esac
+}
+
+# The signing secret MUST be the one the served functions booted with. Read it
+# from the same env file ensure_functions_served serves --env-file with
+# (supabase/functions/.env); fall back to the exported env for CI-style runs,
+# where ensure_functions_served synthesizes its env file FROM the environment.
+_webhook_signing_secret() {
+  local root envfile val
+  root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"
+  envfile="${root}/supabase/functions/.env"
+  if [ -f "$envfile" ]; then
+    val="$(grep -E '^STRIPE_WEBHOOK_SECRET=' "$envfile" | tail -n 1 | cut -d= -f2-)"
+    val="${val%\"}"; val="${val#\"}"
+    if [ -n "$val" ]; then printf '%s\n' "$val"; return 0; fi
+  fi
+  if [ -n "${STRIPE_WEBHOOK_SECRET:-}" ]; then
+    printf '%s\n' "$STRIPE_WEBHOOK_SECRET"
+    return 0
+  fi
+  echo "FATAL: STRIPE_WEBHOOK_SECRET not found (supabase/functions/.env or env) — cannot sign synthetic events" >&2
+  return 1
+}
+
+# sub_object_json <sub_id> — the subscription's CURRENT JSON (compact, one
+# line) fetched from the real Stripe TEST API, for use as an event's data.object.
+sub_object_json() {
+  sapi subscriptions retrieve "$1" \
+    | python3 -c "import sys,json; print(json.dumps(json.load(sys.stdin), separators=(',',':')))"
+}
+
+# Most recent synthetic delivery, kept so idempotency / out-of-order scenarios
+# can re-deliver the byte-identical event (set -u safe defaults).
+LANEF_LAST_EVENT_ID=""
+LANEF_LAST_EVENT_PAYLOAD=""
+
+# _sign_and_post_event <payload> -> echoes the webhook's HTTP status.
+# Signs "<t>.<payload>" with the served function's STRIPE_WEBHOOK_SECRET —
+# exactly what stripe.webhooks.constructEventAsync verifies (stripe-webhook/
+# index.ts:21). Its default tolerance window is 300s, so a current `date +%s`
+# header timestamp is always accepted.
+_sign_and_post_event() {
+  local payload="$1" t sig secret status
+  secret="$(_webhook_signing_secret)" || return 1
+  t="$(date +%s)"
+  sig="$(printf '%s' "${t}.${payload}" | openssl dgst -sha256 -hmac "$secret" -r | cut -d' ' -f1)"
+  status="$(curl -s -o /dev/null -w "%{http_code}" -X POST "${FUNCTIONS_URL}/stripe-webhook" \
+    -H "Stripe-Signature: t=${t},v1=${sig}" \
+    -H "Content-Type: application/json" \
+    --data-raw "$payload")"
+  echo "$status"
+  # Every synthetic delivery expects a 2xx (even a swallowed duplicate is 200).
+  # A non-2xx here means a harness fault (signing/secret mismatch, dead serve) —
+  # fail loudly now instead of surfacing as a 40s wait_for_sql timeout later.
+  case "$status" in
+    2*) return 0 ;;
+    *)  echo "FATAL: stripe-webhook POST returned HTTP ${status} (signing secret mismatch or serve down?)" >&2
+        return 1 ;;
+  esac
+}
+
+# deliver_event <event_type> <object_json> [event_id] [event_created]
+#
+# Build a Stripe event envelope around <object_json> (the fields the webhook
+# consumes — id, type, created, data.object — plus the boilerplate a real
+# envelope carries), sign it, POST it to the served stripe-webhook function.
+# Echoes the HTTP status.
+#   event_id      defaults to a per-run-unique evt_test_lanef_… (dedupe key in
+#                 billing_webhook_events.stripe_event_id).
+#   event_created defaults to now; it is the ordering marker
+#                 claim_stripe_subscription_event keys on — pass an explicitly
+#                 OLDER value to simulate a stale out-of-order delivery.
+#
+# NOTE: call as `deliver_event ... >/dev/null` (or to a file), NOT inside a
+# command substitution — $(deliver_event ...) runs in a subshell and the
+# LANEF_LAST_EVENT_* globals would not survive for redeliver_last_event.
+deliver_event() {
+  local etype="$1" obj="$2" evid="${3:-}" created="${4:-}"
+  [ -n "$evid" ] || evid="evt_test_lanef_$(date +%s)_${RANDOM}_${RANDOM}"
+  [ -n "$created" ] || created="$(date +%s)"
+  local payload
+  payload="$(printf '%s' "$obj" | python3 -c "
+import json, sys
+etype, evid, created = sys.argv[1], sys.argv[2], int(sys.argv[3])
+event = {
+    'id': evid,
+    'object': 'event',
+    'api_version': '2025-02-24.acacia',
+    'created': created,
+    'livemode': False,
+    'pending_webhooks': 1,
+    'request': {'id': None, 'idempotency_key': None},
+    'type': etype,
+    'data': {'object': json.load(sys.stdin)},
+}
+print(json.dumps(event, separators=(',', ':')))
+" "$etype" "$evid" "$created")" || return 1
+  LANEF_LAST_EVENT_ID="$evid"
+  LANEF_LAST_EVENT_PAYLOAD="$payload"
+  _sign_and_post_event "$payload"
+}
+
+# redeliver_last_event -> POST the byte-identical envelope from the most recent
+# deliver_event again (same event id + body; fresh signature timestamp), i.e. a
+# Stripe duplicate delivery. Echoes the HTTP status.
+redeliver_last_event() {
+  if [ -z "$LANEF_LAST_EVENT_PAYLOAD" ]; then
+    echo "FATAL: redeliver_last_event called before any deliver_event" >&2
+    return 1
+  fi
+  _sign_and_post_event "$LANEF_LAST_EVENT_PAYLOAD"
+}
+
 # ---- assertions ----------------------------------------------------------
 
 # wait_for_sql <sql> <expected> <label>
@@ -372,7 +531,9 @@ wait_for_sql() {
       pass "$label (=$expected)"
       return 0
     fi
-    sleep 1
+    # 0.5s granularity halves the average post-webhook latency vs 1s polls;
+    # the WAIT_TIMEOUT deadline above is unchanged.
+    sleep 0.5
   done
   fail "$label  expected='$expected' got='$(dbq "$sql")'"
   return 1

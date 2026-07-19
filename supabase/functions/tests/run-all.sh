@@ -10,9 +10,14 @@
 #   4. portal-and-sync.test.sh     (c)  -- billing portal + sync reconciliation
 #   5. email-resilience.test.sh         -- isolated dunning email (if present)
 #
-# This runner owns the `stripe listen --forward-to` forwarder lifecycle:
-# it starts one for the webhook-matrix test (which needs the live loop) and
-# stops it for the sync test (so sync is provably the sole DB writer).
+# This runner owns the `stripe listen --forward-to` forwarder lifecycle — but
+# only when LANEF_WEBHOOK_TRANSPORT=live: it starts one for the webhook-matrix
+# test (which then needs the live loop) and stops it for the sync test (so sync
+# is provably the sole DB writer). Under the DEFAULT synthetic transport no
+# forwarder runs at all: webhook-matrix signs + POSTs the event envelopes
+# itself (deliver_event in lib/stripe_test_helpers.sh), and no other suite
+# uses the forwarder (portal-and-sync explicitly requires it OFF;
+# checkout-sessions / authz-identity / email-resilience never needed it).
 #
 # PREREQUISITES (local only -- never touches production):
 #   1. Local Supabase up:        npx --prefix frontend supabase start
@@ -20,12 +25,17 @@
 #   2. supabase/functions/.env present with TEST-mode Stripe secrets:
 #        STRIPE_SECRET_KEY, STRIPE_PRICE_BASIC,
 #        STRIPE_PRICE_FISCAL_AGENT, APP_URL, STRIPE_WEBHOOK_SECRET
-#      (STRIPE_WEBHOOK_SECRET must match the `stripe listen` signing secret;
-#       get it with: stripe listen --api-key <key> --print-secret)
-#   3. Functions served: AUTOMATIC. Each test calls ensure_functions_served
-#        (lib/stripe_test_helpers.sh) to start `supabase functions serve` if none
-#        is already up, and stop it on exit. To serve by hand instead (e.g. for
-#        faster iteration), start it first and the tests will reuse it:
+#      (Synthetic transport signs with the same STRIPE_WEBHOOK_SECRET the
+#       served functions boot with, so any value works as long as it's set.
+#       For LANEF_WEBHOOK_TRANSPORT=live it must ALSO match the `stripe listen`
+#       signing secret; get it with: stripe listen --api-key <key> --print-secret)
+#   3. Functions served: AUTOMATIC. This runner calls ensure_functions_served
+#        (lib/stripe_test_helpers.sh) ONCE, boots + warms `supabase functions
+#        serve` for the whole run, and exports LANEF_SERVE_EXTERNAL=1 so each
+#        child suite reuses that server (quick probe, no per-file cold boot).
+#        The server is stopped exactly once by this runner's EXIT trap. To
+#        serve by hand instead (e.g. for faster iteration), start it first and
+#        the tests will reuse it:
 #          npx --prefix frontend supabase functions serve \
 #            --env-file supabase/functions/.env
 #   4. Stripe CLI v1.42+ logged-in or STRIPE_SECRET_KEY exported.
@@ -62,13 +72,48 @@ start_forwarder() {
 }
 
 stop_forwarder() {
+  # Our own child dies synchronously via kill+wait (no fixed sleep needed).
+  if [ -n "$LISTEN_PID" ]; then
+    kill "$LISTEN_PID" 2>/dev/null || true
+    wait "$LISTEN_PID" 2>/dev/null || true
+  fi
+  # Sweep strays we did not start (e.g. leaked from an interrupted earlier run),
+  # then poll briefly until they are gone — two live forwarders would
+  # double-deliver every event.
   pkill -f "stripe listen --api-key" 2>/dev/null || true
+  local i
+  for i in 1 2 3 4 5; do
+    pgrep -f "stripe listen --api-key" >/dev/null 2>&1 || break
+    sleep 0.2
+  done
   LISTEN_PID=""
-  sleep 1
 }
 
-cleanup() { stop_forwarder; rm -f "$LISTEN_LOG"; }
+# Source the shared helpers so THIS shell can own the functions-serve lifecycle
+# (boot + warm once for the whole run) and tear it down from the trap below.
+# shellcheck source=lib/stripe_test_helpers.sh
+source "${HERE}/lib/stripe_test_helpers.sh"
+
+cleanup() { stop_forwarder; _stop_functions_served; rm -f "$LISTEN_LOG"; }
 trap cleanup EXIT
+
+# Serve + warm the edge functions ONCE for the whole run. Child suites see
+# LANEF_SERVE_EXTERNAL=1 and reuse this server via a quick readiness probe in
+# ensure_functions_served, instead of each file cold-booting (and EXIT-killing)
+# its own serve (~60-110s per file).
+ensure_functions_served; SERVE_RC=$?
+# ensure_functions_served installs its own EXIT trap when it boots a server;
+# re-assert the combined cleanup so the forwarder + listen log are swept too
+# (on the fatal path as well).
+trap cleanup EXIT
+[ "$SERVE_RC" -eq 0 ] || exit 1
+export LANEF_SERVE_EXTERNAL=1
+
+# Webhook transport (lib/stripe_test_helpers.sh): the forwarder is only needed
+# when webhook-matrix runs the live loop. The default synthetic transport signs
+# + POSTs event envelopes directly — no `stripe listen` at all.
+TRANSPORT="$(webhook_transport)" || exit 1
+echo "webhook transport: ${TRANSPORT}"
 
 TOTAL_FAIL=0
 run() {
@@ -87,17 +132,28 @@ run checkout-sessions.test.sh
 # authz / identity guards -- needs the Stripe key, no webhook
 run authz-identity.test.sh
 
-# (a,d) webhook matrix -- needs the live forwarder
-start_forwarder
+# (a,d) webhook matrix -- needs the live forwarder ONLY on the live transport;
+# synthetic delivers its own signed events.
+if [ "$TRANSPORT" = "live" ]; then
+  start_forwarder
+fi
 run webhook-matrix.test.sh
+# Forwarder OFF for everything after the matrix (portal/sync must be the sole
+# DB writer). On the synthetic transport this is purely a stray sweep — it
+# kills nothing we started. Note the sweep only matches forwarders started
+# with `--api-key` in argv (ours); an externally started forwarder (e.g. CI's
+# `stripe listen --forward-to ...`) is NOT caught by it.
 stop_forwarder
 
 # (c) portal + sync -- forwarder OFF so sync is the sole DB writer
 run portal-and-sync.test.sh
 
 # email resilience -- runs LAST because it OWNS the `functions serve` lifecycle
-# (it re-serves twice with different email (Resend) env, killing the shared serve). No
-# forwarder needed (it POSTs hand-signed events directly). Skipped if absent.
+# (it drops LANEF_SERVE_EXTERNAL and re-serves twice with different email (Resend)
+# env, killing the shared serve started above; its own trap stops its last serve
+# on exit). THIS runner's trap then sweeps too -- _stop_functions_served
+# tolerates an already-dead server, so there is no double-kill. No forwarder
+# needed (it POSTs hand-signed events directly). Skipped if absent.
 if [ -f "${HERE}/email-resilience.test.sh" ]; then
   run email-resilience.test.sh
 fi

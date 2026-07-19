@@ -295,6 +295,10 @@ jobs:
           STRIPE_PRICE_FISCAL_AGENT: ${{ secrets.STRIPE_PRICE_FISCAL_AGENT_TEST }}
           STRIPE_API_KEY: ${{ secrets.STRIPE_SECRET_KEY_TEST }}
           APP_URL: http://localhost:3000
+          # Local runs skip the two slow Stripe test-clock scenarios by default — CI is where they gate.
+          LANEF_INCLUDE_SLOW: "1"
+          # Full-fidelity webhook loop in CI: real Stripe emits, `stripe listen` forwards (local default is synthetic).
+          LANEF_WEBHOOK_TRANSPORT: "live"
         run: |
           set -uo pipefail
           # Start the forwarder and derive the signing secret it will use, so the

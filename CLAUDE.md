@@ -99,7 +99,9 @@ A change is NOT done until it meets these. Don't declare completion otherwise.
   Stripe webhook/checkout/portal matrix, Playwright e2e). "Security-touching" = anything under
   `supabase/migrations/`, `supabase/functions/`, `lib/policy.js`, `lib/guards.js`,
   `lib/billing.js`, or any data-mutating component. `verify:full` is fail-open when Docker/Stripe
-  keys are absent (stack tier skipped with a warning) — run it where they exist.
+  keys are absent (stack tier skipped with a warning) — run it where they exist. For the local/dev
+  loop, `npm run verify:changed` is the preferred day-to-day command; `verify:full` remains
+  required before merge and runs fully in CI (including the CI-only slow Stripe scenarios).
 - **NEW code uses the `lib/data/` access layer.** No raw `supabase.from(...)` in components; add or
   reuse a thin function in `frontend/src/lib/data/<entity>.js` (each typed to its table via the
   generated `lib/database.types.ts`). Components import from there. ESLint enforces this
