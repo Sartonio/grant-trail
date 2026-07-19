@@ -144,9 +144,22 @@ if [ "${BASH_SOURCE[0]}" = "${0}" ]; then
   set -uo pipefail
   cd "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
   fail=0
-  # Does any requested tier need the booted stack? (edge_static is static.)
+  # No tiers requested — that's a usage error, not a green run.
+  if [ "$#" -eq 0 ]; then
+    echo "usage: bash scripts/verify-lib.sh <tier>..." >&2
+    echo "  tiers: edge_static fast sql edge_identity stripe_matrix e2e" >&2
+    exit 2
+  fi
+  # One pass over the requested tiers: reject unknown names up front (a typo'd
+  # tier must not silently exit 0 — or worse, boot Docker first), and note
+  # whether any requested tier needs the booted stack (edge_static is static).
   needs_stack=0
   for tier in "$@"; do
+    if ! declare -f "vf_${tier}" >/dev/null; then
+      echo "ERROR: unknown tier '${tier}'." >&2
+      echo "  valid tiers: edge_static fast sql edge_identity stripe_matrix e2e" >&2
+      exit 2
+    fi
     case "$tier" in
       edge_static) ;;                 # static — no stack
       *) needs_stack=1 ;;
