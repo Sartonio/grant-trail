@@ -1,25 +1,31 @@
 #!/usr/bin/env bash
 #
-# Mutex for the ONE shared local Supabase stack. Every worktree on this machine
-# talks to the same fixed ports (54321-54329) and the same container
-# (supabase_db_grant-trail), and vf_boot_stack runs a destructive `db reset` —
-# so two concurrent stack-tier runs wipe each other's data mid-test. This lock
-# serializes them and makes the holder VISIBLE: on contention you're told which
-# worktree/branch/command holds the stack and since when.
+# Mutex for ONE local Supabase stack. Since Phase 2 (scripts/stack-env.sh)
+# each worktree has its OWN stack, so the lock is per-stack: it serializes
+# concurrent stack-tier runs *of the same checkout* (vf_boot_stack runs a
+# destructive `db reset`), while different worktrees run fully in parallel.
+# On contention you're told which worktree/branch/command holds the stack and
+# since when.
 #
 # Two ways to use it:
 #   source scripts/stack-lock.sh     # then call sl_acquire "<label>" (verify scripts)
-#   bash scripts/stack-lock.sh who   # is the stack free? who holds it?
+#   bash scripts/stack-lock.sh who   # is this stack free? any other stacks held?
 #   bash scripts/stack-lock.sh run <cmd...>   # run one command under the lock
 #
 # The lock lives in /tmp (NOT the repo) because it must be shared across
-# worktrees. flock ties it to an open fd, so it auto-releases when the holding
+# processes. flock ties it to an open fd, so it auto-releases when the holding
 # process dies — no stale-lock cleanup needed. Only the .info sidecar can go
 # stale (crash before trap); `who` detects and labels that case.
 #
+# sl_acquire also regenerates the worktree's supabase/config.toml
+# (se_ensure_config) right after taking the lock, so every stack-touching
+# command targets its own stack without the callers having to remember.
+#
 # Env knobs: STACK_LOCK_FILE (path), STACK_LOCK_TIMEOUT (max wait, s, default 1800).
 
-STACK_LOCK_FILE="${STACK_LOCK_FILE:-/tmp/grant-trail-stack.lock}"
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/stack-env.sh"
+
+STACK_LOCK_FILE="${STACK_LOCK_FILE:-/tmp/grant-trail-stack-${SE_PROJECT_ID}.lock}"
 STACK_LOCK_INFO="$STACK_LOCK_FILE.info"
 STACK_LOCK_TIMEOUT="${STACK_LOCK_TIMEOUT:-1800}"
 STACK_LOCK_FD=200
@@ -42,6 +48,9 @@ sl_acquire() {
     fi
     echo "    stack lock acquired — continuing."
   fi
+  # We now own the stack: make sure config.toml describes THIS worktree's
+  # stack before any supabase command reads it (no-op on the main checkout).
+  se_ensure_config || { sl_release; return 1; }
   {
     echo "worktree: $(pwd)"
     echo "branch:   $(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo '?')"
@@ -59,6 +68,7 @@ sl_release() {
 
 # Report lock state without taking it (probe with a throwaway fd + flock -n).
 sl_who() {
+  echo "this checkout's stack: ${SE_PROJECT_ID}"
   if ( exec 9>>"$STACK_LOCK_FILE" && flock -n 9 ) 2>/dev/null; then
     echo "stack lock: FREE"
     if [ -f "$STACK_LOCK_INFO" ]; then
@@ -69,6 +79,17 @@ sl_who() {
     echo "stack lock: HELD"
     sed 's/^/  /' "$STACK_LOCK_INFO" 2>/dev/null || echo "  (holder info unavailable)"
   fi
+  # Other checkouts' stacks (per-worktree since Phase 2), plus the legacy
+  # shared-lock path — anything held elsewhere on this machine.
+  local f
+  for f in /tmp/grant-trail-stack.lock /tmp/grant-trail-stack-*.lock; do
+    [ -e "$f" ] || continue
+    [ "$f" = "$STACK_LOCK_FILE" ] && continue
+    if ! ( exec 9>>"$f" && flock -n 9 ) 2>/dev/null; then
+      echo "also HELD: $f"
+      sed 's/^/  /' "$f.info" 2>/dev/null || echo "  (holder info unavailable)"
+    fi
+  done
 }
 
 if [ "${BASH_SOURCE[0]}" = "${0}" ]; then

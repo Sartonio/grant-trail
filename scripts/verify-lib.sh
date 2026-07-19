@@ -8,9 +8,11 @@
 # run several and report the aggregate. The two stack prerequisites (Docker +
 # booted stack) are helpers the caller invokes once before any stack tier.
 #
-# The local stack is SHARED across worktrees (fixed ports + container name), so
-# every caller must hold the cross-worktree lock (scripts/stack-lock.sh) before
-# vf_boot_stack — it runs a destructive `db reset`.
+# Each worktree has its OWN local stack (scripts/stack-env.sh generates a
+# per-worktree supabase/config.toml: unique project_id + port block), so
+# worktrees run stack tiers in parallel. The per-stack lock (stack-lock.sh)
+# still serializes concurrent runs of the SAME checkout — every caller must
+# hold it before vf_boot_stack, which runs a destructive `db reset`.
 
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/stack-lock.sh"
 
@@ -33,7 +35,10 @@ vf_have_docker() {
 # still runs unconditionally — a reused stack must be reset to a known state
 # or every downstream tier tests leftover data. Default behavior is unchanged.
 vf_boot_stack() {
-  echo "==> booting local Supabase stack"
+  echo "==> booting local Supabase stack (${SE_PROJECT_ID})"
+  # Normally already done by sl_acquire; kept here (idempotent) for callers
+  # that boot without the lock helper.
+  se_ensure_config || exit 1
   if [ "${VF_REUSE_STACK:-}" = "1" ] && npx --prefix frontend supabase status >/dev/null 2>&1; then
     echo "    VF_REUSE_STACK=1 and stack already running — skipping supabase start"
   else
@@ -59,6 +64,9 @@ vf_export_stack_env() {
   export SUPABASE_SERVICE_ROLE_KEY="${SUPABASE_SERVICE_ROLE_KEY:-$(_vf_env_from_status SERVICE_ROLE_KEY)}"
   export VITE_SUPABASE_URL="${VITE_SUPABASE_URL:-$(_vf_env_from_status API_URL)}"
   export VITE_SUPABASE_KEY="${VITE_SUPABASE_KEY:-$(_vf_env_from_status ANON_KEY)}"
+  # The shell test suites default API_URL from config.toml themselves; exporting
+  # it here just pins the same answer for anything downstream.
+  export API_URL="${API_URL:-$(_vf_env_from_status API_URL)}"
 }
 
 # Resolve the Deno binary: prefer one on PATH, fall back to the standard

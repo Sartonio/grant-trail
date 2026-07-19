@@ -1,6 +1,10 @@
 require('dotenv').config({ path: '.env.local' });
 const { defineConfig, devices } = require('@playwright/test');
 
+/* Per-worktree stacks (scripts/stack-env.sh) export E2E_PORT so each worktree's
+   Vite + e2e run on their own port; the main checkout stays on 3000. */
+const PORT = Number(process.env.E2E_PORT || 3000);
+
 module.exports = defineConfig({
   testDir: './tests/e2e',
   fullyParallel: true,
@@ -10,7 +14,7 @@ module.exports = defineConfig({
   workers: process.env.CI ? 2 : Math.max(2, Math.min(4, Math.floor(require('os').cpus().length / 2))),
   reporter: 'html',
   use: {
-    baseURL: 'http://localhost:3000',
+    baseURL: `http://localhost:${PORT}`,
     trace: 'on-first-retry',
   },
   /* Maximum time one test can run for. */
@@ -28,8 +32,10 @@ module.exports = defineConfig({
     },
   ],
   webServer: {
-    command: 'npm start',
-    url: 'http://localhost:3000',
+    /* --strictPort: a silent Vite fallback to another port would make every
+       test hit the wrong (or another worktree's) app. */
+    command: `npm start -- --port ${PORT} --strictPort`,
+    url: `http://localhost:${PORT}`,
     reuseExistingServer: !process.env.CI,
     timeout: 120000,
     env: {

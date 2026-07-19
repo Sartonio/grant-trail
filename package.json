@@ -12,6 +12,7 @@
     "db:stop": "bash scripts/stack-lock.sh run npm run db:stop --prefix frontend",
     "db:reset": "bash scripts/stack-lock.sh run npm run db:reset --prefix frontend",
     "stack:who": "bash scripts/stack-lock.sh who",
+    "stack:gc": "bash scripts/stack-gc.sh",
     "dev": "bash scripts/dev.sh",
     "dev:frontend": "npm run dev --prefix frontend",
     "dev:functions": "npx --prefix frontend supabase functions serve --env-file ./supabase/functions/.env",

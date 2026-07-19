@@ -26,9 +26,8 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${HERE}/lib/stripe_test_helpers.sh"
 ensure_functions_served || exit 1
 
-API_URL="${API_URL:-http://127.0.0.1:54321}"
-PROJECT_ID="grant-trail"
-DB_CONTAINER="supabase_db_${PROJECT_ID}"
+# API_URL / PROJECT_ID / DB_CONTAINER come from lib/stripe_test_helpers.sh
+# (sourced above), derived from this worktree's supabase/config.toml.
 
 # Local Supabase ships a fixed demo anon key (see `npx supabase status`).
 ANON_KEY="${ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0}"

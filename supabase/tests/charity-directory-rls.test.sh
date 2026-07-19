@@ -49,7 +49,7 @@ ADMIN_TFAC='00000000-0000-0000-0000-000000000004'      # user 4, tenant 1, admin
 UID6=6; UID7=7; UID8=8; UID9=9
 
 ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0'
-REST_URL='http://127.0.0.1:54321/rest/v1'
+REST_URL="${API_URL}/rest/v1"   # API_URL comes from lib/common.sh (per-worktree port)
 
 pass=0
 fail=0

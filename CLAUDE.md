@@ -67,14 +67,22 @@ The frontend lives in `frontend/`. Root scripts proxy via `--prefix frontend`; r
 | `npm run e2e` / `e2e:install`                       | Playwright E2E suite / install browsers                                                  |
 | `npm --prefix frontend run lint`                    | ESLint over `frontend/src` (no root proxy)                                               |
 | `npm run db:check`                                  | `supabase db diff` — flag uncommitted schema drift                                       |
-| `npm run stack:who`                                 | Is the shared local stack free? Prints the holding worktree/branch/command if not        |
+| `npm run stack:who`                                 | Is this checkout's stack free? Prints the holding worktree/branch/command if not         |
+| `npm run stack:gc`                                  | Stop stacks of deleted worktrees (~1 GB RAM each); `-- --all` for unregistered ones too  |
 
-**The local Supabase stack is ONE shared instance across all worktrees** (fixed ports, fixed
-container name). Every stack-touching command (`verify:full`, `verify:changed`, `verify:rls`,
-`verify:edge`, `verify:e2e`/`e2e`, `db:start/stop/reset`) takes a cross-worktree `flock`
-(`scripts/stack-lock.sh`, lock in `/tmp`) before booting/resetting. On contention it prints who
-holds the stack and waits (up to `STACK_LOCK_TIMEOUT`, default 30 min). Check with
-`npm run stack:who`; never bypass the lock by calling `supabase` directly for destructive ops.
+**Each worktree gets its OWN local Supabase stack** (`scripts/stack-env.sh`). Stack-touching
+commands (`verify:full`, `verify:changed`, `verify:rls`, `verify:edge`, `verify:e2e`/`e2e`,
+`db:start/stop/reset`) regenerate `supabase/config.toml` in a linked worktree with a unique
+`project_id` (`grant-trail-<worktree>-<hash4>`) and port block (`PPP20`–`PPP29`, Vite/e2e on
+`PPP30` via `E2E_PORT`), marked `skip-worktree` so the substitution can't be committed; the main
+checkout keeps the canonical config (543xx ports, Vite 3000) untouched. N worktrees run
+`verify:full` in parallel. A per-stack `flock` (`scripts/stack-lock.sh`, lock in `/tmp`) still
+serializes concurrent runs of the SAME checkout — on contention it prints who holds the stack and
+waits (up to `STACK_LOCK_TIMEOUT`, default 30 min). Check with `npm run stack:who`; reclaim
+orphaned stacks with `npm run stack:gc`; never bypass the lock by calling `supabase` directly for
+destructive ops. All worktrees share ONE Stripe TEST account — the webhook matrix's default
+synthetic transport needs no `stripe listen` forwarder, so parallel local runs are safe;
+live-transport runs (`LANEF_WEBHOOK_TRANSPORT=live`) belong in CI.
 
 Test accounts (local, password `password123`): `maria.smith@example.com` (grantee),
 `eric.hobbs@example.com` (admin), `sam.reeves@example.com` (super admin).

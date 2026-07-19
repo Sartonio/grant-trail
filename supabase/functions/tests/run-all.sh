@@ -55,6 +55,13 @@ fi
 
 LISTEN_LOG="$(mktemp -t lanef-listen.XXXXXX.log)"
 LISTEN_PID=""
+# The forwarder's pid is ALSO recorded on disk (per stack, so per worktree)
+# because a SIGKILLed run gets no EXIT trap: the next run's stop_forwarder
+# reads the file and reaps only THAT leaked process. This replaces the old
+# `pkill -f "stripe listen --api-key"` sweep, which also killed forwarders it
+# never started — e.g. the dev-session forwarder from scripts/dev.sh (same
+# argv shape) or another worktree's test forwarder.
+listen_pidfile() { echo "/tmp/lanef-listen-${PROJECT_ID:-grant-trail}.pid"; }
 
 start_forwarder() {
   stop_forwarder
@@ -62,6 +69,7 @@ start_forwarder() {
     --forward-to "${API_URL:-http://127.0.0.1:54321}/functions/v1/stripe-webhook" \
     > "$LISTEN_LOG" 2>&1 &
   LISTEN_PID=$!
+  echo "$LISTEN_PID" > "$(listen_pidfile)"
   # wait until "Ready!"
   for _ in $(seq 1 20); do
     grep -q "Ready!" "$LISTEN_LOG" 2>/dev/null && return 0
@@ -77,15 +85,23 @@ stop_forwarder() {
     kill "$LISTEN_PID" 2>/dev/null || true
     wait "$LISTEN_PID" 2>/dev/null || true
   fi
-  # Sweep strays we did not start (e.g. leaked from an interrupted earlier run),
-  # then poll briefly until they are gone — two live forwarders would
-  # double-deliver every event.
-  pkill -f "stripe listen --api-key" 2>/dev/null || true
-  local i
-  for i in 1 2 3 4 5; do
-    pgrep -f "stripe listen --api-key" >/dev/null 2>&1 || break
-    sleep 0.2
-  done
+  # Reap a forwarder leaked by an interrupted earlier run OF THIS STACK (its
+  # pid was recorded in the pidfile) — two live forwarders would double-deliver
+  # every event. Verify the pid is still a `stripe listen` before killing (pids
+  # get recycled); poll briefly until it is gone. Forwarders we did not start
+  # (dev.sh's, other worktrees') are deliberately left alone.
+  local pidfile stray i
+  pidfile="$(listen_pidfile)"
+  stray="$(cat "$pidfile" 2>/dev/null || true)"
+  if [ -n "$stray" ] && [ "$stray" != "$LISTEN_PID" ] \
+      && ps -o args= -p "$stray" 2>/dev/null | grep -q "stripe listen"; then
+    kill "$stray" 2>/dev/null || true
+    for i in 1 2 3 4 5; do
+      kill -0 "$stray" 2>/dev/null || break
+      sleep 0.2
+    done
+  fi
+  rm -f "$pidfile"
   LISTEN_PID=""
 }
 
@@ -140,9 +156,10 @@ fi
 run webhook-matrix.test.sh
 # Forwarder OFF for everything after the matrix (portal/sync must be the sole
 # DB writer). On the synthetic transport this is purely a stray sweep — it
-# kills nothing we started. Note the sweep only matches forwarders started
-# with `--api-key` in argv (ours); an externally started forwarder (e.g. CI's
-# `stripe listen --forward-to ...`) is NOT caught by it.
+# kills nothing we started. The sweep only reaps a pid recorded in this
+# stack's pidfile (a leak from an interrupted earlier run); externally started
+# forwarders — dev.sh's, CI's, other worktrees' — are NOT touched, so on the
+# live transport make sure no dev forwarder is running against this stack.
 stop_forwarder
 
 # (c) portal + sync -- forwarder OFF so sync is the sole DB writer
