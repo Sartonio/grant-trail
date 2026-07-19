@@ -37,3 +37,9 @@
 {"ts":"2026-07-19T17:23:11.977Z","kind":"scope-set","add":true,"args":["frontend/src/components/fiscalAgent/FiscalAgentListingEditor.js"],"matchedModules":[],"fallbacks":["frontend/src/components/fiscalAgent/FiscalAgentListingEditor.js"],"branch":"main"}
 {"ts":"2026-07-19T17:23:56.493Z","kind":"scope-block","tool":"Edit","file":"frontend/src/lib/format.test.js","allowed":[".task/**","DEBT.md","edit-log.jsonl","frontend/src/components/admin/ReviewSidebar.js","frontend/src/components/fiscalAgent/FiscalAgentListingEditor.js","frontend/src/components/grant/**","frontend/src/lib/format.js"]}
 {"ts":"2026-07-19T17:24:00.364Z","kind":"scope-set","add":true,"args":["frontend/src/lib/format.test.js"],"matchedModules":[],"fallbacks":["frontend/src/lib/format.test.js"],"branch":"main"}
+{"ts":"2026-07-19T17:46:36.141Z","kind":"scope-set","add":false,"args":["supabase/functions/tests"],"matchedModules":[],"fallbacks":["supabase/functions/tests/**"],"branch":"main"}
+{"ts":"2026-07-19T17:52:45.150Z","kind":"scope-set","add":false,"args":["supabase/functions/tests"],"matchedModules":[],"fallbacks":["supabase/functions/tests/**"],"branch":"main"}
+{"ts":"2026-07-19T17:52:45.329Z","kind":"scope-set","add":true,"args":["supabase/functions/tests/README.md"],"matchedModules":[],"fallbacks":["supabase/functions/tests/README.md"],"branch":"main"}
+{"ts":"2026-07-19T17:52:45.489Z","kind":"scope-set","add":true,"args":["DEBT.md"],"matchedModules":[],"fallbacks":["DEBT.md"],"branch":"main"}
+{"ts":"2026-07-19T18:52:16.975Z","kind":"scope-set","add":false,"args":["README.md"],"matchedModules":[],"fallbacks":["README.md"],"branch":"main"}
+{"ts":"2026-07-19T18:52:17.132Z","kind":"scope-set","add":true,"args":["DEBT.md"],"matchedModules":[],"fallbacks":["DEBT.md"],"branch":"main"}
