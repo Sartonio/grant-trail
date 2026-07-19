@@ -42,43 +42,65 @@ shared environment, use a separate seed file with generated passwords.
 supabase db diff --linked
 ```
 
-Expect **no FK or table drop statements**. Two categories of output are known
-noise and can be ignored:
+On a project built from these migrations, the diff is exactly one line:
 
-- `drop extension if exists "pg_net"` — no migration creates pg_net; the local
-  shadow DB installs it by default and remote projects do not have it. The one
-  trigger that uses it already guards for it being absent.
-- `drop policy "Tenant-scoped ..." on "storage"."objects"` (6 of them) — these
-  exist on both sides. `db diff` handles the `storage` schema poorly, which is
-  also why those policies are hand-appended at the bottom of the baseline rather
-  than captured by the dump. Confirm directly if in doubt:
+```
+drop extension if exists "pg_net"
+```
 
-  ```sql
-  SELECT policyname FROM pg_policies WHERE schemaname='storage' AND tablename='objects';
-  ```
+That is expected and benign. No migration creates pg_net; the local shadow DB
+installs it by default and remote projects do not have it. The one trigger that
+uses it already guards for it being absent.
+
+If you *also* see six `drop policy "Tenant-scoped ..." on "storage"."objects"`
+lines, that means the project was **not** built from these migrations — it was
+reconciled in place, or predates the squash. The policies exist on both sides;
+`db diff` just reports them when the storage schema was not created by the same
+run. Confirm directly:
+
+```sql
+SELECT policyname FROM pg_policies WHERE schemaname='storage' AND tablename='objects';
+```
+
+Six rows means you are fine. Rebuilding from scratch makes these lines disappear.
 
 Anything *else* in the diff is real drift — fix it forward with a new migration,
 never by hand-editing the baseline.
 
-## What was done to staging (2026-07-19, historical)
+## Staging: rebuilt from scratch (2026-07-19)
 
-Staging was **not** rebuilt from scratch; it was reconciled in place, keeping its
-6 auth users and the 6 subscription / 6 billing_customers rows that point at live
-Stripe test-mode objects.
+Staging was wiped and rebuilt with `db reset --linked --no-seed`, which is the
+real test of the criterion — the two migrations applying to an empty database on
+an actual Supabase project rather than a local container. Verified afterwards,
+every figure matching a local `db:reset` exactly:
 
-1. `supabase migration repair --status reverted` for the 18 collapsed versions
-   (`20260630150000` … `20260714011033`), leaving only the two baseline versions
-   recorded. Bookkeeping only — no schema SQL ran.
-2. The 8 cascade FK `ALTER`s applied as **raw DDL, not a recorded migration** —
-   deliberately, since the cascade lives inside `20260630130000`, which staging
-   already records. Recording a new version would have re-created the mismatch
-   step 1 just cleaned up.
+| check | value |
+|---|---|
+| versions recorded | 2 |
+| tables (public) | 24 |
+| RLS policies (public) | 80 |
+| storage policies | 6 |
+| storage buckets | 2 |
+| platform_settings rows | 1 |
+| auth.users | 0 |
+| `anon` privileges on the two sensitive tables | **0** |
+| auth.users FKs | 8 — 2 CASCADE, 6 SET NULL |
+| `db diff --linked` | one line (`pg_net`, benign) |
 
-Verified afterwards: all 8 FKs correct (2 CASCADE, 6 SET NULL), all rows intact,
-`schema_migrations` at exactly 2 rows, and `db diff --linked` free of FK drops.
+Note `db reset --linked` requires `SUPABASE_DB_PASSWORD`; the temporary login
+role the CLI mints for read-only commands returns 401 for reset and push. The
+password is under Settings → Database, and resetting it is free on a project you
+are about to wipe anyway.
 
-Only reach for this in-place procedure if you have a populated project you cannot
-wipe. A fresh project should use `db push`.
+### In-place reconciliation (fallback only)
+
+If you ever have a populated project you cannot wipe, the alternative is:
+`supabase migration repair --status reverted` for the collapsed versions, then
+apply the delta as **raw DDL, not a recorded migration** — since a change folded
+into the baseline belongs to a version the project already records, and adding a
+new version would re-create the mismatch the repair just cleaned up. Staging was
+carried this way briefly before being rebuilt properly. Prefer the rebuild: it is
+the only path that actually proves the migrations work from empty.
 
 ## What NOT to do
 
