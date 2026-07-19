@@ -67,6 +67,14 @@ The frontend lives in `frontend/`. Root scripts proxy via `--prefix frontend`; r
 | `npm run e2e` / `e2e:install`                       | Playwright E2E suite / install browsers                                                  |
 | `npm --prefix frontend run lint`                    | ESLint over `frontend/src` (no root proxy)                                               |
 | `npm run db:check`                                  | `supabase db diff` — flag uncommitted schema drift                                       |
+| `npm run stack:who`                                 | Is the shared local stack free? Prints the holding worktree/branch/command if not        |
+
+**The local Supabase stack is ONE shared instance across all worktrees** (fixed ports, fixed
+container name). Every stack-touching command (`verify:full`, `verify:changed`, `verify:rls`,
+`verify:edge`, `verify:e2e`/`e2e`, `db:start/stop/reset`) takes a cross-worktree `flock`
+(`scripts/stack-lock.sh`, lock in `/tmp`) before booting/resetting. On contention it prints who
+holds the stack and waits (up to `STACK_LOCK_TIMEOUT`, default 30 min). Check with
+`npm run stack:who`; never bypass the lock by calling `supabase` directly for destructive ops.
 
 Test accounts (local, password `password123`): `maria.smith@example.com` (grantee),
 `eric.hobbs@example.com` (admin), `sam.reeves@example.com` (super admin).

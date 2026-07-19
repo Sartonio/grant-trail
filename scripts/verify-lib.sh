@@ -7,6 +7,12 @@
 # Convention: tier functions set `fail=1` on failure (never exit) so a caller can
 # run several and report the aggregate. The two stack prerequisites (Docker +
 # booted stack) are helpers the caller invokes once before any stack tier.
+#
+# The local stack is SHARED across worktrees (fixed ports + container name), so
+# every caller must hold the cross-worktree lock (scripts/stack-lock.sh) before
+# vf_boot_stack — it runs a destructive `db reset`.
+
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/stack-lock.sh"
 
 # --- prerequisites ----------------------------------------------------------
 
@@ -167,6 +173,7 @@ if [ "${BASH_SOURCE[0]}" = "${0}" ]; then
   done
   if [ "$needs_stack" = 1 ]; then
     vf_have_docker || exit 0
+    sl_acquire "bash scripts/verify-lib.sh $*" || exit 1
     vf_boot_stack
   fi
   for tier in "$@"; do "vf_${tier}"; done

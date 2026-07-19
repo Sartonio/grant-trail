@@ -32,6 +32,10 @@ fail=0
 # switched back off immediately so the rest of the script is unaffected.
 boot_pid="" boot_log=""
 if vf_have_docker; then
+  # Take the cross-worktree stack lock in the PARENT shell, before forking the
+  # boot — a lock acquired inside the background subshell would release when
+  # the subshell exits, long before the stack tiers run.
+  sl_acquire "npm run verify:full" || exit 1
   boot_log="$(mktemp -t vf-boot.XXXXXX)"
   set -m
   ( vf_boot_stack ) >"$boot_log" 2>&1 &
