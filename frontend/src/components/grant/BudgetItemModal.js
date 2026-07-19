@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import * as Sentry from '@sentry/react';
 import { insertBudgetItem, updateBudgetItem } from '../../lib/data/budgetItems';
+import { blurOnWheel } from '../../lib/format';
 import {
   FaTimes,
   FaSave,
@@ -153,6 +154,7 @@ function BudgetItemModal({ grantId, budgetItem, grantAmount, totalAllocated, onC
                     name="budget_allocated"
                     value={formData.budget_allocated}
                     onChange={handleChange}
+                    onWheel={blurOnWheel}
                     step="0.01"
                     min="0"
                     placeholder="0.00"

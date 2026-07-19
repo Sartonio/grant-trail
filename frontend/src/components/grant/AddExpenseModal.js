@@ -3,6 +3,7 @@ import * as Sentry from '@sentry/react';
 import { supabase } from '../../supabaseClient';
 import { deleteExpense, insertExpense, updateExpense } from '../../lib/data/expenses';
 import { deleteReceiptByExpense, insertReceipt } from '../../lib/data/receipts';
+import { blurOnWheel } from '../../lib/format';
 import {
   FaTimes,
   FaSave,
@@ -285,6 +286,7 @@ function AddExpenseModal({ grantId, budgetItemId, budgetItem, expenseItem, exist
                       name="amount_spent"
                       value={formData.amount_spent}
                       onChange={handleChange}
+                      onWheel={blurOnWheel}
                       step="0.01"
                       min="0.01"
                       placeholder="0.00"

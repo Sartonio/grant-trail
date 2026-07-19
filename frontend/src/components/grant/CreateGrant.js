@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import * as Sentry from '@sentry/react';
 import { getOwnGrant, insertGrant, updateOwnGrant } from '../../lib/data/grants';
 import { listBudgetItems } from '../../lib/data/budgetItems';
+import { blurOnWheel } from '../../lib/format';
 import {
   FaCalendarAlt,
   FaDollarSign,
@@ -310,6 +311,7 @@ function CreateGrant({ session }) {
                   name="grant_amount"
                   value={formData.grant_amount}
                   onChange={handleChange}
+                  onWheel={blurOnWheel}
                   step="0.01"
                   min="0"
                   placeholder="0.00"

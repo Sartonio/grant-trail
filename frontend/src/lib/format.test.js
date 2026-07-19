@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatDate, formatDateMed, formatCurrency, formatExcelDate, fmtBytes, timeRemaining } from './format';
+import { formatDate, formatDateMed, formatCurrency, formatExcelDate, fmtBytes, timeRemaining, blurOnWheel } from './format';
 
 describe('formatDate', () => {
   it('renders day-Mon-year with leading zero stripped from the day', () => {
@@ -74,5 +74,13 @@ describe('timeRemaining', () => {
   });
   it('returns the em dash for empty input', () => {
     expect(timeRemaining('')).toEqual({ display: '—', cls: '' });
+  });
+});
+
+describe('blurOnWheel', () => {
+  it('blurs the hovered input so wheel scrolling cannot change its value', () => {
+    let blurred = false;
+    blurOnWheel({ currentTarget: { blur: () => { blurred = true; } } });
+    expect(blurred).toBe(true);
   });
 });

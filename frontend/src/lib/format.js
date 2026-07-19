@@ -95,3 +95,12 @@ export function timeRemaining(endDateStr) {
   const display = rem > 0 ? `${months}mo ${rem}d left` : `${months}mo left`;
   return { display, cls: days < 90 ? "warning" : "" };
 }
+
+// Chrome (and some other browsers) mutate a focused <input type="number"> by
+// one `step` per wheel tick when the cursor hovers it — scrolling the page can
+// silently change a typed amount (e.g. $20,000 → $19,999.98 with step=0.01).
+// Blurring on wheel lets the page scroll and leaves the value untouched.
+/** @param {{ currentTarget: HTMLElement }} e */
+export function blurOnWheel(e) {
+  e.currentTarget.blur();
+}

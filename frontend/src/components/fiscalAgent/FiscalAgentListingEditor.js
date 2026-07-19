@@ -10,6 +10,7 @@ import * as Sentry from '@sentry/react';
 import { canOwnListing } from '../../lib/policy';
 import { getTenantListing, updateListing } from '../../lib/data/fiscalAgentListings';
 import { useWriteGuard } from '../../lib/useWriteGuard';
+import { blurOnWheel } from '../../lib/format';
 import { mapFullListing, listingToRow } from './fiscalAgents.map';
 import { FOCUS_AREAS, RESPONSE_TIMES, Field, Toast } from './fiscalAgentsShared';
 import './FiscalAgentDirectory.css';
@@ -246,6 +247,7 @@ export default function FiscalAgentListingEditor({ session, readOnly = false }) 
               step="0.5"
               value={data.feeNum}
               onChange={(e) => set('feeNum', e.target.value)}
+              onWheel={blurOnWheel}
               disabled={lockWrites}
             />
           </Field>

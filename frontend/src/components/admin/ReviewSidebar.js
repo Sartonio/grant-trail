@@ -8,6 +8,7 @@ import {
   FiXCircle,
 } from 'react-icons/fi';
 import { updateGrant } from '../../lib/data/grants';
+import { blurOnWheel } from '../../lib/format';
 
 const ACTION_LABEL = {
   approve: 'Approve',
@@ -222,6 +223,7 @@ export default function ReviewSidebar({ grant, id, session, guardWrite, reload, 
                 placeholder="0.00"
                 value={disbursedInput}
                 onChange={e => { setDisbursedInput(e.target.value); setDisbursedError(''); setDisbursedSuccess(''); }}
+                onWheel={blurOnWheel}
                 disabled={disbursedLoading}
               />
             </div>
