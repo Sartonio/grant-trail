@@ -166,9 +166,11 @@ A vendored scope-guard (from `ai-first-starter`; see
   `.task/allowed-files.json` (the allowed set). Example:
   `npm run scope frontend/src/lib`. Pass a directory and it expands to
   `<dir>/**`.
-- **`--add` widens, a plain re-run replaces.** `npm run scope --add
+- **`add` widens, a plain re-run replaces.** `npm run scope add
 supabase/functions/notify-inquiry` adds to the current scope; re-running
-  without `--add` starts a fresh scope. Bare catch-alls (`**`, `frontend/**`,
+  without `add` starts a fresh scope. (The `--add` flag still works when the
+  runner forwards it, but `npm run` swallows `--add` — it parses it as its
+  own config flag — so always use the `add` subcommand with npm.) Bare catch-alls (`**`, `frontend/**`,
   `supabase/**`, …) are refused.
 - **The PreToolUse scope-guard hook** (`.claude/hooks/scope-guard.ts`, fires
   only for Claude Code sessions started in this repo) blocks agent file edits
