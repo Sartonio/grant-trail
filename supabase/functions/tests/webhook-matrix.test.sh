@@ -243,9 +243,10 @@ else
   # The failing renewal also delivers invoice.payment_failed -> the dunning handler.
   # It must record the event (dedupe row) WITHOUT touching the subscription
   # projection (status stays past_due, driven solely by customer.subscription.updated).
-  # The email send is isolated regardless of Resend creds -- exhaustively covered by
-  # email-resilience.test.sh -- so this matrix case does NOT assert on the email
-  # outcome (this env may carry live creds), only that the projection is untouched.
+  # The email send is isolated (failure never 5xxs the webhook) — exhaustively
+  # covered by email-resilience.test.sh. Here the harness serves with email pointed
+  # at a LOCAL Resend mock (never real creds — see ensure_functions_served), so we
+  # ALSO assert the dunning email was actually ATTEMPTED (wait_for_email below).
   info "[dunning] invoice.payment_failed recorded, subscription projection untouched"
   # Locate the event by CUSTOMER, not subscription: current Stripe API versions
   # drop the top-level `invoice.subscription` field event_id_for() keys on, so the
@@ -281,6 +282,13 @@ for e in json.load(sys.stdin)['data']:
     assert_eq "$(dbq "SELECT status FROM subscriptions WHERE stripe_subscription_id='$PDSUB';")" "past_due" "[dunning] subscription projection untouched by dunning handler"
     assert_eq "$(dbq "SELECT is_active::text FROM user_memberships WHERE user_id=$DBUID;")" "true" "[dunning] membership still active (dunning handler is notify-only)"
   fi
+
+  # The dunning handler sends to invoice.customer_email (the past_due customer,
+  # lanef-pastdue@example.com) with subject "Action needed: your GrantTrail
+  # payment failed". Assert the local Resend mock captured that attempt.
+  # Tolerant of ordering / multiple sends (any matching capture line passes);
+  # skipped when no mock is in play (external serve whose env we don't control).
+  wait_for_email "lanef-pastdue@example.com" "payment failed" "[dunning] dunning email attempted (captured by Resend mock)"
 fi
 
 # =========================================================================

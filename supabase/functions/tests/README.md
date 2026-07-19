@@ -138,7 +138,30 @@ cold-start retry loops of their own.
 `run-all.sh` itself calls `ensure_functions_served` once up front and exports
 `LANEF_SERVE_EXTERNAL=1` (see Env toggles), so a full run boots + warms the
 server a single time instead of once per suite; the runner's EXIT trap stops
-it exactly once at the end.
+it exactly once at the end. That single call also owns the Resend mock below —
+child suites inherit `RESEND_MOCK_CAPTURE` through the environment.
+
+### Email: constructed env + local Resend mock
+
+`ensure_functions_served` NEVER passes the developer's real email creds to the
+served functions. It CONSTRUCTS the served env from an explicit allowlist
+(`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_BASIC`,
+`STRIPE_PRICE_FISCAL_AGENT`, `APP_URL`) — sourced from `supabase/functions/.env`
+or exported vars — so a live `RESEND_API_KEY` / `EMAIL_FROM` in a dev `.env` can
+never leak into a test run and send real dunning mail to `lanef-*@example.com`.
+
+Email is then wired to a tiny **local Resend mock** (`lib/resend_mock.py`): the
+helper starts it, points `RESEND_API_URL` at it (with a fake key + from), and the
+edge-runtime container reaches it via `host.docker.internal`. The mock returns
+`200 {"id":"mock"}` and appends each request body (one JSON line) to a capture
+file whose path is exported as `RESEND_MOCK_CAPTURE`. Tests assert on it with
+`wait_for_email <to-substr> <subject-substr> <label>` (tolerant of ordering /
+multiple sends). If the mock can't start, the helper falls back to serving with
+NO email creds (send is a no-op) rather than failing the suite. `webhook-matrix`
+uses this to prove the past_due dunning email is actually attempted.
+
+`email-resilience.test.sh` is unaffected: it serves with its OWN env files via
+its own `serve_with_env` and never calls `ensure_functions_served`.
 
 The rule that keeps suites from colliding, for anything added later:
 

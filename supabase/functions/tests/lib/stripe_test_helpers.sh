@@ -35,6 +35,61 @@ SERVICE_ROLE_KEY="${SERVICE_ROLE_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc
 # How long to wait for an async webhook to land (seconds).
 WAIT_TIMEOUT="${WAIT_TIMEOUT:-40}"
 
+# ---- local Resend mock ---------------------------------------------------
+#
+# Email is sent via the Resend HTTP API (_shared/email.ts). Tests must never
+# reach the real endpoint with live creds (see ensure_functions_served), so the
+# harness serves the functions with RESEND_API_URL pointed at a tiny local mock
+# (lib/resend_mock.py) that returns 200 and appends each request body to a
+# capture file. That makes email sending assertable instead of just disabled.
+#
+# The edge functions run inside the supabase edge-runtime CONTAINER, so they
+# reach the host-bound mock via host.docker.internal (the Supabase CLI maps it
+# to the host gateway). RESEND_MOCK_CAPTURE is exported for tests to read.
+RESEND_MOCK_PORT="${RESEND_MOCK_PORT:-8384}"
+RESEND_MOCK_HOST="${RESEND_MOCK_HOST:-host.docker.internal}"
+RESEND_MOCK_FROM="${RESEND_MOCK_FROM:-GrantTrail Test <mock@granttrail.test>}"
+RESEND_MOCK_KEY="re_test_mock_no_real_send"
+RESEND_MOCK_CAPTURE=""     # set by _start_resend_mock when the mock comes up
+RESEND_MOCK_URL=""         # set by _start_resend_mock; consumed as RESEND_API_URL
+_RESEND_MOCK_PID=""
+
+# _start_resend_mock — launch the mock; on success export RESEND_MOCK_CAPTURE +
+# RESEND_MOCK_URL and return 0. On any failure return 1 so the caller can fall
+# back to serving WITHOUT email creds (email disabled) rather than failing.
+_start_resend_mock() {
+  local lib capture i
+  lib="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  command -v python3 >/dev/null 2>&1 || return 1
+  capture="$(mktemp -t resend-mock.XXXXXX.jsonl)"
+  python3 "${lib}/resend_mock.py" "$RESEND_MOCK_PORT" "$capture" \
+    >/dev/null 2>&1 &
+  _RESEND_MOCK_PID=$!
+  # Wait until the mock answers a local GET (readiness). The edge container
+  # reaches it via host.docker.internal, but from the host it's 127.0.0.1.
+  for i in $(seq 1 20); do
+    if ! kill -0 "$_RESEND_MOCK_PID" 2>/dev/null; then
+      _RESEND_MOCK_PID=""
+      return 1
+    fi
+    if curl -s -o /dev/null "http://127.0.0.1:${RESEND_MOCK_PORT}/" 2>/dev/null; then
+      RESEND_MOCK_CAPTURE="$capture"
+      RESEND_MOCK_URL="http://${RESEND_MOCK_HOST}:${RESEND_MOCK_PORT}/emails"
+      export RESEND_MOCK_CAPTURE
+      return 0
+    fi
+    sleep 0.5
+  done
+  _stop_resend_mock
+  return 1
+}
+
+_stop_resend_mock() {
+  [ -n "$_RESEND_MOCK_PID" ] || return 0
+  kill "$_RESEND_MOCK_PID" 2>/dev/null || true
+  _RESEND_MOCK_PID=""
+}
+
 # ---- counters ------------------------------------------------------------
 
 PASS_COUNT=0
@@ -109,6 +164,8 @@ _warm_functions() {
 # Only kills a server WE started (guarded by _SERVE_STARTED_HERE), so an
 # externally-managed serve is never touched. Mirrors email-resilience's pkill.
 _stop_functions_served() {
+  # Always stop a mock we started, even if we did not start the serve.
+  _stop_resend_mock
   [ -n "$_SERVE_STARTED_HERE" ] || return 0
   pkill -f "functions serve" 2>/dev/null || true
   _SERVE_STARTED_HERE=""
@@ -167,6 +224,47 @@ ensure_functions_served() {
       echo "APP_URL=${APP_URL:-http://localhost:3000}"
     } > "$envfile"
   fi
+
+  # Never serve tests with the developer's REAL email creds. A dev .env carries a
+  # live RESEND_API_KEY + verified EMAIL_FROM, and the webhook tests drive
+  # customers to past_due, so dunning emails would really be sent to
+  # lanef-*@example.com and bounce — burning the sending domain's reputation.
+  #
+  # Instead of trusting a grep to strip every email var out of an arbitrary .env,
+  # we CONSTRUCT the served env from an explicit allowlist (below): only these
+  # Stripe/app vars are ever passed through, sourced from the dev .env or exported
+  # env. Real RESEND_*/EMAIL_FROM/SMTP_FROM values can never leak in this way.
+  #
+  # Email is then wired to a LOCAL mock (fake key + fake from + RESEND_API_URL at
+  # the mock endpoint) so sending is exercised and assertable, not just disabled.
+  # If the mock can't start, we fall back to omitting the email vars entirely —
+  # sendEmail() no-ops without a key/from, so the suite still runs (just without
+  # email assertions). email-resilience.test.sh serves with its OWN env files via
+  # serve_with_env and never calls this function, so it is unaffected.
+  # Start the mock BEFORE writing the file (its info logging must not land in the
+  # redirected env file). _start_resend_mock sets RESEND_MOCK_URL/_CAPTURE on
+  # success.
+  local served mock_ok=0
+  if _start_resend_mock; then
+    mock_ok=1
+    info "local Resend mock up (capture: ${RESEND_MOCK_CAPTURE})"
+  else
+    info "Resend mock unavailable — serving with email disabled (no creds)"
+  fi
+  served="$(mktemp -t lanef-env.XXXXXX)"
+  {
+    echo "STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY:-}"
+    echo "STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET:-}"
+    echo "STRIPE_PRICE_BASIC=${STRIPE_PRICE_BASIC:-}"
+    echo "STRIPE_PRICE_FISCAL_AGENT=${STRIPE_PRICE_FISCAL_AGENT:-}"
+    echo "APP_URL=${APP_URL:-http://localhost:3000}"
+    if [ "$mock_ok" = "1" ]; then
+      echo "RESEND_API_KEY=${RESEND_MOCK_KEY}"
+      echo "EMAIL_FROM=${RESEND_MOCK_FROM}"
+      echo "RESEND_API_URL=${RESEND_MOCK_URL}"
+    fi
+  } > "$served"
+  envfile="$served"
 
   logfile="$(mktemp -t lanef-serve.XXXXXX.log)"
   info "no functions server up — starting one (log: ${logfile})"
@@ -547,4 +645,31 @@ assert_eq() {
 # assert_http <status> <expected> <label>
 assert_http() {
   if [ "$1" == "$2" ]; then pass "$3 (HTTP $2)"; else fail "$3 expected HTTP $2 got $1"; fi
+}
+
+# wait_for_email <to-substr> <subject-substr> <label>
+#
+# Poll the Resend-mock capture file for a captured send whose (raw JSON) body
+# contains BOTH substrings — the recipient and a subject fragment. Sends are
+# async and there may be several (multiple payment_failed retries / prior sends);
+# a single matching line anywhere is enough, so this is tolerant of ordering and
+# volume. If the mock isn't running (RESEND_MOCK_CAPTURE unset — e.g. we reused an
+# externally-managed serve we don't control the env of), the check is SKIPPED
+# rather than failed, keeping standalone/dev runs green.
+wait_for_email() {
+  local to_sub="$1" subj_sub="$2" label="$3"
+  if [ -z "${RESEND_MOCK_CAPTURE:-}" ] || [ ! -f "${RESEND_MOCK_CAPTURE}" ]; then
+    skip "$label (no Resend mock capture — external serve reused)"
+    return 0
+  fi
+  local deadline=$((SECONDS + WAIT_TIMEOUT))
+  while [ $SECONDS -lt $deadline ]; do
+    if grep -F "$to_sub" "$RESEND_MOCK_CAPTURE" 2>/dev/null | grep -Fq "$subj_sub"; then
+      pass "$label (captured to~$to_sub subject~$subj_sub)"
+      return 0
+    fi
+    sleep 0.5
+  done
+  fail "$label  no captured email matched to~'$to_sub' subject~'$subj_sub' in $RESEND_MOCK_CAPTURE"
+  return 1
 }
