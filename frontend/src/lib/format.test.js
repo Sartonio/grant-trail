@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect } from 'vitest';
 import { formatDate, formatDateMed, formatCurrency, formatExcelDate, fmtBytes, timeRemaining, blurOnWheel } from './format';
 

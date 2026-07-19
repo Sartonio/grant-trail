@@ -13,8 +13,9 @@
 
 set -uo pipefail
 
-PROJECT_ID="grant-trail"
-DB_CONTAINER="supabase_db_${PROJECT_ID}"
+# assert_eq / DB_CONTAINER / require_stack are shared (see lib/common.sh).
+. "$(dirname "${BASH_SOURCE[0]}")/lib/common.sh"
+require_stack
 
 pass=0
 fail=0
@@ -22,9 +23,6 @@ fail=0
 psql_scalar() {
   docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -tA -v ON_ERROR_STOP=0 -c "$1" 2>&1
 }
-
-# assert_eq is shared (see lib/common.sh).
-. "$(dirname "${BASH_SOURCE[0]}")/lib/common.sh"
 
 echo "=============================================================="
 echo " Platform-root config (#29) — proof tests"

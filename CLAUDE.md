@@ -67,6 +67,14 @@ The frontend lives in `frontend/`. Root scripts proxy via `--prefix frontend`; r
 | `npm run e2e` / `e2e:install`                       | Playwright E2E suite / install browsers                                                  |
 | `npm --prefix frontend run lint`                    | ESLint over `frontend/src` (no root proxy)                                               |
 | `npm run db:check`                                  | `supabase db diff` — flag uncommitted schema drift                                       |
+| `npm run stack:who`                                 | Is the shared local stack free? Prints the holding worktree/branch/command if not        |
+
+**The local Supabase stack is ONE shared instance across all worktrees** (fixed ports, fixed
+container name). Every stack-touching command (`verify:full`, `verify:changed`, `verify:rls`,
+`verify:edge`, `verify:e2e`/`e2e`, `db:start/stop/reset`) takes a cross-worktree `flock`
+(`scripts/stack-lock.sh`, lock in `/tmp`) before booting/resetting. On contention it prints who
+holds the stack and waits (up to `STACK_LOCK_TIMEOUT`, default 30 min). Check with
+`npm run stack:who`; never bypass the lock by calling `supabase` directly for destructive ops.
 
 Test accounts (local, password `password123`): `maria.smith@example.com` (grantee),
 `eric.hobbs@example.com` (admin), `sam.reeves@example.com` (super admin).
@@ -99,7 +107,9 @@ A change is NOT done until it meets these. Don't declare completion otherwise.
   Stripe webhook/checkout/portal matrix, Playwright e2e). "Security-touching" = anything under
   `supabase/migrations/`, `supabase/functions/`, `lib/policy.js`, `lib/guards.js`,
   `lib/billing.js`, or any data-mutating component. `verify:full` is fail-open when Docker/Stripe
-  keys are absent (stack tier skipped with a warning) — run it where they exist.
+  keys are absent (stack tier skipped with a warning) — run it where they exist. For the local/dev
+  loop, `npm run verify:changed` is the preferred day-to-day command; `verify:full` remains
+  required before merge and runs fully in CI (including the CI-only slow Stripe scenarios).
 - **NEW code uses the `lib/data/` access layer.** No raw `supabase.from(...)` in components; add or
   reuse a thin function in `frontend/src/lib/data/<entity>.js` (each typed to its table via the
   generated `lib/database.types.ts`). Components import from there. ESLint enforces this
@@ -156,9 +166,11 @@ A vendored scope-guard (from `ai-first-starter`; see
   `.task/allowed-files.json` (the allowed set). Example:
   `npm run scope frontend/src/lib`. Pass a directory and it expands to
   `<dir>/**`.
-- **`--add` widens, a plain re-run replaces.** `npm run scope --add
+- **`add` widens, a plain re-run replaces.** `npm run scope add
 supabase/functions/notify-inquiry` adds to the current scope; re-running
-  without `--add` starts a fresh scope. Bare catch-alls (`**`, `frontend/**`,
+  without `add` starts a fresh scope. (The `--add` flag still works when the
+  runner forwards it, but `npm run` swallows `--add` — it parses it as its
+  own config flag — so always use the `add` subcommand with npm.) Bare catch-alls (`**`, `frontend/**`,
   `supabase/**`, …) are refused.
 - **The PreToolUse scope-guard hook** (`.claude/hooks/scope-guard.ts`, fires
   only for Claude Code sessions started in this repo) blocks agent file edits

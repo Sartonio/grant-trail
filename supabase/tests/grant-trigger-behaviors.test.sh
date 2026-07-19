@@ -42,8 +42,10 @@
 
 set -uo pipefail
 
-PROJECT_ID="grant-trail"
-DB_CONTAINER="supabase_db_${PROJECT_ID}"
+# DB_CONTAINER / require_stack come from lib/common.sh (assertion helpers there
+# are unused here — this file keeps its own `check`).
+. "$(dirname "${BASH_SOURCE[0]}")/lib/common.sh"
+require_stack
 
 # Fixture ids (public.users.id / public.tenants.id — integers, not auth uids).
 T_MANAGED=1       # tfac, require_*_approval = true

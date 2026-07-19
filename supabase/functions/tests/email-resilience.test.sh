@@ -49,6 +49,16 @@ ROOT="$(cd "${HERE}/../../.." && pwd)"
 # shellcheck source=lib/stripe_test_helpers.sh
 source "${HERE}/lib/stripe_test_helpers.sh"
 
+# Under run-all.sh a shared functions server is up and LANEF_SERVE_EXTERNAL=1 is
+# exported. This suite deliberately breaks that contract — each serve_with_env
+# call FORCES a restart (stop_serve + fresh serve) with its own email env — so
+# drop the flag here: nothing below (nor any helper it calls) may treat the
+# shared-server declaration as still valid once we have killed that server.
+# run-all.sh runs this suite LAST for exactly this reason; our exit trap stops
+# our final serve, and run-all's _stop_functions_served sweep tolerates the
+# server already being gone (no double-kill).
+unset LANEF_SERVE_EXTERNAL
+
 # Source supabase/functions/.env locally; in CI the secrets arrive as env vars.
 ENV_FILE="${ENV_FILE:-${HERE}/../.env}"
 if [ -f "$ENV_FILE" ]; then

@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect } from 'vitest';
 import { resolveGuard, GRANTEE_BILLING_REDIRECT } from './guards';
 import { ROLES } from './policy';

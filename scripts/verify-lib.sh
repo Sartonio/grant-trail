@@ -7,6 +7,12 @@
 # Convention: tier functions set `fail=1` on failure (never exit) so a caller can
 # run several and report the aggregate. The two stack prerequisites (Docker +
 # booted stack) are helpers the caller invokes once before any stack tier.
+#
+# The local stack is SHARED across worktrees (fixed ports + container name), so
+# every caller must hold the cross-worktree lock (scripts/stack-lock.sh) before
+# vf_boot_stack — it runs a destructive `db reset`.
+
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/stack-lock.sh"
 
 # --- prerequisites ----------------------------------------------------------
 
@@ -22,9 +28,17 @@ vf_have_docker() {
 
 # Boot + reset the local Supabase stack once. Exits the script on failure (a
 # half-booted stack makes every downstream tier a false negative).
+# VF_REUSE_STACK=1 skips `supabase start` when `supabase status` reports a
+# running stack (saves ~1 min when iterating on stack tiers). The `db reset`
+# still runs unconditionally — a reused stack must be reset to a known state
+# or every downstream tier tests leftover data. Default behavior is unchanged.
 vf_boot_stack() {
   echo "==> booting local Supabase stack"
-  npx --prefix frontend supabase start || exit 1
+  if [ "${VF_REUSE_STACK:-}" = "1" ] && npx --prefix frontend supabase status >/dev/null 2>&1; then
+    echo "    VF_REUSE_STACK=1 and stack already running — skipping supabase start"
+  else
+    npx --prefix frontend supabase start || exit 1
+  fi
   npx --prefix frontend supabase db reset || exit 1
   vf_export_stack_env
 }
@@ -136,9 +150,22 @@ if [ "${BASH_SOURCE[0]}" = "${0}" ]; then
   set -uo pipefail
   cd "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
   fail=0
-  # Does any requested tier need the booted stack? (edge_static is static.)
+  # No tiers requested — that's a usage error, not a green run.
+  if [ "$#" -eq 0 ]; then
+    echo "usage: bash scripts/verify-lib.sh <tier>..." >&2
+    echo "  tiers: edge_static fast sql edge_identity stripe_matrix e2e" >&2
+    exit 2
+  fi
+  # One pass over the requested tiers: reject unknown names up front (a typo'd
+  # tier must not silently exit 0 — or worse, boot Docker first), and note
+  # whether any requested tier needs the booted stack (edge_static is static).
   needs_stack=0
   for tier in "$@"; do
+    if ! declare -f "vf_${tier}" >/dev/null; then
+      echo "ERROR: unknown tier '${tier}'." >&2
+      echo "  valid tiers: edge_static fast sql edge_identity stripe_matrix e2e" >&2
+      exit 2
+    fi
     case "$tier" in
       edge_static) ;;                 # static — no stack
       *) needs_stack=1 ;;
@@ -146,6 +173,7 @@ if [ "${BASH_SOURCE[0]}" = "${0}" ]; then
   done
   if [ "$needs_stack" = 1 ]; then
     vf_have_docker || exit 0
+    sl_acquire "bash scripts/verify-lib.sh $*" || exit 1
     vf_boot_stack
   fi
   for tier in "$@"; do "vf_${tier}"; done
