@@ -17,7 +17,7 @@ import {
 } from 'react-icons/fa';
 import '../../styles/Forms.css';
 
-const MAX_FILE_BYTES = 500 * 1024; // 500 KB
+const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MB — phone photos of receipts run 2–5 MB
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'application/pdf'];
 const ALLOWED_EXTENSIONS = '.jpg,.jpeg,.png,.pdf';
 
@@ -66,7 +66,7 @@ function AddExpenseModal({ grantId, budgetItemId, budgetItem, expenseItem, exist
       return;
     }
     if (file.size > MAX_FILE_BYTES) {
-      setError('Receipt file must be 500 KB or smaller.');
+      setError('Receipt file must be 10 MB or smaller.');
       e.target.value = '';
       return;
     }
@@ -347,7 +347,7 @@ function AddExpenseModal({ grantId, budgetItemId, budgetItem, expenseItem, exist
                 >
                   <FaUpload className="receipt-upload-icon" />
                   <span className="receipt-upload-text">Click to upload receipt</span>
-                  <span className="receipt-upload-hint">JPG, PNG, or PDF · Max 500 KB</span>
+                  <span className="receipt-upload-hint">JPG, PNG, or PDF · Max 10 MB</span>
                 </div>
               )}
 
