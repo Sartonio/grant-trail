@@ -92,8 +92,10 @@ EDGE_CONTAINER="supabase_edge_runtime_${PROJECT_ID:-grant-trail}"
 docker inspect "$EDGE_CONTAINER" >/dev/null 2>&1 && EDGE_OK=1 || EDGE_OK=0
 SERVE_PID=""
 SERVE_LOG=""
-ENV1="$(mktemp -t emailres-env1.XXXXXX)"
-ENV2="$(mktemp -t emailres-env2.XXXXXX)"
+# The project id in the names is load-bearing: stop_serve kills by this
+# pattern so it can only ever hit serves of THIS worktree's stack.
+ENV1="$(mktemp -t "emailres-env1-${PROJECT_ID:-grant-trail}.XXXXXX")"
+ENV2="$(mktemp -t "emailres-env2-${PROJECT_ID:-grant-trail}.XXXXXX")"
 LOG1="$(mktemp -t emailres-log1.XXXXXX.log)"
 LOG2="$(mktemp -t emailres-log2.XXXXXX.log)"
 CUS=""
@@ -122,8 +124,15 @@ write_env() {
   } > "$out"
 }
 
+# Kills our own serve (SERVE_PID) plus any serve of THIS stack started by the
+# test infra — run-all's shared serve (lanef-env-<project_id>.*) and our own
+# previous re-serves (emailres-env*-<project_id>.*). Serves of other worktrees'
+# stacks, and a developer's manual serve, are never matched. (A manual serve of
+# THIS stack would fight our re-serves over the edge-runtime container — don't
+# run one while this suite is running.)
 stop_serve() {
-  pkill -f "functions serve" 2>/dev/null || true
+  [ -n "$SERVE_PID" ] && kill "$SERVE_PID" 2>/dev/null || true
+  pkill -f "functions serve --env-file .*(lanef-env-|emailres-env[12]-)${PROJECT_ID:-grant-trail}\." 2>/dev/null || true
   SERVE_PID=""
   sleep 2
 }

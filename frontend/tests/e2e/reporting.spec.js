@@ -22,7 +22,7 @@ test('Flow 4: Premium Reporting & Excel Export', async ({ page, testData }) => {
   await page.fill('input[type="email"]', testEmail);
   await page.fill('input[type="password"]', 'TestPassword123!');
   await page.click('button[type="submit"]');
-  await page.waitForURL('http://localhost:3000/');
+  await page.waitForURL('/');
 
   // ── 3. Navigate to Expense Reports, wait for API ────────────────────────
   const expensesResponsePromise = page.waitForResponse(

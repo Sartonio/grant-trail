@@ -59,9 +59,12 @@ source "${HERE}/lib/stripe_test_helpers.sh"
 ensure_functions_served || exit 1
 
 # Find the Stripe event id of a given type for a given subscription id.
+# Type-filtered and 100 deep: all worktrees share ONE Stripe TEST account, so
+# parallel runs interleave the account event stream and a shallow untyped
+# window can scroll past the event we created.
 event_id_for() {
   local etype="$1" subid="$2"
-  sapi events list --limit 50 | python3 -c "
+  sapi events list --type "$etype" --limit 100 | python3 -c "
 import sys,json
 etype,subid=('$etype','$subid')
 for e in json.load(sys.stdin)['data']:
@@ -255,7 +258,7 @@ else
   # shell-side indentation would be an IndentationError.)
   event_id_for_invoice_customer() {
     local cusid="$1"
-    sapi events list --limit 50 | python3 -c "
+    sapi events list --type invoice.payment_failed --limit 100 | python3 -c "
 import sys,json
 cusid='$cusid'
 for e in json.load(sys.stdin)['data']:

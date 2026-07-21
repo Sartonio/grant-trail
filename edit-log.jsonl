@@ -87,6 +87,16 @@
 {"ts":"2026-07-19T22:27:23.501Z","kind":"scope-block","tool":"Bash","file":"import","allowed":[".task/**","DEBT.md","edit-log.jsonl","frontend/package.json","scripts/**","supabase/tests/**"],"channel":"bash"}
 {"ts":"2026-07-19T22:28:34.538Z","kind":"scope-set","add":true,"args":[".claude/settings.json"],"matchedModules":[],"fallbacks":[".claude/settings.json"],"branch":"main"}
 {"ts":"2026-07-19T22:36:36.966Z","kind":"scope-set","add":true,"args":[".githooks"],"matchedModules":[],"fallbacks":[".githooks/**"],"branch":"main"}
+{"ts":"2026-07-19T22:47:42.266Z","kind":"scope-set","add":false,"args":["scripts"],"matchedModules":[],"fallbacks":["scripts/**"],"branch":"worktree-per-worktree-stacks"}
+{"ts":"2026-07-19T22:47:42.438Z","kind":"scope-set","add":true,"args":["supabase/tests"],"matchedModules":[],"fallbacks":["supabase/tests/**"],"branch":"worktree-per-worktree-stacks"}
+{"ts":"2026-07-19T22:47:42.610Z","kind":"scope-set","add":true,"args":["supabase/functions/tests"],"matchedModules":[],"fallbacks":["supabase/functions/tests/**"],"branch":"worktree-per-worktree-stacks"}
+{"ts":"2026-07-19T22:47:42.773Z","kind":"scope-set","add":true,"args":["frontend/tests/e2e"],"matchedModules":[],"fallbacks":["frontend/tests/e2e/**"],"branch":"worktree-per-worktree-stacks"}
+{"ts":"2026-07-19T22:47:42.945Z","kind":"scope-set","add":true,"args":["frontend/playwright.config.js"],"matchedModules":[],"fallbacks":["frontend/playwright.config.js"],"branch":"worktree-per-worktree-stacks"}
+{"ts":"2026-07-19T22:47:43.116Z","kind":"scope-set","add":true,"args":["package.json"],"matchedModules":[],"fallbacks":["package.json"],"branch":"worktree-per-worktree-stacks"}
+{"ts":"2026-07-19T22:47:43.283Z","kind":"scope-set","add":true,"args":["CLAUDE.md"],"matchedModules":[],"fallbacks":["CLAUDE.md"],"branch":"worktree-per-worktree-stacks"}
+{"ts":"2026-07-19T22:47:43.452Z","kind":"scope-set","add":true,"args":["DEBT.md"],"matchedModules":[],"fallbacks":["DEBT.md"],"branch":"worktree-per-worktree-stacks"}
+{"ts":"2026-07-19T22:54:41.721Z","kind":"scope-block","tool":"Bash","file":"supabase/functions/.env","allowed":[".task/**","CLAUDE.md","DEBT.md","edit-log.jsonl","frontend/playwright.config.js","frontend/tests/e2e/**","package.json","scripts/**","supabase/functions/tests/**","supabase/tests/**"],"channel":"bash"}
+{"ts":"2026-07-19T22:54:45.210Z","kind":"scope-set","add":true,"args":["supabase/functions/.env"],"matchedModules":[],"fallbacks":["supabase/functions/.env"],"branch":"worktree-per-worktree-stacks"}
 {"ts":"2026-07-21T01:27:34.997Z","kind":"scope-set","add":false,"args":["supabase/migrations"],"matchedModules":[],"fallbacks":["supabase/migrations/**"],"branch":"main"}
 {"ts":"2026-07-21T01:27:35.261Z","kind":"scope-set","add":true,"args":["supabase/tests"],"matchedModules":[],"fallbacks":["supabase/tests/**"],"branch":"main"}
 {"ts":"2026-07-21T01:27:35.539Z","kind":"scope-set","add":true,"args":["frontend/src/components/grant"],"matchedModules":[],"fallbacks":["frontend/src/components/grant/**"],"branch":"main"}

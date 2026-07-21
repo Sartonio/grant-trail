@@ -10,13 +10,18 @@
 # per file (e.g. psql_as is 2-arg in rls-adversarial vs 3-arg in
 # charity-directory), so those stay local — do NOT lift them.
 
-# DB_CONTAINER — derived from supabase/config.toml's `project_id = "…"` line so
-# the container name lives in exactly one place. Falls back to "grant-trail" if
+# DB_CONTAINER / API_URL — derived from supabase/config.toml (per-worktree
+# generated since Phase 2, see scripts/stack-env.sh) so the container name and
+# API port live in exactly one place. Falls back to the canonical values if
 # parsing fails (e.g. the line moves or the file is absent).
+_CONFIG_TOML="$(dirname "${BASH_SOURCE[0]}")/../../config.toml"
 PROJECT_ID="$(sed -n 's/^project_id[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' \
-  "$(dirname "${BASH_SOURCE[0]}")/../../config.toml" 2>/dev/null | head -n1)"
+  "$_CONFIG_TOML" 2>/dev/null | head -n1 || true)"
 PROJECT_ID="${PROJECT_ID:-grant-trail}"
 export DB_CONTAINER="supabase_db_${PROJECT_ID}"
+_API_PORT="$(sed -n '/^\[api\]/,/^\[/s/^port[[:space:]]*=[[:space:]]*\([0-9]*\).*/\1/p' \
+  "$_CONFIG_TOML" 2>/dev/null | head -n1 || true)"
+export API_URL="${API_URL:-http://127.0.0.1:${_API_PORT:-54321}}"
 
 # require_stack [container] — preflight: verify the local Supabase Postgres
 # container is up and answering before running any tests. Without this, every

@@ -436,7 +436,7 @@ async function teardownCrossRole(supabase, registry) {
 // URL, so we return the post-checkout return URL — the app then lands on
 // /subscription exactly as a completed checkout would. Register this BEFORE
 // clicking "Complete Setup" (a route added after the click never fires for it).
-async function mockSignupCheckout(page, returnUrl = 'http://localhost:3000/subscription?success=true') {
+async function mockSignupCheckout(page, returnUrl = `http://localhost:${process.env.E2E_PORT || 3000}/subscription?success=true`) {
   await page.route('**/functions/v1/*', async (route) => {
     const url = route.request().url();
     if (url.includes('checkout-session') || url.includes('billing')) {

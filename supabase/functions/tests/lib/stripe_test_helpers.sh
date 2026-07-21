@@ -23,9 +23,18 @@ set -uo pipefail
 
 # ---- configuration -------------------------------------------------------
 
-API_URL="${API_URL:-http://127.0.0.1:54321}"
+# PROJECT_ID / API port come from supabase/config.toml — per-worktree generated
+# since Phase 2 (scripts/stack-env.sh), canonical on the main checkout — so
+# these tests always target THEIR OWN stack. Fall back to the canonical values
+# if parsing fails.
+_LANEF_CONFIG_TOML="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)/config.toml"
+PROJECT_ID="${PROJECT_ID:-$(sed -n 's/^project_id[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' \
+  "$_LANEF_CONFIG_TOML" 2>/dev/null | head -n1 || true)}"
+PROJECT_ID="${PROJECT_ID:-grant-trail}"
+_LANEF_API_PORT="$(sed -n '/^\[api\]/,/^\[/s/^port[[:space:]]*=[[:space:]]*\([0-9]*\).*/\1/p' \
+  "$_LANEF_CONFIG_TOML" 2>/dev/null | head -n1 || true)"
+API_URL="${API_URL:-http://127.0.0.1:${_LANEF_API_PORT:-54321}}"
 FUNCTIONS_URL="${API_URL}/functions/v1"
-PROJECT_ID="grant-trail"
 DB_CONTAINER="supabase_db_${PROJECT_ID}"
 
 # Local Supabase ships fixed demo keys (see `npx supabase status`).
@@ -46,7 +55,9 @@ WAIT_TIMEOUT="${WAIT_TIMEOUT:-40}"
 # The edge functions run inside the supabase edge-runtime CONTAINER, so they
 # reach the host-bound mock via host.docker.internal (the Supabase CLI maps it
 # to the host gateway). RESEND_MOCK_CAPTURE is exported for tests to read.
-RESEND_MOCK_PORT="${RESEND_MOCK_PORT:-8384}"
+# Default derived from the stack's API port so parallel worktrees don't fight
+# over one host port (main checkout: 54321+63=54384).
+RESEND_MOCK_PORT="${RESEND_MOCK_PORT:-$(( ${_LANEF_API_PORT:-54321} + 63 ))}"
 RESEND_MOCK_HOST="${RESEND_MOCK_HOST:-host.docker.internal}"
 RESEND_MOCK_FROM="${RESEND_MOCK_FROM:-GrantTrail Test <mock@granttrail.test>}"
 RESEND_MOCK_KEY="re_test_mock_no_real_send"
@@ -162,12 +173,14 @@ _warm_functions() {
 }
 
 # Only kills a server WE started (guarded by _SERVE_STARTED_HERE), so an
-# externally-managed serve is never touched. Mirrors email-resilience's pkill.
+# externally-managed serve is never touched. The pattern is pinned to this
+# project's env-file naming (lanef-env-<project_id>.*) so parallel worktrees
+# — each serving their own stack — can never kill each other's serve.
 _stop_functions_served() {
   # Always stop a mock we started, even if we did not start the serve.
   _stop_resend_mock
   [ -n "$_SERVE_STARTED_HERE" ] || return 0
-  pkill -f "functions serve" 2>/dev/null || true
+  pkill -f "functions serve.*lanef-env-${PROJECT_ID}\." 2>/dev/null || true
   _SERVE_STARTED_HERE=""
   # Block until the worker is actually gone. Without this, a sibling test in the
   # same run-all sequence can probe during the kill window, mistake the dying
@@ -215,7 +228,7 @@ ensure_functions_served() {
       echo "FATAL: no ${envfile} and STRIPE_SECRET_KEY not exported — cannot serve functions" >&2
       return 1
     fi
-    envfile="$(mktemp -t lanef-env.XXXXXX)"
+    envfile="$(mktemp -t "lanef-env-${PROJECT_ID}.XXXXXX")"
     {
       echo "STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}"
       echo "STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET:-}"
@@ -251,7 +264,9 @@ ensure_functions_served() {
   else
     info "Resend mock unavailable — serving with email disabled (no creds)"
   fi
-  served="$(mktemp -t lanef-env.XXXXXX)"
+  # The project id in the name is load-bearing: _stop_functions_served (and
+  # email-resilience's stop_serve) kill by this pattern, per-worktree.
+  served="$(mktemp -t "lanef-env-${PROJECT_ID}.XXXXXX")"
   {
     echo "STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY:-}"
     echo "STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET:-}"
