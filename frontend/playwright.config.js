@@ -3,6 +3,9 @@ const { defineConfig, devices } = require('@playwright/test');
 
 module.exports = defineConfig({
   testDir: './tests/e2e',
+  /* Fail fast with an actionable message when the stack env isn't exported
+     (see tests/e2e/global-setup.js) instead of every spec failing in beforeAll. */
+  globalSetup: require.resolve('./tests/e2e/global-setup.js'),
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,

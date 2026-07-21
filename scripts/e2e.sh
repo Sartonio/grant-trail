@@ -23,7 +23,7 @@ source scripts/verify-lib.sh
 
 sl_acquire "npm run e2e" || exit 1
 
-if ! npx --prefix frontend supabase status >/dev/null 2>&1; then
+if ! vf_supabase status >/dev/null 2>&1; then
   echo "ERROR: local Supabase stack is not running — start it with 'npm run db:start'" >&2
   echo "       (or run the full gate, which boots + resets it: npm run verify:e2e)" >&2
   exit 1
