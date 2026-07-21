@@ -25,6 +25,13 @@ export const listGrantStatsForUser = (userId) =>
     select: 'id, status, grant_amount, disbursed_funds, total_spent',
   });
 
+// Full activity projection for the grantee insights dashboard.
+/** @param {string} userId */
+export const listGrantInsightsForUser = (userId) =>
+  grants.listBy('user_id', userId, {
+    select: 'id, grant_name, status, grant_amount, disbursed_funds, funding_source, submitted_at, created_at',
+  });
+
 /** @param {string} userId @param {number} limit */
 export const listRecentGrantsForUser = (userId, limit = 5) =>
   grants

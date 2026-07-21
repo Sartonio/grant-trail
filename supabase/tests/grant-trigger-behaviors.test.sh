@@ -6,9 +6,12 @@
 # assert through the browser. These are pure trigger / function behaviors, so we
 # test them directly against Postgres — far faster and less brittle than driving
 # the UI:
-#   * auto_approve_grant / _budget_item / _expense  — a row inserted into a tenant
-#     whose tenant_settings.require_*_approval is false is forced to 'approved';
-#     a tenant that requires approval leaves it 'pending'.
+#   * auto_approve_budget_item / _expense  — a row inserted into a tenant whose
+#     tenant_settings.require_*_approval is false is forced to 'approved'; a
+#     tenant that requires approval leaves it 'pending'.
+#   * auto_approve_grant — managed tenants keep that rule (require_grant_approval=f
+#     force-approves); self_service tenants instead HONOR the grantee-submitted
+#     status (pending/approved/declined) — the grantee owns the grant lifecycle.
 #   * update_budget_item_totals / update_grant_record_totals — only *approved*
 #     expenses roll up into budget_items.amount_spent and grant_record.total_spent.
 #   * is_membership_exempt(user) — super_admin, ALL users of the platform-root
@@ -91,9 +94,19 @@ check "managed tenant (require_grant_approval=t) keeps a new grant pending" \
               VALUES (${T_MANAGED}, ${U_GRANTEE_TFAC}, 'trg-test', 'pending')
               RETURNING status;")" "pending"
 
-check "self_service tenant (require_grant_approval=f) auto-approves a new grant" \
+check "self_service tenant honors a grantee-submitted pending status (no force-approve)" \
   "$(psql_tx "INSERT INTO grant_record (tenant_id, user_id, grant_name, status)
               VALUES (${T_SELFSERVE}, ${U_GRANTEE_SELF}, 'trg-test', 'pending')
+              RETURNING status;")" "pending"
+
+check "self_service tenant honors a grantee-submitted declined status" \
+  "$(psql_tx "INSERT INTO grant_record (tenant_id, user_id, grant_name, status)
+              VALUES (${T_SELFSERVE}, ${U_GRANTEE_SELF}, 'trg-test', 'declined')
+              RETURNING status;")" "declined"
+
+check "self_service tenant honors a grantee-submitted approved status" \
+  "$(psql_tx "INSERT INTO grant_record (tenant_id, user_id, grant_name, status)
+              VALUES (${T_SELFSERVE}, ${U_GRANTEE_SELF}, 'trg-test', 'approved')
               RETURNING status;")" "approved"
 
 echo "== auto_approve_budget_item / auto_approve_expense =="

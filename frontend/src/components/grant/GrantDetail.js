@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import StatusBadge from '../common/StatusBadge';
+import ConfirmDialog from '../common/ConfirmDialog';
 import GrantAttachments from './GrantAttachments';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, Legend } from 'recharts';
 import {
@@ -11,6 +12,7 @@ import {
   FaDollarSign,
   FaClock,
   FaCheckCircle,
+  FaTimesCircle,
   FaCommentAlt,
   FaHistory,
   FaPaperclip,
@@ -18,7 +20,7 @@ import {
 } from 'react-icons/fa';
 import './GrantDetail.css';
 import { formatDate } from '../../lib/format';
-import { getGrant } from '../../lib/data/grants';
+import { getGrant, updateOwnGrant } from '../../lib/data/grants';
 import { listGrantStatusHistory, listGrantComments } from '../../lib/data/grantReview';
 
 function GrantDetail({ session }) {
@@ -28,6 +30,32 @@ function GrantDetail({ session }) {
   const [comments, setComments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  // Self-service decision recording: which decision is pending confirmation.
+  const [pendingDecision, setPendingDecision] = useState(null); // 'approved' | 'declined' | null
+  const [decisionSaving, setDecisionSaving] = useState(false);
+  const [decisionError, setDecisionError] = useState('');
+
+  const isSelfService = session?.tenantConfig?.type === 'self_service';
+
+  const recordDecision = async (decision) => {
+    setDecisionSaving(true);
+    setDecisionError('');
+
+    const { error: updateError } = await updateOwnGrant(
+      Number(id), session.userRecord.id, { status: decision },
+    );
+
+    setDecisionSaving(false);
+
+    if (updateError) {
+      setDecisionError(updateError.message || 'Failed to record the decision.');
+      return;
+    }
+
+    setGrant(prev => (prev ? { ...prev, status: decision } : prev));
+    setPendingDecision(null);
+  };
 
   useEffect(() => {
     async function fetchData() {
@@ -104,6 +132,49 @@ function GrantDetail({ session }) {
           )}
         </div>
       </div>
+
+      {/* Record funder's decision (self-service, while still pending) */}
+      {isSelfService && grant.status === 'pending' && (
+        <div className="detail-decision">
+          <div className="detail-decision-copy">
+            <strong>Heard back from the funder?</strong>
+            <span>Record their decision on this application.</span>
+          </div>
+          <div className="detail-decision-actions">
+            <button
+              type="button"
+              className="decision-btn decision-approve"
+              onClick={() => { setDecisionError(''); setPendingDecision('approved'); }}
+              disabled={decisionSaving}
+            >
+              <FaCheckCircle /> Mark Approved
+            </button>
+            <button
+              type="button"
+              className="decision-btn decision-decline"
+              onClick={() => { setDecisionError(''); setPendingDecision('declined'); }}
+              disabled={decisionSaving}
+            >
+              <FaTimesCircle /> Mark Declined
+            </button>
+          </div>
+          {decisionError && <p className="detail-decision-error">{decisionError}</p>}
+        </div>
+      )}
+
+      {pendingDecision && (
+        <ConfirmDialog
+          title={pendingDecision === 'approved' ? 'Mark grant approved?' : 'Mark grant declined?'}
+          message={
+            pendingDecision === 'approved'
+              ? 'This records the funder as having approved this application.'
+              : 'This records the funder as having declined this application.'
+          }
+          confirmLabel={pendingDecision === 'approved' ? 'Mark Approved' : 'Mark Declined'}
+          onConfirm={() => recordDecision(pendingDecision)}
+          onCancel={() => setPendingDecision(null)}
+        />
+      )}
 
       {/* Grant Information */}
       <div className="detail-section">

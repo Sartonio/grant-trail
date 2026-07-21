@@ -20,6 +20,7 @@ function CreateGrant({ session }) {
   const navigate = useNavigate();
   const { id } = useParams();
   const isEditMode = !!id;
+  const isSelfService = session?.tenantConfig?.type === 'self_service';
 
   const [loading, setLoading]           = useState(false);
   const [fetchLoading, setFetchLoading] = useState(isEditMode);
@@ -34,6 +35,8 @@ function CreateGrant({ session }) {
     end_spend_period:   '',
     release_date:       '',
     grant_amount:       '',
+    funding_source:     '',
+    status:             'pending',
   });
 
   // In edit mode: fetch existing grant and pre-populate
@@ -52,7 +55,7 @@ function CreateGrant({ session }) {
       }
 
       // Guard: only needs_changes grants are editable (managed), or any grant for self-service
-      if (grantData.status !== 'needs_changes' && session?.tenantConfig?.type !== 'self_service') {
+      if (grantData.status !== 'needs_changes' && !isSelfService) {
         navigate(`/grants/${id}`, { replace: true });
         return;
       }
@@ -64,6 +67,8 @@ function CreateGrant({ session }) {
         end_spend_period:   grantData.end_spend_period   || '',
         release_date:       grantData.release_date       || '',
         grant_amount:       grantData.grant_amount?.toString() || '',
+        funding_source:     grantData.funding_source || '',
+        status:             grantData.status === 'needs_changes' ? 'pending' : (grantData.status || 'pending'),
       });
 
       // Fetch total allocated to enforce grant_amount >= allocated
@@ -134,11 +139,10 @@ function CreateGrant({ session }) {
             end_spend_period:   formData.end_spend_period,
             release_date:       formData.release_date || null,
             grant_amount:       parseFloat(formData.grant_amount),
+            funding_source:     formData.funding_source.trim() || null,
         };
-        // Self-service: keep current status (approved). Managed: reset to pending for re-review.
-        if (session?.tenantConfig?.type !== 'self_service') {
-          updateData.status = 'pending';
-        }
+        // Self-service: save the grantee's chosen status. Managed: reset to pending for re-review.
+        updateData.status = isSelfService ? formData.status : 'pending';
         const { error: updateError } = await updateOwnGrant(Number(id), session.userRecord.id, updateData);
 
         if (updateError) throw updateError;
@@ -151,6 +155,7 @@ function CreateGrant({ session }) {
           end_spend_period:   formData.end_spend_period,
           release_date:       formData.release_date || null,
           grant_amount:       parseFloat(formData.grant_amount),
+          funding_source:     formData.funding_source.trim() || null,
           status:             'pending',
           submitted_at:       new Date().toISOString(),
         });
@@ -186,12 +191,14 @@ function CreateGrant({ session }) {
         <h2>{isEditMode ? 'Grant Updated!' : 'Grant Submitted!'}</h2>
         <p>
           {isEditMode
-            ? session?.tenantConfig?.type === 'self_service'
+            ? isSelfService
               ? 'Your changes have been saved.'
               : 'Your changes have been saved and the grant resubmitted for review.'
-            : session?.tenantConfig?.require_grant_approval === false
-              ? 'Your grant has been created and approved.'
-              : 'Your grant has been successfully submitted and is pending review.'}
+            : isSelfService
+              ? 'Your application has been submitted as Pending. Record the funder\'s decision here once it arrives.'
+              : session?.tenantConfig?.require_grant_approval === false
+                ? 'Your grant has been created and approved.'
+                : 'Your grant has been successfully submitted and is pending review.'}
         </p>
         <p className="redirect-message">
           {isEditMode ? 'Redirecting to grant details...' : 'Redirecting to your grants...'}
@@ -329,14 +336,51 @@ function CreateGrant({ session }) {
             </div>
           </div>
 
+          {/* Funding Source / Grant Program (all tenants) */}
+          <div className="form-group">
+            <label htmlFor="funding_source">
+              <FaFileAlt /> Funding Source / Grant Program
+            </label>
+            <input
+              type="text"
+              id="funding_source"
+              name="funding_source"
+              value={formData.funding_source}
+              onChange={handleChange}
+              placeholder="e.g., Ford Foundation — Community Impact Fund"
+              maxLength={200}
+            />
+            <span className="field-hint">Who is this grant from? e.g. a foundation, agency, or program name.</span>
+          </div>
+
+          {/* Application status — self-service records the funder's decision (edit mode only) */}
+          {isEditMode && isSelfService && (
+            <div className="form-group">
+              <label htmlFor="status">
+                <FaCheckCircle /> Application Status
+              </label>
+              <select
+                id="status"
+                name="status"
+                value={formData.status}
+                onChange={handleChange}
+              >
+                <option value="pending">Pending</option>
+                <option value="approved">Approved</option>
+                <option value="declined">Declined</option>
+              </select>
+              <span className="field-hint">Record the funder's decision once you receive it.</span>
+            </div>
+          )}
+
           {/* Info box */}
           {isEditMode ? (
-            session?.tenantConfig?.type === 'self_service' ? (
+            isSelfService ? (
             <div className="info-box">
               <FaFileAlt />
               <div>
                 <strong>Editing grant</strong>
-                <p>Your changes will be saved immediately. The grant status will not change.</p>
+                <p>Your changes will be saved immediately with the status you selected above.</p>
               </div>
             </div>
             ) : (
@@ -353,9 +397,11 @@ function CreateGrant({ session }) {
               <FaFileAlt />
               <div>
                 <strong>What happens next?</strong>
-                <p>{session?.tenantConfig?.require_grant_approval === false
-                  ? 'Your grant will be automatically approved. You can then add budget items and expenses.'
-                  : 'Your grant will be submitted with a "Pending" status. An administrator will review it. You can add budget items and expenses while it is being reviewed.'}</p>
+                <p>{isSelfService
+                  ? 'Your application will be submitted as Pending. Once the funder makes a decision, your organization records it here. You can add budget items and expenses in the meantime.'
+                  : session?.tenantConfig?.require_grant_approval === false
+                    ? 'Your grant will be automatically approved. You can then add budget items and expenses.'
+                    : 'Your grant will be submitted with a "Pending" status. An administrator will review it. You can add budget items and expenses while it is being reviewed.'}</p>
               </div>
             </div>
           )}

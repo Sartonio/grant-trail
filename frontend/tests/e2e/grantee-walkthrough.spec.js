@@ -4,7 +4,10 @@ const { test, expect, loginAs, seedMembership } = require('./fixtures');
 //
 // This spec keeps only the flows that genuinely need a full browser + real
 // Supabase stack:
-//   §5 create a grant via the /grants/new form (self-service auto-approve)
+//   §5 create a grant via the /grants/new form (starts Pending), then the
+//      self-service grantee records the funder's decision from the detail page
+//   §6 the /grants/insights dashboard renders the resulting activity (tiles +
+//      funding-sources table) for that same seeded org
 //   §7 edit & resubmit a needs_changes grant (managed: needs_changes -> pending)
 //   §9 add an expense with a receipt upload + open the signed-URL receipt
 //
@@ -93,19 +96,24 @@ test.describe('Grantee walkthrough — create grant (self-service)', () => {
     await teardown(supabase, ctx.ids);
   });
 
-  test('§5 create a grant via the /grants/new form (auto-approved)', async ({ page }) => {
+  test('§5 create a grant (starts Pending) then record the funder\'s Approved decision', async ({ page }) => {
     await login(page, ctx.email);
     await page.goto('/grants/new');
 
     const grantName = `Created Via UI ${Date.now()}`;
+    const fundingSource = `Selma Foundation ${Date.now()}`;
     await page.fill('#grant_name', grantName);
     await page.fill('#description', 'Created by the grantee walkthrough e2e spec.');
     await page.fill('#start_spend_period', '2025-02-01');
     await page.fill('#end_spend_period', '2025-11-30');
     await page.fill('#grant_amount', '12500');
+    await page.fill('#funding_source', fundingSource);
 
-    // Self-service info box advertises auto-approval.
-    await expect(page.locator('.info-box')).toContainText('automatically approved');
+    // Every new application starts Pending — the grantee no longer picks a status
+    // at creation. The info box advertises the record-the-decision-later flow, and
+    // there is no status picker in create mode.
+    await expect(page.locator('.info-box')).toContainText('submitted as Pending');
+    await expect(page.locator('#status')).toHaveCount(0);
 
     await page.locator('button.btn-submit', { hasText: 'Submit Grant' }).click();
 
@@ -113,14 +121,44 @@ test.describe('Grantee walkthrough — create grant (self-service)', () => {
     await expect(page.getByRole('heading', { name: 'Grant Submitted!' })).toBeVisible();
     await page.waitForURL(/\/grants$/, { timeout: 10000 });
 
-    // The row exists and was auto-approved by the trigger (the rule itself is
-    // proven in supabase/tests/grant-trigger-behaviors.test.sh; here we confirm
-    // the real form path reaches it).
+    // The row exists as Pending with the funding_source persisted.
     const { data: rows } = await ctx.supabase
-      .from('grant_record').select('id, status').eq('user_id', ctx.userId).eq('grant_name', grantName);
+      .from('grant_record').select('id, status, funding_source').eq('user_id', ctx.userId).eq('grant_name', grantName);
     expect(rows.length).toBe(1);
-    expect(rows[0].status).toBe('approved');
-    ctx.ids.grantIds.push(rows[0].id);
+    expect(rows[0].status).toBe('pending');
+    expect(rows[0].funding_source).toBe(fundingSource);
+    const grantId = rows[0].id;
+    ctx.ids.grantIds.push(grantId);
+
+    // Now the grantee records the funder's decision from the detail page: click
+    // "Mark Approved", confirm in the dialog, and the row flips to approved.
+    await page.goto(`/grants/${grantId}`);
+    await page.locator('.decision-btn.decision-approve', { hasText: 'Mark Approved' }).click();
+    await page.locator('.modal-footer .btn-danger', { hasText: 'Mark Approved' }).click();
+
+    await expect(async () => {
+      const { data: after } = await ctx.supabase
+        .from('grant_record').select('status').eq('id', grantId).single();
+      expect(after.status).toBe('approved');
+    }).toPass({ timeout: 10000 });
+
+    ctx.fundingSource = fundingSource;
+  });
+
+  test('§6 the grant insights dashboard reflects the approved application', async ({ page }) => {
+    await login(page, ctx.email);
+    await page.goto('/grants/insights');
+
+    // Stat tiles render (total / pending / approved / declined / success rate /
+    // requested / awarded — exact values are pinned in the vitest suite; here we
+    // confirm the real route + data path renders them).
+    await expect(page.locator('.gi-tiles .gi-tile').first()).toBeVisible();
+
+    // The funding-sources table lists the funder recorded in §5 with its
+    // requested amount attributed.
+    const sourceRow = page.locator('.gi-table tr', { hasText: ctx.fundingSource }).first();
+    await expect(sourceRow).toBeVisible();
+    await expect(sourceRow).toContainText('12,500');
   });
 });
 

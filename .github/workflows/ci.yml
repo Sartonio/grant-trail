@@ -69,24 +69,22 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Start Supabase
-        run: |
-          supabase start
-          # Extract credentials and map them to GITHUB_ENV, stripping literal quotes
-          echo "VITE_SUPABASE_URL=$(supabase status -o env | grep API_URL | cut -d= -f2- | tr -d '\"')" >> $GITHUB_ENV
-          echo "VITE_SUPABASE_KEY=$(supabase status -o env | grep ANON_KEY | cut -d= -f2- | tr -d '\"')" >> $GITHUB_ENV
-          echo "SUPABASE_SERVICE_ROLE_KEY=$(supabase status -o env | grep SERVICE_ROLE_KEY | cut -d= -f2- | tr -d '\"')" >> $GITHUB_ENV
+        run: supabase start
         working-directory: .
 
       - name: Install Playwright browsers and dependencies
         run: npx playwright install --with-deps
 
+      # Routed through the root `npm run e2e` (scripts/e2e.sh) so the stack-env
+      # export (SUPABASE_SERVICE_ROLE_KEY + VITE_* from `supabase status -o env`)
+      # lives in ONE place shared with local runs and verify:full — no inline
+      # credential-extraction recipe to drift (DEBT.md: "standalone verify:e2e
+      # lacks stack env export").
       - name: Run Playwright E2E tests
         env:
           CI: true
-          VITE_SUPABASE_URL: ${{ env.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_KEY: ${{ env.VITE_SUPABASE_KEY }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ env.SUPABASE_SERVICE_ROLE_KEY }}
         run: npm run e2e
+        working-directory: .
 
       - name: Upload Playwright E2E HTML Report
         uses: actions/upload-artifact@v5
@@ -197,12 +195,18 @@ jobs:
           # The full payment matrix is owned by stripe-edge-function-tests.
           bash supabase/functions/tests/system-logs-failure.test.sh
 
-  # DB-level trigger / function proof tests. These drive the local Supabase
-  # Postgres directly (docker exec psql, rolled-back transactions) — no edge
-  # functions, no Stripe — so they're fast (~1 min) and gate every PR/push.
-  # They assert the grant-lifecycle product rules (auto-approve, totals roll-up,
-  # subscription exemption, submit/resubmit notifications) that used to be
-  # checked through the browser by the LS1 e2e walkthroughs.
+  # DB-level SQL proof tests: the verify-lib `sql` tier, which globs EVERY
+  # supabase/tests/*.test.sh (RLS adversarial, grant triggers, charity-directory
+  # RLS, platform-root config, and anything added later). These drive the local
+  # Supabase Postgres directly (docker exec psql, rolled-back transactions) — no
+  # edge functions, no Stripe — so they're fast and gate every PR/push.
+  #
+  # Deliberately routed through scripts/verify-lib.sh instead of naming test
+  # files inline: the tier list lives in ONE place, so a new SQL suite (or a new
+  # setup step like the env export) applies here automatically. Naming files
+  # inline is how rls-adversarial.test.sh silently never ran in CI (DEBT.md).
+  # verify-lib boots + resets the stack itself (vf_boot_stack) and prefers the
+  # pinned PATH CLI installed by setup-cli (vf_supabase).
   db-trigger-tests:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -216,14 +220,8 @@ jobs:
           version: 2.109.0
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Start Supabase
-        run: supabase start
-
-      - name: Run DB trigger-behavior tests
-        run: bash supabase/tests/grant-trigger-behaviors.test.sh
-
-      - name: Run charity-directory RLS + paywall tests
-        run: bash supabase/tests/charity-directory-rls.test.sh
+      - name: Run the SQL tier (all supabase/tests/*.test.sh via verify-lib)
+        run: bash scripts/verify-lib.sh sql
 
   # STRIPE-ENABLED gate: edge-function tests that need the Stripe CLI, a live
   # `stripe listen` forwarder, and test clocks (~3-4 min). The payment lane (Lane

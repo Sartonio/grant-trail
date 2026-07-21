@@ -18,6 +18,18 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/stack-lock.sh"
 
 # --- prerequisites ----------------------------------------------------------
 
+# Run the Supabase CLI: prefer a PATH install (CI pins one via supabase/setup-cli;
+# some devs install globally), else fall back to the frontend devDependency via
+# npx. Keeps these tiers runnable both locally and in CI without duplicating the
+# boot/env recipe there.
+vf_supabase() {
+  if command -v supabase >/dev/null 2>&1; then
+    supabase "$@"
+  else
+    npx --prefix frontend supabase "$@"
+  fi
+}
+
 # Returns non-zero (and warns) when Docker isn't available, so callers can
 # fail-open and SKIP the stack tier — mirrors the pre-push hook.
 vf_have_docker() {
@@ -39,12 +51,12 @@ vf_boot_stack() {
   # Normally already done by sl_acquire; kept here (idempotent) for callers
   # that boot without the lock helper.
   se_ensure_config || exit 1
-  if [ "${VF_REUSE_STACK:-}" = "1" ] && npx --prefix frontend supabase status >/dev/null 2>&1; then
+  if [ "${VF_REUSE_STACK:-}" = "1" ] && vf_supabase status >/dev/null 2>&1; then
     echo "    VF_REUSE_STACK=1 and stack already running — skipping supabase start"
   else
-    npx --prefix frontend supabase start || exit 1
+    vf_supabase start || exit 1
   fi
-  npx --prefix frontend supabase db reset || exit 1
+  vf_supabase db reset || exit 1
   vf_export_stack_env
 }
 
@@ -54,7 +66,7 @@ vf_boot_stack() {
 # we just booted instead; never override values the caller already exported.
 vf_export_stack_env() {
   local status
-  status="$(npx --prefix frontend supabase status -o env 2>/dev/null)" || {
+  status="$(vf_supabase status -o env 2>/dev/null)" || {
     echo "WARN: could not read supabase status — e2e may lack SUPABASE_SERVICE_ROLE_KEY."
     return 0
   }
