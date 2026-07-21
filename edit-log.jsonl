@@ -104,3 +104,4 @@
 {"ts":"2026-07-21T18:24:29.314Z","kind":"scope-set","add":true,"args":[".github/workflows"],"matchedModules":[],"fallbacks":[".github/workflows/**"],"branch":"main"}
 {"ts":"2026-07-21T18:24:29.569Z","kind":"scope-set","add":true,"args":["frontend/playwright.config.js"],"matchedModules":[],"fallbacks":["frontend/playwright.config.js"],"branch":"main"}
 {"ts":"2026-07-21T18:26:50.147Z","kind":"scope-set","add":true,"args":["frontend/tests/e2e/global-setup.js"],"matchedModules":[],"fallbacks":["frontend/tests/e2e/global-setup.js"],"branch":"main"}
+{"ts":"2026-07-21T19:05:00.376Z","kind":"scope-set","add":true,"args":["frontend/package-lock.json"],"matchedModules":[],"fallbacks":["frontend/package-lock.json"],"branch":"main"}
