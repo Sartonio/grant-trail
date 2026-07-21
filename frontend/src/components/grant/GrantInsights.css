@@ -1,0 +1,202 @@
+/* ========================================
+   GRANT INSIGHTS DASHBOARD
+   ======================================== */
+
+.gi-page {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 1em 1em 3em;
+}
+
+/* Header */
+.gi-page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1em;
+  flex-wrap: wrap;
+  margin-bottom: 1.25em;
+}
+
+.gi-page-title {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+.gi-page-subtitle {
+  margin: 0.25em 0 0 0;
+  font-size: 0.95rem;
+  color: var(--color-gray-500);
+}
+
+.gi-back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+  color: var(--color-gold);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.95rem;
+  transition: gap var(--transition-base);
+}
+
+.gi-back-link:hover {
+  color: var(--color-gold-dark);
+  gap: 0.75em;
+}
+
+/* Loading + empty states */
+.gi-loading,
+.gi-empty {
+  text-align: center;
+  padding: 3em 2em;
+  color: var(--color-gray-500);
+}
+
+.gi-empty p {
+  margin: 0 0 1.5em 0;
+  font-size: 1.05rem;
+  color: var(--color-gray-500);
+}
+
+.gi-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+  padding: 0.85em 1.75em;
+  background-color: var(--color-gold);
+  color: var(--color-black);
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  text-decoration: none;
+  transition: all var(--transition-slow);
+}
+
+.gi-cta:hover {
+  background-color: var(--color-gold-dark);
+  transform: translateY(-2px);
+}
+
+/* Stat tiles */
+.gi-tiles {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.5em;
+  margin-bottom: 1.5em;
+}
+
+.gi-tile {
+  background-color: var(--color-white);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
+  padding: 0.75rem 0.9rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.gi-tile::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  background: var(--accent-color, var(--color-primary));
+}
+
+.gi-tile-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  background: var(--accent-color, var(--color-primary));
+  color: var(--color-white);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  flex-shrink: 0;
+  opacity: 0.9;
+}
+
+.gi-tile-content {
+  flex: 1;
+  text-align: center;
+}
+
+.gi-tile-content h3 {
+  margin: 0;
+  font-size: 0.7rem;
+  color: var(--color-gray-500);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.gi-tile-value {
+  margin: 0.15rem 0 0 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--color-gray-900);
+}
+
+/* Chart + table cards */
+.gi-chart-card,
+.gi-table-card {
+  background: var(--color-white);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  padding: 1.5em;
+  margin-bottom: 1.5em;
+}
+
+.gi-chart-title {
+  margin: 0 0 1em 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+/* Tables */
+.gi-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.gi-table th,
+.gi-table td {
+  padding: 0.65em 0.75em;
+  text-align: left;
+  border-bottom: 1px solid var(--color-gray-100);
+}
+
+.gi-table th {
+  color: var(--color-gray-500);
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.5px;
+}
+
+.gi-table tbody tr:hover {
+  background: var(--color-gray-50);
+}
+
+.gi-table .gi-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .gi-tiles {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

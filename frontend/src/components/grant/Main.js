@@ -239,6 +239,13 @@ function Main({ session }) {
           description="Track spending across your grants"
           linkTo="/expenses"
         />
+        <ActionCard
+          title="Grant Insights"
+          buttonText="View Insights"
+          icon={<FaChartBar />}
+          description="Track your application activity over time"
+          linkTo="/grants/insights"
+        />
       </section>
 
       {/* Recent Grants Section */}

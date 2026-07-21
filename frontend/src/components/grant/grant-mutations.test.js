@@ -49,7 +49,19 @@ function submitCreateGrant() {
   fireEvent.change(container.querySelector('[name="start_spend_period"]'), { target: { value: '2026-01-01' } });
   fireEvent.change(container.querySelector('[name="end_spend_period"]'), { target: { value: '2026-12-31' } });
   fireEvent.change(container.querySelector('[name="grant_amount"]'), { target: { value: '1000' } });
+  fireEvent.change(container.querySelector('[name="funding_source"]'), { target: { value: 'Ford Foundation' } });
   fireEvent.submit(container.querySelector('form'));
+  return container;
+}
+
+const managed = { tenantConfig: { type: 'managed' }, userRecord: { id: 'u1', tenant_id: 't1' } };
+
+// Fill the shared grant fields, leaving status handling to the caller.
+function fillGrantFields(container) {
+  fireEvent.change(container.querySelector('[name="grant_name"]'), { target: { value: '  Test Grant  ' } });
+  fireEvent.change(container.querySelector('[name="start_spend_period"]'), { target: { value: '2026-01-01' } });
+  fireEvent.change(container.querySelector('[name="end_spend_period"]'), { target: { value: '2026-12-31' } });
+  fireEvent.change(container.querySelector('[name="grant_amount"]'), { target: { value: '1000' } });
 }
 
 function submitAddExpense() {
@@ -94,8 +106,11 @@ describe.each([
 });
 
 describe('grant mutation success payloads', () => {
-  it('CreateGrant inserts a pending grant_record with trimmed name and numeric amount', async () => {
-    submitCreateGrant();
+  it('CreateGrant (self-service) has no status picker and inserts a pending grant with the funding_source', async () => {
+    const container = submitCreateGrant();
+    // Every new application starts Pending — the grantee no longer picks a status at creation.
+    expect(container.querySelector('[name="status"]')).toBeNull();
+
     await waitFor(() => expect(calls.insert.length).toBe(1));
 
     expect(calls.insert[0][0]).toMatchObject({
@@ -104,9 +119,23 @@ describe('grant mutation success payloads', () => {
       start_spend_period: '2026-01-01',
       end_spend_period: '2026-12-31',
       grant_amount: 1000,
+      funding_source: 'Ford Foundation',
       status: 'pending',
     });
     expect(typeof calls.insert[0][0].submitted_at).toBe('string');
+  });
+
+  it('CreateGrant (managed) has no status picker and still inserts a pending grant', async () => {
+    const { container } = render(
+      <MemoryRouter><CreateGrant session={managed} /></MemoryRouter>,
+    );
+    expect(container.querySelector('[name="status"]')).toBeNull();
+
+    fillGrantFields(container);
+    fireEvent.submit(container.querySelector('form'));
+
+    await waitFor(() => expect(calls.insert.length).toBe(1));
+    expect(calls.insert[0][0].status).toBe('pending');
   });
 
   it('AddExpenseModal inserts a pending expense with the numeric amount', async () => {

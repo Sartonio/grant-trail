@@ -17,6 +17,7 @@ import Grants from './components/grant/Grants';
 import GrantDetail from './components/grant/GrantDetail';
 import GrantBreakdown from './components/grant/GrantBreakdown';
 import CreateGrant from './components/grant/CreateGrant';
+import GrantInsights from './components/grant/GrantInsights';
 import ExpenseReports from './components/grant/ExpenseReports';
 import AdminDashboard from './components/admin/AdminDashboard';
 import AdminGrantList from './components/admin/AdminGrantList';
@@ -255,6 +256,11 @@ function App() {
           <Route path="/grants/new" element={
             <Guard session={session} requireRole={ROLES.GRANTEE} roleRedirect={granteeRoleRedirect} billingMode="redirect">
               <CreateGrant session={session} />
+            </Guard>
+          } />
+          <Route path="/grants/insights" element={
+            <Guard session={session} requireRole={ROLES.GRANTEE} roleRedirect={granteeRoleRedirect} billingMode="redirect">
+              <GrantInsights session={session} />
             </Guard>
           } />
           <Route path="/grants/:id/edit" element={

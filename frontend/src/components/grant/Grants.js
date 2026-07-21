@@ -86,6 +86,9 @@ function Grants({ session }) {
     <div className="grants-page">
       <div className="grants-page-header">
         <h2 className="grants-page-title">My Grants</h2>
+        <Link to="/grants/insights" className="grants-insights-link">
+          <FaChartBar /> Grant Insights
+        </Link>
       </div>
 
       {/* Summary strip */}

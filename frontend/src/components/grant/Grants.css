@@ -12,6 +12,27 @@
 
 .grants-page-header {
   margin-bottom: 0.25em;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1em;
+  flex-wrap: wrap;
+}
+
+.grants-insights-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+  color: var(--color-gold);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.95rem;
+  transition: gap var(--transition-base);
+}
+
+.grants-insights-link:hover {
+  color: var(--color-gold-dark);
+  gap: 0.75em;
 }
 
 .grants-page-title {

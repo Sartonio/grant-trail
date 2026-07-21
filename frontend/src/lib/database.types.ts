@@ -505,6 +505,7 @@ export type Database = {
           description: string | null
           disbursed_funds: number | null
           end_spend_period: string | null
+          funding_source: string | null
           grant_amount: number | null
           grant_name: string | null
           id: number
@@ -526,6 +527,7 @@ export type Database = {
           description?: string | null
           disbursed_funds?: number | null
           end_spend_period?: string | null
+          funding_source?: string | null
           grant_amount?: number | null
           grant_name?: string | null
           id?: number
@@ -547,6 +549,7 @@ export type Database = {
           description?: string | null
           disbursed_funds?: number | null
           end_spend_period?: string | null
+          funding_source?: string | null
           grant_amount?: number | null
           grant_name?: string | null
           id?: number

@@ -87,3 +87,15 @@
 {"ts":"2026-07-19T22:27:23.501Z","kind":"scope-block","tool":"Bash","file":"import","allowed":[".task/**","DEBT.md","edit-log.jsonl","frontend/package.json","scripts/**","supabase/tests/**"],"channel":"bash"}
 {"ts":"2026-07-19T22:28:34.538Z","kind":"scope-set","add":true,"args":[".claude/settings.json"],"matchedModules":[],"fallbacks":[".claude/settings.json"],"branch":"main"}
 {"ts":"2026-07-19T22:36:36.966Z","kind":"scope-set","add":true,"args":[".githooks"],"matchedModules":[],"fallbacks":[".githooks/**"],"branch":"main"}
+{"ts":"2026-07-21T01:27:34.997Z","kind":"scope-set","add":false,"args":["supabase/migrations"],"matchedModules":[],"fallbacks":["supabase/migrations/**"],"branch":"main"}
+{"ts":"2026-07-21T01:27:35.261Z","kind":"scope-set","add":true,"args":["supabase/tests"],"matchedModules":[],"fallbacks":["supabase/tests/**"],"branch":"main"}
+{"ts":"2026-07-21T01:27:35.539Z","kind":"scope-set","add":true,"args":["frontend/src/components/grant"],"matchedModules":[],"fallbacks":["frontend/src/components/grant/**"],"branch":"main"}
+{"ts":"2026-07-21T01:27:35.814Z","kind":"scope-set","add":true,"args":["DEBT.md"],"matchedModules":[],"fallbacks":["DEBT.md"],"branch":"main"}
+{"ts":"2026-07-21T01:33:36.321Z","kind":"scope-set","add":true,"args":["frontend/tests/e2e"],"matchedModules":[],"fallbacks":["frontend/tests/e2e/**"],"branch":"main"}
+{"ts":"2026-07-21T16:39:27.174Z","kind":"scope-set","add":true,"args":["frontend/src/lib"],"matchedModules":[],"fallbacks":["frontend/src/lib/**"],"branch":"main"}
+{"ts":"2026-07-21T16:39:27.464Z","kind":"scope-set","add":true,"args":["frontend/src/App.js"],"matchedModules":[],"fallbacks":["frontend/src/App.js"],"branch":"main"}
+{"ts":"2026-07-21T16:40:41.948Z","kind":"scope-set","add":false,"args":["frontend/src/lib","frontend/src/components/grant","frontend/src/App.js"],"matchedModules":[],"fallbacks":["frontend/src/lib/**","frontend/src/components/grant/**","frontend/src/App.js"],"branch":"main"}
+{"ts":"2026-07-21T16:43:07.972Z","kind":"scope-block","tool":"Edit","file":"frontend/tests/e2e/grantee-walkthrough.spec.js","allowed":[".task/**","DEBT.md","edit-log.jsonl","frontend/src/App.js","frontend/src/components/grant/**","frontend/src/lib/**"]}
+{"ts":"2026-07-21T16:43:11.431Z","kind":"scope-set","add":true,"args":["frontend/tests/e2e/grantee-walkthrough.spec.js"],"matchedModules":[],"fallbacks":["frontend/tests/e2e/grantee-walkthrough.spec.js"],"branch":"main"}
+{"ts":"2026-07-21T16:48:24.247Z","kind":"scope-block","tool":"Write","file":"frontend/tests/e2e/tmp-insights-screenshot.spec.js","allowed":[".task/**","DEBT.md","edit-log.jsonl","frontend/src/App.js","frontend/src/components/grant/**","frontend/src/lib/**","frontend/tests/e2e/grantee-walkthrough.spec.js"]}
+{"ts":"2026-07-21T16:48:29.200Z","kind":"scope-set","add":true,"args":["frontend/tests/e2e/tmp-insights-screenshot.spec.js"],"matchedModules":[],"fallbacks":["frontend/tests/e2e/tmp-insights-screenshot.spec.js"],"branch":"main"}
