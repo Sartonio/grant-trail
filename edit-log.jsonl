@@ -99,3 +99,5 @@
 {"ts":"2026-07-21T16:43:11.431Z","kind":"scope-set","add":true,"args":["frontend/tests/e2e/grantee-walkthrough.spec.js"],"matchedModules":[],"fallbacks":["frontend/tests/e2e/grantee-walkthrough.spec.js"],"branch":"main"}
 {"ts":"2026-07-21T16:48:24.247Z","kind":"scope-block","tool":"Write","file":"frontend/tests/e2e/tmp-insights-screenshot.spec.js","allowed":[".task/**","DEBT.md","edit-log.jsonl","frontend/src/App.js","frontend/src/components/grant/**","frontend/src/lib/**","frontend/tests/e2e/grantee-walkthrough.spec.js"]}
 {"ts":"2026-07-21T16:48:29.200Z","kind":"scope-set","add":true,"args":["frontend/tests/e2e/tmp-insights-screenshot.spec.js"],"matchedModules":[],"fallbacks":["frontend/tests/e2e/tmp-insights-screenshot.spec.js"],"branch":"main"}
+{"ts":"2026-07-21T17:56:16.613Z","kind":"scope-set","add":true,"args":["scripts"],"matchedModules":[],"fallbacks":["scripts/**"],"branch":"main"}
+{"ts":"2026-07-21T17:56:16.824Z","kind":"scope-set","add":true,"args":["package.json"],"matchedModules":[],"fallbacks":["package.json"],"branch":"main"}
