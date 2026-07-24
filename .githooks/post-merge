@@ -19,7 +19,23 @@ if ! docker info >/dev/null 2>&1; then
 fi
 
 echo "post-merge: running 'supabase migration up'..."
-if ! npx --prefix frontend supabase migration up 2>&1; then
+
+# DO_NOT_TRACK suppresses the CLI's PostHog telemetry flush, whose shutdown can
+# time out and poison the exit code AFTER the migration itself succeeded.
+out=$(DO_NOT_TRACK=1 npx --prefix frontend supabase migration up 2>&1)
+rc=$?
+printf '%s\n' "$out"
+
+# Don't trust rc alone: the CLI has exited nonzero purely because a telemetry
+# flush timed out ("Timeout while shutting down PostHog") while still reporting
+# {"applied":[...],"message":"Migrations applied"}. Treat the CLI's own success
+# marker as authoritative and only warn when the migration truly didn't apply.
+if [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -q "Migrations applied"; then
+  echo "post-merge: migrations applied (ignoring non-migration exit code ${rc} — telemetry/shutdown noise)."
+  rc=0
+fi
+
+if [ "$rc" -ne 0 ]; then
   echo ""
   echo "⚠️  post-merge: 'supabase migration up' failed."
   echo "   Run 'npm run db:reset' to rebuild from scratch, or fix the migration manually."

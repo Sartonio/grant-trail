@@ -130,3 +130,5 @@
 {"ts":"2026-07-24T16:58:56.758Z","kind":"scope-set","add":false,"args":[".github/workflows/ci.yml"],"matchedModules":[],"fallbacks":[".github/workflows/ci.yml"],"branch":"worktree-fix-ci-vestigial-forwarder"}
 {"ts":"2026-07-24T16:58:56.934Z","kind":"scope-set","add":true,"args":["DEBT.md"],"matchedModules":[],"fallbacks":["DEBT.md"],"branch":"worktree-fix-ci-vestigial-forwarder"}
 {"ts":"2026-07-24T16:59:50.489Z","kind":"scope-block","tool":"Bash","file":"2>","allowed":[".github/workflows/ci.yml",".task/**","DEBT.md","edit-log.jsonl"],"channel":"bash"}
+{"ts":"2026-07-24T17:42:14.951Z","kind":"scope-set","add":false,"args":[".githooks/post-merge"],"matchedModules":[],"fallbacks":[".githooks/post-merge"],"branch":"main"}
+{"ts":"2026-07-24T17:42:15.162Z","kind":"scope-set","add":true,"args":["DEBT.md"],"matchedModules":[],"fallbacks":["DEBT.md"],"branch":"main"}
