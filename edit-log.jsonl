@@ -127,3 +127,6 @@
 {"ts":"2026-07-24T16:22:06.197Z","kind":"scope-set","add":true,"args":["frontend/package-lock.json"],"matchedModules":[],"fallbacks":["frontend/package-lock.json"],"branch":"chore/audit-bump-react-router"}
 {"ts":"2026-07-24T16:22:06.380Z","kind":"scope-set","add":true,"args":["DEBT.md"],"matchedModules":[],"fallbacks":["DEBT.md"],"branch":"chore/audit-bump-react-router"}
 {"ts":"2026-07-24T16:22:18.379Z","kind":"scope-block","tool":"Bash","file":"2>","allowed":[".task/**","DEBT.md","edit-log.jsonl","frontend/package-lock.json","frontend/package.json"],"channel":"bash"}
+{"ts":"2026-07-24T16:58:56.758Z","kind":"scope-set","add":false,"args":[".github/workflows/ci.yml"],"matchedModules":[],"fallbacks":[".github/workflows/ci.yml"],"branch":"worktree-fix-ci-vestigial-forwarder"}
+{"ts":"2026-07-24T16:58:56.934Z","kind":"scope-set","add":true,"args":["DEBT.md"],"matchedModules":[],"fallbacks":["DEBT.md"],"branch":"worktree-fix-ci-vestigial-forwarder"}
+{"ts":"2026-07-24T16:59:50.489Z","kind":"scope-block","tool":"Bash","file":"2>","allowed":[".github/workflows/ci.yml",".task/**","DEBT.md","edit-log.jsonl"],"channel":"bash"}
