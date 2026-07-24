@@ -9,6 +9,14 @@ differences are below. Background: [Deploy Architecture](../explanation/deploy_a
 > **Stripe = TEST keys. Resend = real key.** (Local + staging use Stripe test mode;
 > only production uses live Stripe.)
 
+> **Staging gets its OWN Stripe sandbox** — do not point it at the shared test account
+> that local worktrees and CI use. A shared account delivers every test run's
+> subscription events to staging's webhook endpoint for customers staging's database
+> has never seen (this produced 815 spurious CRITICAL failures in 2026-07). Create a
+> separate [Stripe sandbox](https://docs.stripe.com/sandboxes) with its own
+> `sk_test_…` key, products/prices, billing-portal configuration, and the webhook
+> endpoint from step 3 below.
+
 > **Prerequisite:** the staging/prod pipelines deploy from a GitHub remote. If the repo
 > has no remote yet, none of this can run — re-create the remote and push `main` first.
 

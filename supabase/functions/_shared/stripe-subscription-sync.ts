@@ -26,6 +26,23 @@ import {
 // what to do, and executes the resulting writes.
 
 /**
+ * The Stripe customer on a subscription has no billing_customers row, so the
+ * event can never be applied here. Typed so callers can pick their failure
+ * mode: the webhook's subscription-event handler SKIPS these (a 4xx would make
+ * Stripe retry for days an event this database can never process — e.g. a
+ * customer created by another environment sharing the Stripe account), while
+ * checkout.session.completed and sync-my-subscription let it propagate,
+ * because there an unknown customer means our own checkout flow failed to
+ * record the row.
+ */
+export class UnknownBillingCustomerError extends Error {
+  constructor(stripeCustomerId: string) {
+    super(`No billing customer found for Stripe customer id ${stripeCustomerId}.`);
+    this.name = 'UnknownBillingCustomerError';
+  }
+}
+
+/**
  * Auto-unlist / re-publish a charity's directory listing as their premium
  * ("Fiscal Agents Plan") subscription lapses or reactivates (TASK A5).
  *
@@ -156,14 +173,19 @@ export async function upsertSubscriptionFromStripe(
   const stripeCustomerId = String(subscription.customer);
   const { priceId, productId } = extractPricing(subscription);
 
+  // maybeSingle, not single: a missing row must be distinguishable from a real
+  // DB failure — only the former is the skippable unknown-customer case.
   const { data: billingCustomer, error: customerError } = await adminSupabase
     .from('billing_customers')
     .select('user_id, tenant_id')
     .eq('stripe_customer_id', stripeCustomerId)
-    .single();
+    .maybeSingle();
 
-  if (customerError || !billingCustomer) {
-    throw new Error('No billing customer found for Stripe customer id.');
+  if (customerError) {
+    throw new Error(`Unable to load billing customer: ${customerError.message}`);
+  }
+  if (!billingCustomer) {
+    throw new UnknownBillingCustomerError(stripeCustomerId);
   }
 
   const { ownerTenantId, isTenantOwned } = resolveOwner(billingCustomer);
