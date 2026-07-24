@@ -299,20 +299,18 @@ jobs:
           LANEF_WEBHOOK_TRANSPORT: "live"
         run: |
           set -uo pipefail
-          # Start the forwarder and derive the signing secret it will use, so the
-          # served stripe-webhook verifies signatures against the live loop.
-          stripe listen --forward-to "${API_URL}/functions/v1/stripe-webhook" \
-            --skip-verify >/tmp/stripe-listen.log 2>&1 &
-          STRIPE_LISTEN_PID=$!
+          # Derive the CLI's webhook signing secret so the served stripe-webhook
+          # verifies signatures against the live loop. The FORWARDER itself is
+          # started (and torn down) by run-all.sh — see its header comment and
+          # `stripe listen --forward-to "${API_URL:-http://127.0.0.1:54321}/..."`.
+          # Do NOT start one here: a second forwarder double-delivers every
+          # event, and this step has no API_URL to point it at anyway.
           STRIPE_WEBHOOK_SECRET="$(stripe listen --print-secret)"
           export STRIPE_WEBHOOK_SECRET
           # Serving is owned by the tests' own ensure_functions_served (the single
           # serve/readiness path, shared with local runs); with no
           # supabase/functions/.env in CI it synthesizes one from the exported
           # step env (STRIPE_* / APP_URL above + STRIPE_WEBHOOK_SECRET).
-          # run-all.sh owns the test-clock / event orchestration and exits
-          # non-zero on any failure, which gates this job.
+          # run-all.sh owns the forwarder + test-clock / event orchestration and
+          # exits non-zero on any failure, which gates this job.
           bash supabase/functions/tests/run-all.sh
-          status=$?
-          kill "$STRIPE_LISTEN_PID" 2>/dev/null || true
-          exit $status

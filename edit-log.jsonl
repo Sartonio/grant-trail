@@ -141,3 +141,6 @@
 {"ts":"2026-07-24T17:14:37.132Z","kind":"scope-set","add":true,"args":["supabase/.env"],"matchedModules":[],"fallbacks":["supabase/.env"],"branch":"wh-skip"}
 {"ts":"2026-07-24T17:14:37.329Z","kind":"scope-set","add":true,"args":["supabase/functions/.env"],"matchedModules":[],"fallbacks":["supabase/functions/.env"],"branch":"wh-skip"}
 {"ts":"2026-07-24T17:14:48.368Z","kind":"scope-block","tool":"Bash","file":"containers","allowed":[".task/**","DEBT.md","docs/**","edit-log.jsonl","frontend/.env.local","supabase/.env","supabase/functions/**","supabase/functions/.env"],"channel":"bash"}
+{"ts":"2026-07-24T16:58:56.758Z","kind":"scope-set","add":false,"args":[".github/workflows/ci.yml"],"matchedModules":[],"fallbacks":[".github/workflows/ci.yml"],"branch":"worktree-fix-ci-vestigial-forwarder"}
+{"ts":"2026-07-24T16:58:56.934Z","kind":"scope-set","add":true,"args":["DEBT.md"],"matchedModules":[],"fallbacks":["DEBT.md"],"branch":"worktree-fix-ci-vestigial-forwarder"}
+{"ts":"2026-07-24T16:59:50.489Z","kind":"scope-block","tool":"Bash","file":"2>","allowed":[".github/workflows/ci.yml",".task/**","DEBT.md","edit-log.jsonl"],"channel":"bash"}
