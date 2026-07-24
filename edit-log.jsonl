@@ -149,3 +149,9 @@
 {"ts":"2026-07-24T18:07:21.468Z","kind":"scope-set","add":true,"args":["frontend/package.json"],"matchedModules":[],"fallbacks":["frontend/package.json"],"branch":"main"}
 {"ts":"2026-07-24T18:07:21.634Z","kind":"scope-set","add":true,"args":["frontend/package-lock.json"],"matchedModules":[],"fallbacks":["frontend/package-lock.json"],"branch":"main"}
 {"ts":"2026-07-24T18:07:21.804Z","kind":"scope-set","add":true,"args":["DEBT.md"],"matchedModules":[],"fallbacks":["DEBT.md"],"branch":"main"}
+{"ts":"2026-07-24T18:51:06.066Z","kind":"scope-set","add":false,"args":["supabase/tests/lib","scripts/stack-env.sh"],"matchedModules":[],"fallbacks":["supabase/tests/lib/**","scripts/stack-env.sh"],"branch":"worktree-fix-container-name-truncation"}
+{"ts":"2026-07-24T18:51:08.285Z","kind":"scope-set","add":true,"args":["DEBT.md"],"matchedModules":[],"fallbacks":["DEBT.md"],"branch":"worktree-fix-container-name-truncation"}
+{"ts":"2026-07-24T18:51:47.711Z","kind":"scope-block","tool":"Edit","file":"scripts/stack-gc.sh","allowed":[".task/**","DEBT.md","edit-log.jsonl","scripts/stack-env.sh","supabase/tests/lib/**"]}
+{"ts":"2026-07-24T18:51:50.547Z","kind":"scope-set","add":true,"args":["scripts/stack-gc.sh"],"matchedModules":[],"fallbacks":["scripts/stack-gc.sh"],"branch":"worktree-fix-container-name-truncation"}
+{"ts":"2026-07-24T18:52:10.443Z","kind":"scope-block","tool":"Bash","file":"<<","allowed":[".task/**","DEBT.md","edit-log.jsonl","scripts/stack-env.sh","scripts/stack-gc.sh","supabase/tests/lib/**"],"channel":"bash"}
+{"ts":"2026-07-24T18:54:17.391Z","kind":"scope-block","tool":"Bash","file":"2>","allowed":[".task/**","DEBT.md","edit-log.jsonl","scripts/stack-env.sh","scripts/stack-gc.sh","supabase/tests/lib/**"],"channel":"bash"}
