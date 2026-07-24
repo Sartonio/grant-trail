@@ -1,5 +1,5 @@
 import { adminSupabase, corsHeaders, stripe } from '../_shared/stripe-client.ts';
-import { upsertSubscriptionFromStripe } from '../_shared/stripe-subscription-sync.ts';
+import { UnknownBillingCustomerError, upsertSubscriptionFromStripe } from '../_shared/stripe-subscription-sync.ts';
 import { assertPostRequest, ValidationError } from '../_shared/validation.ts';
 import { sendPaymentConfirmationEmail, sendPaymentFailedEmail } from '../_shared/email.ts';
 
@@ -119,7 +119,29 @@ Deno.serve(async (request) => {
         // an out-of-order delivery (older event arriving after a newer one, or
         // after .deleted) is skipped inside upsertSubscriptionFromStripe via an
         // atomic conditional check-and-set, instead of resurrecting stale state.
-        await upsertSubscriptionFromStripe(event.data.object, new Date(event.created * 1000));
+        try {
+          await upsertSubscriptionFromStripe(event.data.object, new Date(event.created * 1000));
+        } catch (syncError) {
+          // Unknown customer: this database can never apply the event (e.g. it
+          // belongs to another environment sharing the Stripe account, or the
+          // customer predates its billing_customers row). Acknowledge with 200
+          // instead of rethrowing — a 4xx makes Stripe redeliver for days
+          // (815 CRITICAL log entries in staging, 2026-07-19→21). The event is
+          // still recorded in billing_webhook_events below, and checkout /
+          // sync-my-subscription keep failing loudly on the same condition.
+          if (!(syncError instanceof UnknownBillingCustomerError)) {
+            throw syncError;
+          }
+          console.warn(`Skipping ${event.type} for unknown customer: ${syncError.message}`);
+          try {
+            await adminSupabase.from('system_logs').insert({
+              event_name: 'stripe_webhook_unknown_customer_skipped',
+              error_message: syncError.message,
+              severity: 'warning',
+              metadata: { stripe_event_id: event.id, event_type: event.type },
+            });
+          } catch (_logError) { /* swallow — logging must not fail the webhook */ }
+        }
         break;
       }
       case 'invoice.payment_failed': {
