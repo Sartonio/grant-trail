@@ -123,3 +123,7 @@
 {"ts":"2026-07-24T15:40:43.513Z","kind":"scope-set","add":true,"args":["DEBT.md"],"matchedModules":[],"fallbacks":["DEBT.md"],"branch":"main"}
 {"ts":"2026-07-24T15:40:48.133Z","kind":"scope-block","tool":"Bash","file":"2>","allowed":[".task/**","DEBT.md","edit-log.jsonl","frontend/src/App.js","frontend/src/components/auth/**"],"channel":"bash"}
 {"ts":"2026-07-24T15:42:47.517Z","kind":"scope-set","add":true,"args":["frontend/src/App.test.js"],"matchedModules":[],"fallbacks":["frontend/src/App.test.js"],"branch":"main"}
+{"ts":"2026-07-24T16:22:06.011Z","kind":"scope-set","add":false,"args":["frontend/package.json"],"matchedModules":[],"fallbacks":["frontend/package.json"],"branch":"chore/audit-bump-react-router"}
+{"ts":"2026-07-24T16:22:06.197Z","kind":"scope-set","add":true,"args":["frontend/package-lock.json"],"matchedModules":[],"fallbacks":["frontend/package-lock.json"],"branch":"chore/audit-bump-react-router"}
+{"ts":"2026-07-24T16:22:06.380Z","kind":"scope-set","add":true,"args":["DEBT.md"],"matchedModules":[],"fallbacks":["DEBT.md"],"branch":"chore/audit-bump-react-router"}
+{"ts":"2026-07-24T16:22:18.379Z","kind":"scope-block","tool":"Bash","file":"2>","allowed":[".task/**","DEBT.md","edit-log.jsonl","frontend/package-lock.json","frontend/package.json"],"channel":"bash"}
