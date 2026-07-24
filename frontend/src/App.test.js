@@ -39,6 +39,7 @@ vi.mock('./components/landing/LandingPage', () => ({ default: () => <div>LANDING
 vi.mock('./components/grant/Main', () => ({ default: () => <div>MAIN</div> }));
 vi.mock('./components/admin/AdminDashboard', () => ({ default: () => <div>ADMIN_DASH</div> }));
 vi.mock('./components/admin/TenantManagement', () => ({ default: () => <div>TENANTS</div> }));
+vi.mock('./components/auth/CompleteProfile', () => ({ default: () => <div>COMPLETE_PROFILE</div> }));
 
 import App from './App';
 
@@ -101,6 +102,17 @@ describe('App route table + Guard wiring', () => {
     seedUser({ role: 'admin', membership: { hasPremiumAccess: true } });
     renderAt('/grants');
     await waitFor(() => expect(window.location.pathname).toBe('/admin'));
+  });
+
+  it('sends a profileless auth user from "/" to /complete-profile keeping the query string', async () => {
+    // Auth user exists but fetchSessionContext finds no profile row -> needsProfile.
+    // The ?plan= param must survive the redirect (fiscal-agent plan intent).
+    mocks.getUser.mockResolvedValue({ data: { user: { id: 'u1' } } });
+    mocks.fetchSessionContext.mockResolvedValue(null);
+    renderAt('/?plan=fiscal-agent');
+    await waitFor(() => expect(window.location.pathname).toBe('/complete-profile'));
+    expect(window.location.search).toBe('?plan=fiscal-agent');
+    expect(await screen.findByText('COMPLETE_PROFILE')).toBeInTheDocument();
   });
 
   it('sends a grantee who hits an admin-only route (/admin) back to "/"', async () => {

@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { flushSync } from 'react-dom';
 import { supabase } from '../../supabaseClient';
 import { getUserByAuthId } from '../../lib/data/users';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import VerifyEmailNotice from './VerifyEmailNotice';
 import '../../styles/Login.css';
 
@@ -20,6 +20,9 @@ function Login({ onLogin }) {
   // the user can't do anything else until it's confirmed.
   const [unconfirmed, setUnconfirmed] = useState(false);
   const navigate = useNavigate();
+  // The signup "Log in" link carries ?plan=fiscal-agent here; keep it alive so
+  // CompleteProfile doesn't silently fall into the basic self-service branch.
+  const location = useLocation();
 
   // Forgot password view
   const [forgotMode, setForgotMode] = useState(false);
@@ -51,8 +54,10 @@ function Login({ onLogin }) {
       const { data: userRecord, error: userError } = await getUserByAuthId(user.id);
 
       if (userError || !userRecord) {
-        // User verified their email but hasn't completed their profile yet
-        navigate('/complete-profile');
+        // User verified their email but hasn't completed their profile yet.
+        // Forward this page's query string so a plan choice (?plan=fiscal-agent)
+        // arriving via the signup "Log in" link survives the hop.
+        navigate({ pathname: '/complete-profile', search: location.search });
         setLoading(false);
       } else {
         await onLogin({ user, userRecord });
@@ -62,11 +67,18 @@ function Login({ onLogin }) {
   }
 
   async function resendVerificationEmail() {
+    // Carry a plan choice from the login page URL into the verification link so
+    // CompleteProfile still sees it after the user clicks through from email.
+    const plan = new URLSearchParams(location.search).get('plan');
+    let emailRedirectTo = `${window.location.origin}/complete-profile`;
+    if (plan) {
+      emailRedirectTo += `?plan=${encodeURIComponent(plan)}`;
+    }
     const { error } = await supabase.auth.resend({
       type: 'signup',
       email: email.trim().toLowerCase(),
       options: {
-        emailRedirectTo: `${window.location.origin}/complete-profile`,
+        emailRedirectTo,
       },
     });
     if (error) {

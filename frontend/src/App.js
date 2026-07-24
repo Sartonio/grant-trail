@@ -139,7 +139,11 @@ function App() {
   // them declaratively via <Guard>, but "/" is a multi-target dispatcher so it
   // resolves them inline against the same centralized policy (lib/policy.js).
   function resolveRootElement() {
-    if (needsProfile) return <Navigate to="/complete-profile" />;
+    // Preserve the query string (e.g. ?plan=fiscal-agent) so CompleteProfile
+    // keeps the signup plan intent instead of defaulting to self-service.
+    if (needsProfile) {
+      return <Navigate to={{ pathname: '/complete-profile', search: window.location.search }} />;
+    }
     if (!session) return <LandingPage session={session} />;
     if (session.userRecord?.role === ROLES.SUPER_ADMIN) return <Navigate to="/super/tenants" />;
     // Authenticated-but-unpaid (non-super) -> upgrade landing (the billing nudge target).

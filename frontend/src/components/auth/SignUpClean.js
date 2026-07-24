@@ -20,6 +20,9 @@ function SignUp() {
   // verification so CompleteProfile provisions an admin/listing tenant + premium
   // checkout instead of the default grantee + basic checkout.
   const plan = searchParams.get('plan');
+  // Keep the plan choice alive across the hop to /login so Login can forward it
+  // to /complete-profile (and into resend redirect links).
+  const loginPath = plan ? `/login?plan=${encodeURIComponent(plan)}` : '/login';
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -100,12 +103,19 @@ function SignUp() {
       const redirectUrl = buildRedirectUrl();
       const normalizedEmail = getNormalizedEmail();
 
+      const signUpOptions = { emailRedirectTo: redirectUrl };
+      if (!inviteToken && plan === 'fiscal-agent') {
+        // Persist the plan choice in auth user metadata so it survives
+        // navigations that drop the ?plan= query param (login redirect, root
+        // redirect, verification link opened elsewhere). The emailRedirectTo
+        // query param above stays as belt-and-braces for in-flight users.
+        signUpOptions.data = { plan: 'fiscal-agent' };
+      }
+
       const { data, error } = await supabase.auth.signUp({
         email: normalizedEmail,
         password,
-        options: {
-          emailRedirectTo: redirectUrl,
-        },
+        options: signUpOptions,
       });
 
       if (error) {
@@ -202,7 +212,7 @@ function SignUp() {
               have a GrantTrail account, please ask your admin how to proceed.
             </p>
           )}
-          <Link to="/login" className="fad-btn fad-btn-primary" style={{ display: 'inline-block' }}>
+          <Link to={loginPath} className="fad-btn fad-btn-primary" style={{ display: 'inline-block' }}>
             Log in
           </Link>
         </div>
@@ -229,7 +239,7 @@ function SignUp() {
         footer={
           <div className="signup-footer">
             Already have an account?{' '}
-            <Link to="/login">Log in or reset your password</Link>.
+            <Link to={loginPath}>Log in or reset your password</Link>.
           </div>
         }
       />
@@ -301,7 +311,7 @@ function SignUp() {
         )}
 
         <div className="signup-footer">
-          Already have an account? <Link to="/login">Log in here</Link>
+          Already have an account? <Link to={loginPath}>Log in here</Link>
         </div>
       </div>
     </div>
