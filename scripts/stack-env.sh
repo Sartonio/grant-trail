@@ -34,6 +34,12 @@
 
 SE_REGISTRY_DIR="${SE_REGISTRY_DIR:-/tmp/grant-trail-stacks}"
 
+# Longest project id the Supabase CLI carries through to container names
+# verbatim; beyond this it silently truncates, so a reconstructed
+# supabase_db_<id> stops matching the running container. Kept in one place and
+# re-read by supabase/tests/lib/common.sh.
+SE_PROJECT_ID_MAX="${SE_PROJECT_ID_MAX:-40}"
+
 # se_init — resolve SE_ROOT / SE_IS_WORKTREE / SE_PROJECT_ID / ports.
 # Read-only (no config rewrite); safe to call from any command, any cwd inside
 # the repo. Idempotent.
@@ -48,8 +54,14 @@ se_init() {
   if [ "$gitdir" != "$commondir" ]; then
     SE_IS_WORKTREE=1
     local name hash hash4
+    # The Supabase CLI truncates the project id to SE_PROJECT_ID_MAX chars when
+    # it names containers (supabase_db_<id> etc.), so an id longer than that
+    # would never match the container that actually comes up. Budget the
+    # variable part accordingly and truncate the NAME, never the hash — the
+    # hash is what keeps two worktrees apart. See lib/common.sh.
     name="$(basename "$SE_ROOT" | tr '[:upper:]' '[:lower:]' \
-      | tr -c 'a-z0-9-' '-' | sed 's/-\{2,\}/-/g; s/^-//; s/-$//' | cut -c1-24)"
+      | tr -c 'a-z0-9-' '-' | sed 's/-\{2,\}/-/g; s/^-//; s/-$//' \
+      | cut -c1-$((SE_PROJECT_ID_MAX - 17)) | sed 's/-$//')"
     hash="$(printf %s "$SE_ROOT" | cksum | cut -d' ' -f1)"
     hash4="$(printf '%04x' $((hash % 65536)))"
     SE_PROJECT_ID="grant-trail-${name:-worktree}-${hash4}"

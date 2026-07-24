@@ -18,7 +18,13 @@ _CONFIG_TOML="$(dirname "${BASH_SOURCE[0]}")/../../config.toml"
 PROJECT_ID="$(sed -n 's/^project_id[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' \
   "$_CONFIG_TOML" 2>/dev/null | head -n1 || true)"
 PROJECT_ID="${PROJECT_ID:-grant-trail}"
-export DB_CONTAINER="supabase_db_${PROJECT_ID}"
+# The Supabase CLI truncates the project id at 40 chars when it names
+# containers, so a long worktree name yields supabase_db_<first-40> on disk
+# while the config still holds the full id. Reconstructing from the untruncated
+# id targets a container that does not exist and every test aborts on the
+# preflight. Apply the same cap here (kept in sync with SE_PROJECT_ID_MAX in
+# scripts/stack-env.sh, which now also budgets ids to fit).
+export DB_CONTAINER="supabase_db_$(printf %s "$PROJECT_ID" | cut -c1-40)"
 _API_PORT="$(sed -n '/^\[api\]/,/^\[/s/^port[[:space:]]*=[[:space:]]*\([0-9]*\).*/\1/p' \
   "$_CONFIG_TOML" 2>/dev/null | head -n1 || true)"
 export API_URL="${API_URL:-http://127.0.0.1:${_API_PORT:-54321}}"
@@ -30,7 +36,7 @@ export API_URL="${API_URL:-http://127.0.0.1:${_API_PORT:-54321}}"
 require_stack() {
   local container="${1:-$DB_CONTAINER}"
   if ! docker exec "$container" psql -U postgres -d postgres -tA -c 'select 1' >/dev/null 2>&1; then
-    echo "ERROR: local Supabase stack not running — run: npm run db:start (then npm run db:reset)" >&2
+    echo "ERROR: local Supabase stack not running (no container '${container}') — run: npm run db:start (then npm run db:reset)" >&2
     exit 1
   fi
 }

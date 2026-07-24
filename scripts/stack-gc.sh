@@ -42,7 +42,17 @@ stopped=0 kept=0 skipped=0
 # -a: a crashed CLI can leave stopped containers behind; they still hold disk.
 for name in $(docker ps -a --format '{{.Names}}' | grep '^supabase_db_grant-trail-' | sort -u); do
   pid="${name#supabase_db_}"
-  path="$(sed -n 's/^path=//p' "$REG_DIR/$pid" 2>/dev/null | head -n1)"
+  reg="$REG_DIR/$pid"
+  # Stacks created before ids were budgeted to 40 chars have a container name
+  # the CLI truncated, so it no longer equals the registry filename — recover
+  # the full id by prefix so those stacks stay collectable.
+  if [ ! -f "$reg" ]; then
+    for cand in "$REG_DIR/$pid"*; do
+      [ -f "$cand" ] || continue
+      reg="$cand"; pid="$(basename "$cand")"; break
+    done
+  fi
+  path="$(sed -n 's/^path=//p' "$reg" 2>/dev/null | head -n1)"
 
   if lock_held "$pid"; then
     echo "--  ${pid}: lock HELD (a run is using it) — skipping"
