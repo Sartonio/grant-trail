@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router';
 import * as Sentry from '@sentry/react';
 import { getOwnGrant, insertGrant, updateOwnGrant } from '../../lib/data/grants';
 import { listBudgetItems } from '../../lib/data/budgetItems';

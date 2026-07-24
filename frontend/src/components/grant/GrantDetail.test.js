@@ -1,5 +1,5 @@
 import React from 'react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
@@ -24,7 +24,7 @@ vi.mock('../../lib/data/grantReview', () => ({
 vi.mock('./GrantAttachments', () => ({ default: () => <div data-testid="attachments" /> }));
 
 // useParams -> the grant id under test.
-vi.mock('react-router-dom', async (importOriginal) => {
+vi.mock('react-router', async (importOriginal) => {
   const actual = await importOriginal();
   return { ...actual, useParams: () => ({ id: '7' }) };
 });

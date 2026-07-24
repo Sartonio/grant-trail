@@ -3,7 +3,7 @@ import { render, screen, act, waitFor } from '@testing-library/react';
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest';
 
 const navigate = vi.fn();
-vi.mock('react-router-dom', () => ({
+vi.mock('react-router', () => ({
   useNavigate: () => navigate,
   Link: ({ to, children }) => <a href={to}>{children}</a>,
 }));

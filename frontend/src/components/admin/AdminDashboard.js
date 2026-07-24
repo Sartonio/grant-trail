@@ -1,6 +1,6 @@
 // src/components/AdminDashboard.js
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 import { listGrantsForDashboard } from '../../lib/data/grants';
 import { countPendingBudgetItems } from '../../lib/data/budgetItems';
 import { countPendingExpenses } from '../../lib/data/expenses';

@@ -4,7 +4,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // Mock navigation so we can assert blocked mutations route to the billing nudge.
 const navigate = vi.fn();
-vi.mock('react-router-dom', () => ({
+vi.mock('react-router', () => ({
   useNavigate: () => navigate,
   Link: ({ to, children }) => <a href={to}>{children}</a>,
 }));

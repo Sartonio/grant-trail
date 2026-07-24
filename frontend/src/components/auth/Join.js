@@ -7,7 +7,7 @@
 // Invited users never land here — invite links go straight to /signup?invite=…,
 // which presets the role and skips payment (covered by the inviting org).
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 import { FaSeedling, FaBuilding, FaArrowRight, FaHandshake } from 'react-icons/fa';
 import '../fiscalAgent/FiscalAgentDirectory.css';
 

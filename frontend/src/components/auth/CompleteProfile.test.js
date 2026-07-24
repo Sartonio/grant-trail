@@ -5,7 +5,7 @@ import { describe, test, expect, vi, beforeEach } from 'vitest';
 // Mock routing: control search params per-test, capture navigation.
 const navigate = vi.fn();
 let searchParams = new URLSearchParams();
-vi.mock('react-router-dom', () => ({
+vi.mock('react-router', () => ({
   useNavigate: () => navigate,
   useSearchParams: () => [searchParams],
   Link: ({ to, children }) => <a href={to}>{children}</a>,

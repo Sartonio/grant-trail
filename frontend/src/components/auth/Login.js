@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { flushSync } from 'react-dom';
 import { supabase } from '../../supabaseClient';
 import { getUserByAuthId } from '../../lib/data/users';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router';
 import VerifyEmailNotice from './VerifyEmailNotice';
 import '../../styles/Login.css';
 

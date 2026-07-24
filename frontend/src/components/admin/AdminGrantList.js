@@ -1,6 +1,6 @@
 // src/components/AdminGrantList.js
 import React, { useState, useEffect } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router';
 import { listAllGrantsForAdmin } from '../../lib/data/grants';
 import { listPendingBudgetItemGrantIds } from '../../lib/data/budgetItems';
 import { listUnapprovedExpenseGrantIds } from '../../lib/data/expenses';

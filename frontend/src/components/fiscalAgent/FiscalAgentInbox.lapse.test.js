@@ -2,8 +2,8 @@ import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-// Link is the only react-router-dom dependency the inbox uses.
-vi.mock('react-router-dom', () => ({
+// Link is the only react-router dependency the inbox uses.
+vi.mock('react-router', () => ({
   Link: ({ to, children }) => <a href={to}>{children}</a>,
 }));
 

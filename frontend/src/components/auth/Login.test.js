@@ -6,7 +6,7 @@ const mockNavigate = vi.fn();
 // Controls the login page's own query string per-test (?plan=fiscal-agent).
 let mockSearch = '';
 
-vi.mock('react-router-dom', () => ({
+vi.mock('react-router', () => ({
   Link: ({ to, children }) => <a href={to}>{children}</a>,
   useNavigate: () => mockNavigate,
   useLocation: () => ({ pathname: '/login', search: mockSearch }),

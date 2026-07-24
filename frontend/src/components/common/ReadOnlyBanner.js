@@ -4,7 +4,7 @@
 // (#40 read-only degrade). Reads stay open; the banner explains why mutations
 // are blocked and links to the billing nudge.
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 import { FiLock } from 'react-icons/fi';
 import { BILLING_NUDGE_PATH } from '../../lib/policy';
 import './ReadOnlyBanner.css';
