@@ -1,6 +1,6 @@
 // src/components/AdminAuditLog.js
 import React, { useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 import { listAuditLog, getAuditDiff } from '../../lib/data/auditLog';
 import { listAuditUsers } from '../../lib/data/users';
 import { listExpenseGrantIds } from '../../lib/data/expenses';

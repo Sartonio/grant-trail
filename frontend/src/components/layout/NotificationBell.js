@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { FiBell } from 'react-icons/fi';
 import { markNotificationRead, markNotificationsRead, deleteNotifications } from '../../lib/data/notifications';
 import { useClickOutside } from './useClickOutside';

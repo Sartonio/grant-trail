@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { NavLink, Link, useNavigate } from 'react-router-dom';
+import { NavLink, Link, useNavigate } from 'react-router';
 import { FiUser, FiChevronDown, FiLogOut, FiActivity, FiUsers, FiSettings, FiBriefcase } from 'react-icons/fi';
 import NotificationBell from './NotificationBell';
 import { useClickOutside } from './useClickOutside';

@@ -5,7 +5,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../supabaseClient';
 import { getInviteByToken, registerInvitedUser } from '../../lib/invites';
 import { startCheckoutSession, MEMBERSHIP_TIERS } from '../../lib/billing';
-import { useNavigate, useSearchParams, Link } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link } from 'react-router';
 import { FaUser, FaBuilding, FaPhone, FaCalendarAlt, FaCheckCircle, FaExclamationTriangle } from 'react-icons/fa';
 import '../../styles/Login.css';
 

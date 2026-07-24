@@ -15,7 +15,7 @@
 // or false (after navigating to the billing nudge) when it must be blocked.
 
 import { useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { canMutate, BILLING_NUDGE_PATH } from "./policy";
 
 /** @param {import('./types').Session|null} [session] */

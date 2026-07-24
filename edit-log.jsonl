@@ -146,3 +146,6 @@
 {"ts":"2026-07-24T16:59:50.489Z","kind":"scope-block","tool":"Bash","file":"2>","allowed":[".github/workflows/ci.yml",".task/**","DEBT.md","edit-log.jsonl"],"channel":"bash"}
 {"ts":"2026-07-24T17:42:14.951Z","kind":"scope-set","add":false,"args":[".githooks/post-merge"],"matchedModules":[],"fallbacks":[".githooks/post-merge"],"branch":"main"}
 {"ts":"2026-07-24T17:42:15.162Z","kind":"scope-set","add":true,"args":["DEBT.md"],"matchedModules":[],"fallbacks":["DEBT.md"],"branch":"main"}
+{"ts":"2026-07-24T18:07:21.468Z","kind":"scope-set","add":true,"args":["frontend/package.json"],"matchedModules":[],"fallbacks":["frontend/package.json"],"branch":"main"}
+{"ts":"2026-07-24T18:07:21.634Z","kind":"scope-set","add":true,"args":["frontend/package-lock.json"],"matchedModules":[],"fallbacks":["frontend/package-lock.json"],"branch":"main"}
+{"ts":"2026-07-24T18:07:21.804Z","kind":"scope-set","add":true,"args":["DEBT.md"],"matchedModules":[],"fallbacks":["DEBT.md"],"branch":"main"}

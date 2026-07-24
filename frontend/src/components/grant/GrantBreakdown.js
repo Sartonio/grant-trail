@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link } from "react-router";
 import AddExpenseModal from "./AddExpenseModal";
 import BudgetItemModal from "./BudgetItemModal";
 import ConfirmDialog from "../common/ConfirmDialog";

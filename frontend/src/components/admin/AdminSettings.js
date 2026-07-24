@@ -1,6 +1,6 @@
 // src/components/AdminSettings.js
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 import { updateTenantSettings } from '../../lib/data/tenants';
 import { FiArrowLeft, FiSettings, FiSave } from 'react-icons/fi';
 import { useWriteGuard } from '../../lib/useWriteGuard';

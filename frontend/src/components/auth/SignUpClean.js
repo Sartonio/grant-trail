@@ -5,7 +5,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../supabaseClient';
 import { getInviteByToken } from '../../lib/invites';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router';
 import { FaEnvelope, FaLock, FaCheckCircle } from 'react-icons/fa';
 import VerifyEmailNotice from './VerifyEmailNotice';
 import '../../styles/Login.css';
