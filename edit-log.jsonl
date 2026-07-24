@@ -115,3 +115,11 @@
 {"ts":"2026-07-21T18:24:29.569Z","kind":"scope-set","add":true,"args":["frontend/playwright.config.js"],"matchedModules":[],"fallbacks":["frontend/playwright.config.js"],"branch":"main"}
 {"ts":"2026-07-21T18:26:50.147Z","kind":"scope-set","add":true,"args":["frontend/tests/e2e/global-setup.js"],"matchedModules":[],"fallbacks":["frontend/tests/e2e/global-setup.js"],"branch":"main"}
 {"ts":"2026-07-21T19:05:00.376Z","kind":"scope-set","add":true,"args":["frontend/package-lock.json"],"matchedModules":[],"fallbacks":["frontend/package-lock.json"],"branch":"main"}
+{"ts":"2026-07-24T15:40:37.027Z","kind":"scope-set","add":false,"args":["frontend/src/components/auth"],"matchedModules":[],"fallbacks":["frontend/src/components/auth/**"],"branch":"main"}
+{"ts":"2026-07-24T15:40:37.223Z","kind":"scope-set","add":false,"args":["frontend/src/App.js"],"matchedModules":[],"fallbacks":["frontend/src/App.js"],"branch":"main"}
+{"ts":"2026-07-24T15:40:37.406Z","kind":"scope-set","add":false,"args":["DEBT.md"],"matchedModules":[],"fallbacks":["DEBT.md"],"branch":"main"}
+{"ts":"2026-07-24T15:40:43.154Z","kind":"scope-set","add":false,"args":["frontend/src/components/auth"],"matchedModules":[],"fallbacks":["frontend/src/components/auth/**"],"branch":"main"}
+{"ts":"2026-07-24T15:40:43.330Z","kind":"scope-set","add":true,"args":["frontend/src/App.js"],"matchedModules":[],"fallbacks":["frontend/src/App.js"],"branch":"main"}
+{"ts":"2026-07-24T15:40:43.513Z","kind":"scope-set","add":true,"args":["DEBT.md"],"matchedModules":[],"fallbacks":["DEBT.md"],"branch":"main"}
+{"ts":"2026-07-24T15:40:48.133Z","kind":"scope-block","tool":"Bash","file":"2>","allowed":[".task/**","DEBT.md","edit-log.jsonl","frontend/src/App.js","frontend/src/components/auth/**"],"channel":"bash"}
+{"ts":"2026-07-24T15:42:47.517Z","kind":"scope-set","add":true,"args":["frontend/src/App.test.js"],"matchedModules":[],"fallbacks":["frontend/src/App.test.js"],"branch":"main"}

@@ -196,6 +196,34 @@ describe('CompleteProfile — valid flows unchanged', () => {
     expect(getInviteByToken).not.toHaveBeenCalled();
   });
 
+  test('fiscal-agent plan from user metadata alone (no URL param) still provisions a charity tenant + premium checkout', async () => {
+    // Simulates the bug path: the ?plan= query was dropped by a navigation
+    // (login redirect, root redirect) — the durable metadata must win.
+    searchParams = new URLSearchParams();
+    const metadataSession = {
+      user: {
+        id: 'auth-user-1',
+        email: 'invited@example.com',
+        user_metadata: { plan: 'fiscal-agent' },
+      },
+    };
+
+    render(<CompleteProfile session={metadataSession} />);
+
+    fillForm();
+    submit();
+
+    await waitFor(() => expect(rpc).toHaveBeenCalledTimes(1));
+    expect(rpc).toHaveBeenCalledWith(
+      'provision_fiscal_agent_tenant',
+      expect.objectContaining({ p_auth_uid: 'auth-user-1' })
+    );
+    await waitFor(() => expect(startCheckoutSession).toHaveBeenCalledTimes(1));
+    expect(startCheckoutSession).toHaveBeenCalledWith(
+      expect.objectContaining({ membershipTier: 'premium' })
+    );
+  });
+
   test('no invite param at all still uses the self-service branch + Basic checkout', async () => {
     searchParams = new URLSearchParams();
 

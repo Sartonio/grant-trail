@@ -13,7 +13,12 @@ function CompleteProfile({ session, onProfileComplete }) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const inviteToken = searchParams.get('invite');
-  const isFiscalAgent = searchParams.get('plan') === 'fiscal-agent';
+  // Plan intent is durable in auth user metadata (set at signUp) — the URL
+  // param is only a fallback for in-flight users who signed up before the
+  // metadata was recorded, since several navigation paths drop the query.
+  const isFiscalAgent =
+    session?.user?.user_metadata?.plan === 'fiscal-agent' ||
+    searchParams.get('plan') === 'fiscal-agent';
 
   const [firstname, setFirstname] = useState('');
   const [lastname, setLastname] = useState('');

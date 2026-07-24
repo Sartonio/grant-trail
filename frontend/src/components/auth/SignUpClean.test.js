@@ -157,6 +157,54 @@ describe('SignUpClean — existing-account routing (C1 revised)', () => {
   });
 });
 
+describe('SignUpClean — fiscal-agent plan intent is durable', () => {
+  test('fiscal-agent signup persists the plan in auth user metadata and the redirect URL', async () => {
+    supabase.auth.signUp.mockResolvedValue(FRESH_SIGNUP_RESPONSE);
+    renderAt('?plan=fiscal-agent');
+    await fillAndSubmit();
+
+    expect(supabase.auth.signUp).toHaveBeenCalledWith(
+      expect.objectContaining({
+        options: expect.objectContaining({
+          data: { plan: 'fiscal-agent' },
+          emailRedirectTo: expect.stringContaining('/complete-profile?plan=fiscal-agent'),
+        }),
+      }),
+    );
+  });
+
+  test('default signup passes no plan metadata', async () => {
+    supabase.auth.signUp.mockResolvedValue(FRESH_SIGNUP_RESPONSE);
+    renderAt();
+    await fillAndSubmit();
+
+    expect(supabase.auth.signUp).toHaveBeenCalledTimes(1);
+    const { options } = supabase.auth.signUp.mock.calls[0][0];
+    expect(options.data).toBeUndefined();
+  });
+
+  test('already-have-an-account "Log in" link preserves ?plan=fiscal-agent', async () => {
+    supabase.auth.signUp.mockResolvedValue(EXISTING_ACCOUNT_RESPONSE);
+    renderAt('?plan=fiscal-agent');
+    await fillAndSubmit();
+
+    expect(screen.getByText(/you already have an account/i)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /log in/i })).toHaveAttribute(
+      'href',
+      '/login?plan=fiscal-agent',
+    );
+  });
+
+  test('signup footer login link preserves ?plan=fiscal-agent', () => {
+    renderAt('?plan=fiscal-agent');
+
+    expect(screen.getByRole('link', { name: /log in here/i })).toHaveAttribute(
+      'href',
+      '/login?plan=fiscal-agent',
+    );
+  });
+});
+
 describe('SignUpClean — invite flow note (C4)', () => {
   test('verify screen with ?invite= notes invites are for new accounts only, neutrally', async () => {
     getInviteByToken.mockResolvedValue({
